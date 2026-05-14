@@ -9,7 +9,7 @@ const C = {
   border:'#E5E0DC', bg:'#F8F5F2', white:'#FFFFFF',
   pos:'#16A34A', neg:'#DC2626', avgBg:'#F5F0EA',
 };
-יי
+
 const BASE_ORDER = [
   'general','equities','bonds','govBonds','moneyMarket','israel','foreign',
   'forex','equitiesIsrael','equitiesForeign','bondsIsrael','bondsForeign',
