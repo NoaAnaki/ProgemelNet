@@ -1,4 +1,4 @@
-/**
+/*
  * ProGemel — Data Loader v7
  * sheet = מיפוי מדויק לפי גליונות מיי גמל נט (לחלק "מסלולי השקעה")
  * classifyFund = לפי תנאים ב-classifier.js (לדף הראשי)
