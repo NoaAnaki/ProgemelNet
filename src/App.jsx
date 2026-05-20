@@ -440,10 +440,12 @@ function ComparisonSearch({ allFunds, product }) {
     }).slice(0,12);
   },[query,allFunds,product]);
 
-  // סנן לפי המוצר הנוכחי
+  // סנן לפי המוצר הנוכחי — ישירות מ-allFunds שכבר נטען
   const productFunds = useMemo(()=>{
-    const sheets = getSheets(product);
-    return sheets.flatMap(sh=>getFundsBySheet(product,sh));
+    try {
+      const sheets = getSheets(product);
+      return sheets.flatMap(sh=>getFundsBySheet(product,sh));
+    } catch(e) { return []; }
   },[product]);
 
   const addFund = f => { if(selected.length<10&&!selected.find(s=>s.name===f.name)) setSelected(p=>[...p,f]); setQuery(''); setShowDrop(false); };
@@ -517,7 +519,7 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, histData, allFunds }) {
 
   const Bar = ({label,val,color}) => {
     if(val==null) return null;
-    return <div style={{ marginBottom:6 }}><div style={{ display:'flex',justifyContent:'space-between',marginBottom:2 }}><span style={{ fontSize:11,color:C.muted }}>{label}</span><span style={{ fontSize:11,fontWeight:700,color:color||C.dark }}>{pctFmtRaw(val)}</span></div><div style={{ height:5,background:C.border,borderRadius:3 }}><div style={{ height:5,borderRadius:3,width:`${Math.min(Math.abs(val),100)}%`,background:color||C.crimson }}/></div></div>;
+    return <div style={{ marginBottom:9 }}><div style={{ display:'flex',justifyContent:'space-between',marginBottom:3 }}><span style={{ fontSize:13,color:C.muted }}>{label}</span><span style={{ fontSize:14,fontWeight:700,color:color||C.dark }}>{pctFmtRaw(val)}</span></div><div style={{ height:7,background:C.border,borderRadius:4 }}><div style={{ height:7,borderRadius:4,width:`${Math.min(Math.abs(val),100)}%`,background:color||C.crimson }}/></div></div>;
   };
 
   function ReturnBars() {
@@ -571,20 +573,20 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, histData, allFunds }) {
       <div style={{ flex:1,overflowY:'auto' }}>
         {activeTab==='returns'&&(
           <div style={{ padding:'11px 13px' }}>
-            {fund.profit_index!=null&&<div style={{ background:'linear-gradient(135deg,#FFF0F3,#FFE4EA)',border:`1px solid #F8C8D0`,borderRadius:9,padding:'8px 12px',marginBottom:11,display:'flex',alignItems:'center',justifyContent:'space-between' }}><div><div style={{ fontSize:11,color:C.crimson,fontWeight:700 }}>מדד פרופיט</div><div style={{ fontSize:9.5,color:C.muted }}>שירות ואיכות ניהול</div></div><span style={{ fontSize:26,fontWeight:900,color:C.crimson }}>{fund.profit_index.toFixed(1)}</span></div>}
+            {fund.profit_index!=null&&<div style={{ background:'linear-gradient(135deg,#FFF0F3,#FFE4EA)',border:`1px solid #F8C8D0`,borderRadius:9,padding:'8px 12px',marginBottom:11,display:'flex',alignItems:'center',justifyContent:'space-between' }}><div><div style={{ fontSize:13,color:C.crimson,fontWeight:700 }}>מדד פרופיט</div><div style={{ fontSize:11,color:C.muted }}>שירות ואיכות ניהול</div></div><span style={{ fontSize:30,fontWeight:900,color:C.crimson }}>{fund.profit_index.toFixed(1)}</span></div>}
             <div style={{ marginBottom:11 }}>
               <div style={{ fontSize:11.5,fontWeight:700,color:C.dark,marginBottom:5 }}>תשואות{catAvg&&<span style={{ fontSize:9.5,color:C.muted,fontWeight:400,marginRight:5 }}>| עיגול = ממוצע קטגוריה</span>}</div>
               <div style={{ background:C.bg,borderRadius:8,padding:'9px 7px' }}><ReturnBars/></div>
             </div>
             <div style={{ marginBottom:11 }}>
-              <div style={{ fontSize:11.5,fontWeight:700,color:C.dark,marginBottom:7 }}>הרכב החשיפות</div>
+              <div style={{ fontSize:13,fontWeight:700,color:C.dark,marginBottom:10 }}>הרכב החשיפות</div>
               <Bar label="מניות" val={fund.stocks} color="#2563EB"/>
               <Bar label={'אג"ח (מחושב)'} val={bonds} color="#D97706"/>
               <Bar label={'חו"ל'} val={fund.foreign} color="#7C3AED"/>
               <Bar label={'מט"ח'} val={fund.forex} color="#059669"/>
               <Bar label="לא סחיר" val={fund.illiquid} color="#9CA3AF"/>
 
-              {fund.sharpe!=null&&<div style={{ display:'flex',justifyContent:'space-between',padding:'5px 0',borderTop:`1px solid ${C.border}` }}><span style={{ fontSize:11,color:C.muted }}>מדד שארפ</span><span style={{ fontSize:11,fontWeight:700 }}>{fund.sharpe.toFixed(2)}</span></div>}
+              {fund.sharpe!=null&&<div style={{ display:'flex',justifyContent:'space-between',padding:'7px 0',borderTop:`1px solid ${C.border}` }}><span style={{ fontSize:13,color:C.muted }}>מדד שארפ</span><span style={{ fontSize:14,fontWeight:700 }}>{fund.sharpe.toFixed(2)}</span></div>}
             </div>
             <div style={{ background:C.bg,border:`1.5px dashed ${C.border}`,borderRadius:9,padding:'10px 12px' }}>
               <div style={{ display:'flex',alignItems:'center',gap:6,marginBottom:5 }}><span style={{ fontSize:14 }}>🤖</span><span style={{ fontSize:11.5,fontWeight:700,color:C.dark }}>ניתוח AI</span><span style={{ fontSize:9.5,color:C.muted,background:C.border,borderRadius:7,padding:'1px 6px' }}>בקרוב</span></div>
@@ -697,7 +699,7 @@ export default function App() {
   const catFundIds = useMemo(()=>{ if(!selCatId) return []; return getFundsForCategory(funds,selCatId).map(f=>f.fund_id).filter(Boolean); },[selCatId,funds]);
 
   const panelOpen = selFund!==null;
-  const PANEL_W = '50%';
+  const PANEL_W = '30%';
 
   return (
     <div style={{ minHeight:'100vh',background:C.bg,fontFamily:"'Assistant','Heebo',Arial,sans-serif",direction:'rtl' }}>
@@ -721,21 +723,14 @@ export default function App() {
           <ComparisonSearch allFunds={allFunds} product={product}/>
           <CategoryNav catIds={catIds} funds={funds}/>
           <div style={{ padding:'14px 14px 48px' }}>
-            {panelOpen && selCatId ? (
-              <FundTable key={`${product}-${selCatId}-panel`} catId={selCatId}
-                funds={getFundsForCategory(funds,selCatId)}
-                onSelect={(f,cid)=>{setSelFund(f);setSelCatId(cid);}}
-                selFund={selFund} selCatId={selCatId}/>
-            ) : (
-              <div style={{ display:'grid',gridTemplateColumns:'minmax(0,1fr)',gap:14,maxWidth:panelOpen?'100%':'50%' }}>
-                {catIds.map(id=>(
-                  <FundTable key={`${product}-${id}`} catId={id}
-                    funds={getFundsForCategory(funds,id)}
-                    onSelect={(f,cid)=>{setSelFund(f);setSelCatId(cid);}}
-                    selFund={selFund} selCatId={selCatId}/>
-                ))}
-              </div>
-            )}
+            <div style={{ display:'grid',gridTemplateColumns:'minmax(0,1fr)',gap:14,maxWidth:'100%' }}>
+              {catIds.map(id=>(
+                <FundTable key={`${product}-${id}`} catId={id}
+                  funds={getFundsForCategory(funds,id)}
+                  onSelect={(f,cid)=>{setSelFund(f);setSelCatId(cid);}}
+                  selFund={selFund} selCatId={selCatId}/>
+              ))}
+            </div>
           </div>
           <footer style={{ background:C.dark,color:'rgba(255,255,255,0.3)',textAlign:'center',padding:'13px',fontSize:11 }}>
             © {new Date().getFullYear()} Profit Financial Group · הנתונים לצורך מידע בלבד ואינם מהווים ייעוץ השקעות
