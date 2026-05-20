@@ -440,13 +440,13 @@ function ComparisonSearch({ allFunds, product }) {
     }).slice(0,12);
   },[query,allFunds,product]);
 
-  // סנן לפי המוצר הנוכחי — ישירות מ-allFunds שכבר נטען
+  // סנן לפי המוצר הנוכחי — מ-allFunds שמגיע כ-prop
   const productFunds = useMemo(()=>{
-    try {
-      const sheets = getSheets(product);
-      return sheets.flatMap(sh=>getFundsBySheet(product,sh));
-    } catch(e) { return []; }
-  },[product]);
+    if(!product) return [];
+    const sheets = getSheets(product);
+    if(!sheets || !sheets.length) return allFunds;
+    return sheets.flatMap(sh=>getFundsBySheet(product,sh));
+  },[product, allFunds]);
 
   const addFund = f => { if(selected.length<10&&!selected.find(s=>s.name===f.name)) setSelected(p=>[...p,f]); setQuery(''); setShowDrop(false); };
 
@@ -723,7 +723,7 @@ export default function App() {
           <ComparisonSearch allFunds={allFunds} product={product}/>
           <CategoryNav catIds={catIds} funds={funds}/>
           <div style={{ padding:'14px 14px 48px' }}>
-            <div style={{ display:'grid',gridTemplateColumns:'minmax(0,1fr)',gap:14,maxWidth:'100%' }}>
+            <div style={{ display:'grid',gridTemplateColumns:'minmax(0,1fr)',gap:14,maxWidth:panelOpen?'100%':'50%' }}>
               {catIds.map(id=>(
                 <FundTable key={`${product}-${id}`} catId={id}
                   funds={getFundsForCategory(funds,id)}
