@@ -276,6 +276,25 @@ function HistoricalChart({ fund, catFundIds, histData }) {
   );
 }
 
+// ─── Updated Label ────────────────────────────────────────────────────────────
+const HE_MONTHS = ['','ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+function UpdatedLabel() {
+  const [label, setLabel] = useState('...');
+  useEffect(()=>{
+    import('./utils/dataLoader').then(m=>{
+      if(m.historyData){
+        const periods = Object.values(m.historyData).flatMap(e=>Array.isArray(e)&&e.length?[e[e.length-1].period]:[]);
+        if(periods.length){
+          const latest = periods.sort().reverse()[0];
+          const y=+latest.slice(0,4), mo=+latest.slice(4,6);
+          setLabel(`מעודכן ל־${HE_MONTHS[mo]} ${y}`);
+        }
+      }
+    }).catch(()=>{});
+  },[]);
+  return <span>{label}</span>;
+}
+
 // ─── Product Selector ─────────────────────────────────────────────────────────
 function ProductSelector({ selected, onChange }) {
   return (
@@ -301,13 +320,58 @@ function CategoryNav({ catIds, funds }) {
   );
 }
 
+// ─── Company patterns ──────────────────────────────────────────────────────────
+const COMPANY_PATTERNS = [
+  { name:'הפניקס',      patterns:['הפניקס','אקסלנס'] },
+  { name:'מיטב',        patterns:['מיטב'] },
+  { name:'הראל',        patterns:['הראל'] },
+  { name:'כלל',         patterns:['כלל'] },
+  { name:'מנורה',       patterns:['מנורה'] },
+  { name:'מגדל',        patterns:['מגדל'] },
+  { name:'אלטשולר שחם', patterns:['אלטשולר'] },
+  { name:'ילין לפידות', patterns:['ילין'] },
+  { name:'מור',         patterns:['מור ','מור-'] },
+  { name:'אינפיניטי',   patterns:['אינפיניטי'] },
+  { name:'אנליסט',      patterns:['אנליסט'] },
+  { name:'אלפא מור',    patterns:['אלפא מור'] },
+  { name:'איילון',      patterns:['איילון'] },
+  { name:'הכשרה',       patterns:['הכשרה'] },
+  { name:'אי.די.אי.',   patterns:['אי.די.','איי. די.','איי.די.'] },
+];
+
+function getCompanyFunds(funds, companyPatterns) {
+  return funds.filter(f => companyPatterns.some(p => f.name.includes(p)));
+}
+
 // ─── Track Browser ────────────────────────────────────────────────────────────
 function TrackBrowser({ product, onSelectFund, selFund, order, funds }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen]         = useState(false);
   const [activeSheet, setActiveSheet] = useState(null);
+  const [viewMode, setViewMode]  = useState('category'); // 'category' | 'company'
+  const [activeCompany, setActiveCompany] = useState(null);
+
   const sheets = useMemo(()=>getSheets(product),[product]);
   const sheetFunds = useMemo(()=>activeSheet?getFundsBySheet(product,activeSheet):[],[product,activeSheet]);
-  const avg = useMemo(()=>calcAverages(sheetFunds),[sheetFunds]);
+
+  // חברות שקיימות במוצר הנוכחי
+  const availableCompanies = useMemo(()=>{
+    const allProductFunds = sheets.flatMap(sh=>getFundsBySheet(product,sh));
+    return COMPANY_PATTERNS.filter(co=>
+      getCompanyFunds(allProductFunds, co.patterns).length > 0
+    );
+  },[product,sheets]);
+
+  const companyFunds = useMemo(()=>{
+    if(!activeCompany) return [];
+    const co = COMPANY_PATTERNS.find(c=>c.name===activeCompany);
+    if(!co) return [];
+    return sheets.flatMap(sh=>getFundsBySheet(product,sh)).filter(f=>
+      co.patterns.some(p=>f.name.includes(p))
+    );
+  },[activeCompany,product,sheets]);
+
+  const displayFunds = viewMode==='company' ? companyFunds : sheetFunds;
+  const avg = useMemo(()=>calcAverages(displayFunds),[displayFunds]);
 
   return (
     <div style={{ borderBottom:`1px solid ${C.border}`,background:C.white }}>
@@ -317,10 +381,24 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds }) {
       </button>
       {open&&(
         <div style={{ padding:'0 14px 14px' }}>
-          <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:12 }}>
-            {sheets.map(sh=><button key={sh} onClick={()=>setActiveSheet(activeSheet===sh?null:sh)} style={{ padding:'4px 11px',borderRadius:14,border:`1.5px solid ${activeSheet===sh?C.crimson:C.border}`,background:activeSheet===sh?C.crimson:C.white,color:activeSheet===sh?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'all 0.12s' }}>{sh}</button>)}
+          {/* טאבים: לפי קטגוריה / לפי חברה */}
+          <div style={{ display:'flex',gap:6,marginBottom:10,borderBottom:`1px solid ${C.border}`,paddingBottom:8 }}>
+            <button onClick={()=>{setViewMode('category');setActiveCompany(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='category'?C.crimson:C.border}`,background:viewMode==='category'?C.crimson:C.white,color:viewMode==='category'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי קטגוריה</button>
+            <button onClick={()=>{setViewMode('company');setActiveSheet(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='company'?C.crimson:C.border}`,background:viewMode==='company'?C.crimson:C.white,color:viewMode==='company'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי חברה מנהלת</button>
           </div>
-          {activeSheet&&sheetFunds.length>0&&(
+
+          {viewMode==='category'&&(
+            <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:12 }}>
+              {sheets.map(sh=><button key={sh} onClick={()=>setActiveSheet(activeSheet===sh?null:sh)} style={{ padding:'4px 11px',borderRadius:14,border:`1.5px solid ${activeSheet===sh?C.crimson:C.border}`,background:activeSheet===sh?C.crimson:C.white,color:activeSheet===sh?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'all 0.12s' }}>{sh}</button>)}
+            </div>
+          )}
+
+          {viewMode==='company'&&(
+            <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:12 }}>
+              {availableCompanies.map(co=><button key={co.name} onClick={()=>setActiveCompany(activeCompany===co.name?null:co.name)} style={{ padding:'4px 11px',borderRadius:14,border:`1.5px solid ${activeCompany===co.name?C.crimson:C.border}`,background:activeCompany===co.name?C.crimson:C.white,color:activeCompany===co.name?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'all 0.12s' }}>{co.name}</button>)}
+            </div>
+          )}
+          {((viewMode==='category'&&activeSheet&&sheetFunds.length>0)||(viewMode==='company'&&activeCompany&&companyFunds.length>0))&&(
             <div style={{ overflowX:'auto',border:`1px solid ${C.border}`,borderRadius:8 }}>
               <table style={{ width:'100%',borderCollapse:'collapse',tableLayout:'auto' }}>
                 <thead><tr style={{ background:C.darkMid }}>
@@ -328,7 +406,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds }) {
                   {SORT_COLS.map(c=><th key={c.key} style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.7)' }}>{c.label}</th>)}
                 </tr></thead>
                 <tbody>
-                  {sheetFunds.map(f=>{ const isSel=selFund?.name===f.name; const cid = order ? classifyFund(f).find(c=>order.includes(c)&&funds&&getFundsForCategory(funds,c).length>0) ?? null : null; return <tr key={f.name} onClick={()=>onSelectFund(f,cid)} style={{ background:isSel?'#FFF0F3':C.white,cursor:'pointer',borderBottom:`1px solid ${C.border}` }} onMouseEnter={e=>{if(!isSel)e.currentTarget.style.background='#FDF8F6';}} onMouseLeave={e=>{if(!isSel)e.currentTarget.style.background=C.white;}}>
+                  {displayFunds.map(f=>{ const isSel=selFund?.name===f.name; const cid = order ? classifyFund(f).find(c=>order.includes(c)&&funds&&getFundsForCategory(funds,c).length>0) ?? null : null; return <tr key={f.name} onClick={()=>onSelectFund(f,cid)} style={{ background:isSel?'#FFF0F3':C.white,cursor:'pointer',borderBottom:`1px solid ${C.border}` }} onMouseEnter={e=>{if(!isSel)e.currentTarget.style.background='#FDF8F6';}} onMouseLeave={e=>{if(!isSel)e.currentTarget.style.background=C.white;}}>
                     <td style={{ ...TD,color:isSel?C.crimson:C.darkMid,fontWeight:500,whiteSpace:'nowrap',paddingRight:10 }}>{f.name}</td>
                     {SORT_COLS.map(col=><td key={col.key} style={{ ...TD,textAlign:'center',color:numColor(f[col.key]),fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{pctFmt(f[col.key])}</td>)}
                   </tr>; })}
@@ -347,28 +425,44 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds }) {
 }
 
 // ─── Comparison Search ────────────────────────────────────────────────────────
-function ComparisonSearch({ allFunds }) {
-  const [open, setOpen]         = useState(false);
+function ComparisonSearch({ allFunds, product }) {
   const [query, setQuery]       = useState('');
   const [selected, setSelected] = useState([]);
   const [showDrop, setShowDrop] = useState(false);
 
+  // סנן לפי מוצר הנוכחי
+  const productFunds = useMemo(()=>allFunds.filter(f=>f.source==='gamal'||true),[allFunds]);
+
   const results = useMemo(()=>{
-    if(!query) return allFunds.slice(0,12);
-    const q=query.toLowerCase();
-    return allFunds.filter(f=>f.name.toLowerCase().includes(q)).slice(0,12);
+    if(!query.trim()) return [];
+    // חיפוש עצמאי ממילים — מתעלם מסדר המילים
+    const words = query.trim().toLowerCase().split(/\s+/);
+    return allFunds.filter(f=>{
+      const n = f.name.toLowerCase().replace(/&amp;/g,'&');
+      return words.every(w=>n.includes(w));
+    }).slice(0,12);
   },[query,allFunds]);
 
   const addFund = f => { if(selected.length<10&&!selected.find(s=>s.name===f.name)) setSelected(p=>[...p,f]); setQuery(''); setShowDrop(false); };
 
+  const COMP_COLS = [
+    { key:'ret_month', label:'חודש' },
+    { key:'ret_ytd',   label:'YTD' },
+    { key:'ret_1y',    label:'שנה' },
+    { key:'ret_3y',    label:'3 שנים' },
+    { key:'ret_5y',    label:'5 שנים' },
+    { key:'ret_10y',   label:'10 שנים' },
+    { key:'stocks',    label:'% מניות', fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#2563EB' },
+    { key:'foreign',   label:'% חו״ל',  fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#7C3AED' },
+    { key:'illiquid',  label:'% לא סחיר', fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#9CA3AF' },
+    { key:'sharpe',    label:'שארפ',    fmt: v=>v!=null?v.toFixed(2):'—', color:C.dark },
+  ];
+
   return (
-    <div style={{ borderBottom:`1px solid ${C.border}`,background:C.white }}>
-      <button onClick={()=>setOpen(o=>!o)} style={{ width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 16px',background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',direction:'rtl' }}>
-        <span style={{ fontSize:13,fontWeight:700,color:C.dark }}>⚖️ השוואת מסלולי השקעה</span>
-        <span style={{ fontSize:12,color:C.muted }}>{open?'▲':'▼'}</span>
-      </button>
-      {open&&(
-        <div style={{ padding:'0 14px 14px' }}>
+    <div style={{ borderBottom:`1px solid ${C.border}`,background:C.white,padding:'10px 16px 12px' }}>
+      <div style={{ fontSize:13,fontWeight:700,color:C.dark,marginBottom:8,direction:'rtl' }}>⚖️ השוואת מסלולי השקעה</div>
+      <div style={{ padding:'0' }}>
+        <div style={{ position:'relative',marginBottom:10 }}>
           <div style={{ position:'relative',marginBottom:10 }}>
             <input value={query} onChange={e=>{setQuery(e.target.value);setShowDrop(true);}} onFocus={()=>setShowDrop(true)} placeholder="חפש קרן להשוואה... (עד 10)" style={{ width:'100%',padding:'8px 12px',border:`1.5px solid ${C.border}`,borderRadius:8,fontSize:12.5,fontFamily:'inherit',direction:'rtl',outline:'none',background:C.bg,boxSizing:'border-box' }} onBlur={()=>setTimeout(()=>setShowDrop(false),150)}/>
             {showDrop&&results.length>0&&(
@@ -388,19 +482,24 @@ function ComparisonSearch({ allFunds }) {
               <table style={{ width:'100%',borderCollapse:'collapse',tableLayout:'auto' }}>
                 <thead><tr style={{ background:C.darkMid }}>
                   <th style={{ ...TH,textAlign:'right',color:'rgba(255,255,255,0.8)',paddingRight:10 }}>שם המוצר</th>
-                  {SORT_COLS.map(c=><th key={c.key} style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.7)' }}>{c.label}</th>)}
+                  {COMP_COLS.map(c=><th key={c.key} style={{ ...TH,textAlign:'center',color:c.color?'rgba(255,255,255,0.7)':'rgba(255,255,255,0.7)' }}>{c.label}</th>)}
                 </tr></thead>
                 <tbody>
                   {selected.map(f=><tr key={f.name} style={{ background:C.white,borderBottom:`1px solid ${C.border}` }}>
                     <td style={{ ...TD,fontWeight:500,color:C.darkMid,whiteSpace:'nowrap',paddingRight:10 }}>{f.name}</td>
-                    {SORT_COLS.map(col=><td key={col.key} style={{ ...TD,textAlign:'center',color:numColor(f[col.key]),fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{pctFmt(f[col.key])}</td>)}
+                    {COMP_COLS.map(col=>{
+                      const v=f[col.key];
+                      const fmt=col.fmt||pctFmt;
+                      const clr=col.color||(typeof v==='number'?numColor(v):C.dark);
+                      return <td key={col.key} style={{ ...TD,textAlign:'center',color:clr,fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{fmt(v)}</td>;
+                    })}
                   </tr>)}
                 </tbody>
               </table>
             </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -481,7 +580,7 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, histData, allFunds }) {
               <Bar label={'חו"ל'} val={fund.foreign} color="#7C3AED"/>
               <Bar label={'מט"ח'} val={fund.forex} color="#059669"/>
               <Bar label="לא סחיר" val={fund.illiquid} color="#9CA3AF"/>
-              {fund.fees!=null&&<div style={{ display:'flex',justifyContent:'space-between',padding:'5px 0',borderTop:`1px solid ${C.border}`,marginTop:4 }}><span style={{ fontSize:11,color:C.muted }}>דמי ניהול</span><span style={{ fontSize:11,fontWeight:700 }}>{fund.fees.toFixed(2)}%</span></div>}
+
               {fund.sharpe!=null&&<div style={{ display:'flex',justifyContent:'space-between',padding:'5px 0',borderTop:`1px solid ${C.border}` }}><span style={{ fontSize:11,color:C.muted }}>מדד שארפ</span><span style={{ fontSize:11,fontWeight:700 }}>{fund.sharpe.toFixed(2)}</span></div>}
             </div>
             <div style={{ background:C.bg,border:`1.5px dashed ${C.border}`,borderRadius:9,padding:'10px 12px' }}>
@@ -522,7 +621,11 @@ function FundTable({ funds, catId, onSelect, selFund, selCatId }) {
       <tr onClick={()=>!isAvg&&onSelect(fund,catId)} style={{ background:isAvg?C.avgBg:isSel?'#FFF0F3':C.white,cursor:isAvg?'default':'pointer',borderBottom:`1px solid #F0EBE6` }} onMouseEnter={e=>{if(!isAvg&&!isSel)e.currentTarget.style.background='#FDF8F6';}} onMouseLeave={e=>{if(!isAvg&&!isSel)e.currentTarget.style.background=C.white;}}>
         <td style={{ ...TD,color:C.muted,textAlign:'center',fontSize:9.5,width:18,padding:'4px 3px' }}>{isAvg?'⌀':rank}</td>
         <td style={{ ...TD,color:isSel?C.crimson:isAvg?C.dark:C.darkMid,fontWeight:isAvg?700:500 }}><div style={{ whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis' }} title={fund.name}>{fund.name}</div></td>
-        {SORT_COLS.map(col=><td key={col.key} style={{ ...TD,textAlign:'center',color:numColor(fund[col.key]),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey===col.key?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund[col.key])}</td>)}
+        <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_3y),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_3y'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_3y)}</td>
+        <td style={{ ...TD,textAlign:'center',color:'#2563EB',fontWeight:600 }}>{fund.stocks!=null?fund.stocks.toFixed(1)+'%':'—'}</td>
+        <td style={{ ...TD,textAlign:'center',color:'#7C3AED',fontWeight:600 }}>{fund.foreign!=null?fund.foreign.toFixed(1)+'%':'—'}</td>
+        <td style={{ ...TD,textAlign:'center',color:'#9CA3AF',fontWeight:600 }}>{fund.illiquid!=null?fund.illiquid.toFixed(1)+'%':'—'}</td>
+        <td style={{ ...TD,textAlign:'center',color:C.muted,fontWeight:400 }}>—</td>
       </tr>
     );
   }
@@ -539,7 +642,11 @@ function FundTable({ funds, catId, onSelect, selFund, selCatId }) {
           <thead><tr style={{ background:'#2A2A2A' }}>
             <th style={{ ...TH,width:18,color:'rgba(255,255,255,0.4)',padding:'5px 3px' }}>#</th>
             <th style={{ ...TH,textAlign:'right',color:'rgba(255,255,255,0.8)' }}>שם המוצר</th>
-            {SORT_COLS.map(c=><SortTh key={c.key} col={c}/>)}
+            <SortTh col={{ key:'ret_3y', label:'3 שנים', tip:'תשואה מצטברת 36 חודשים' }}/>
+            <th style={{ ...TH,textAlign:'center',color:'#93C5FD' }}>% מניות</th>
+            <th style={{ ...TH,textAlign:'center',color:'#C4B5FD' }}>% חו״ל</th>
+            <th style={{ ...TH,textAlign:'center',color:'#D1D5DB' }}>% לא סחיר</th>
+            <th style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.5)' }}>מדד פרופיט</th>
           </tr></thead>
           <tbody>
             {top12.map((f,i)=><Row key={f.name} fund={f} rank={i+1}/>)}
@@ -586,9 +693,13 @@ export default function App() {
   return (
     <div style={{ minHeight:'100vh',background:C.bg,fontFamily:"'Assistant','Heebo',Arial,sans-serif",direction:'rtl' }}>
 
-      <nav data-sticky style={{ background:C.dark,padding:'0 20px',display:'flex',alignItems:'center',height:56,position:'sticky',top:0,zIndex:99,boxShadow:'0 2px 10px rgba(0,0,0,0.3)',direction:'ltr' }}>
+      <nav data-sticky style={{ background:C.dark,padding:'0 20px',display:'flex',alignItems:'center',justifyContent:'space-between',height:56,position:'sticky',top:0,zIndex:99,boxShadow:'0 2px 10px rgba(0,0,0,0.3)',direction:'ltr' }}>
         <div style={{ color:C.white,fontSize:20,fontWeight:800,letterSpacing:'0.01em' }}>
           ProGemel<span style={{ color:C.crimsonLt }}>Net</span>
+        </div>
+        <div style={{ color:'rgba(255,255,255,0.45)',fontSize:10.5,direction:'rtl',textAlign:'left' }}>
+          מבוסס על נתונים רשמיים של משרד האוצר | גמלנט ביטוחנט • פנסיהנט<br/>
+          <UpdatedLabel/>
         </div>
       </nav>
 
@@ -607,7 +718,7 @@ export default function App() {
                 onSelect={(f,cid)=>{setSelFund(f);setSelCatId(cid);}}
                 selFund={selFund} selCatId={selCatId}/>
             ) : (
-              <div style={{ display:'grid',gridTemplateColumns:'repeat(2, 1fr)',gap:14 }}>
+              <div style={{ display:'grid',gridTemplateColumns:'1fr',gap:14 }}>
                 {catIds.map(id=>(
                   <FundTable key={`${product}-${id}`} catId={id}
                     funds={getFundsForCategory(funds,id)}
