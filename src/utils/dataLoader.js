@@ -1,8 +1,8 @@
 /**
- * ProGemel — Data Loader v7
- * sheet = מיפוי מדויק לפי גליונות מיי גמל נט (לחלק "מסלולי השקעה")
- * classifyFund = לפי תנאים ב-classifier.js (לדף הראשי)
- * שארפ: לא מוצג לפנסיה (נתון ברמת קרן, לא מסלול)
+ * ProGemel — Data Loader v8
+ * מסלולי השקעה: מיפוי מדויק לפי גליונות חמשת האקסלים ממיי גמל נט
+ * דף ראשי: classifyFund ב-classifier.js לפי תנאים/חשיפות
+ * שארפ: לא מוצג לפנסיה (נתון ברמת קרן בלבד)
  */
 
 export const PRODUCT_LABELS = {
@@ -833,49 +833,26 @@ const BITUACH_SHEET_MAP = {
   "הפניקס BlackRock כללי": "חול",
 };
 
-// ── assignSheet: לפי מיפוי האקסל בלבד (לטאבי "מסלולי השקעה") ──────────────
-function assignSheet(name, source) {
-  // תיקון: history.json מכיל &amp; במקום & בחלק מהשמות
+// ── assignSheet ───────────────────────────────────────────────────────────────
+// מחזיר sheet לפי מיפוי האקסל בלבד.
+// קרן שלא נמצאת במיפוי מחזירה null ולא תוצג במסלולי השקעה.
+function assignSheet(name, source, product) {
+  // history.json מכיל &amp; במקום & בחלק מהשמות
   const t = name.trim().replace(/&amp;/g, '&');
+
   if (source === 'pension') return PENSION_SHEET_MAP[t] ?? null;
-  if (source === 'gamal')   return GAMAL_SHEET_MAP[t]   ?? null;
-  if (source === 'bituch')  return BITUACH_SHEET_MAP[t] ?? null;
-  return GAMAL_LEHASHKAA_SHEET_MAP[t] ?? HISHTALMUT_SHEET_MAP[t] ?? null;
-}
 
-function _pensionFallback(name) {
-  const n = name.toLowerCase();
-  const isMkifa = name.includes('מקיפה') || name.includes('מקפת');
-  const prefix  = isMkifa ? 'מקיפה' : 'כללית';
-  if (['עד 50','עד50','לבני 50 ומטה','50 ומטה'].some(k => name.includes(k))) return prefix + '-עד50';
-  if (['50 עד 60','50-60','לבני 50 עד 60'].some(k => name.includes(k)))       return prefix + '-50-60';
-  if (['60 ומעלה','60+','מעל 60','לבני 60'].some(k => name.includes(k)))      return prefix + '-60+';
-  if (n.includes('s&p') || (name.includes('500') && !name.includes('עד')))    return prefix + '-S&P500';
-  if (name.includes('מניות'))  return prefix + '-מניות';
-  if (name.includes('כספי'))   return prefix + '-כספי-שקלי';
-  if (name.includes('הלכ'))    return prefix + '-הלכתי';
-  return prefix + '-כללי';
-}
+  if (source === 'gamal') {
+    if (product === 'גמל')          return GAMAL_SHEET_MAP[t]           ?? null;
+    if (product === 'השתלמות')      return HISHTALMUT_SHEET_MAP[t]      ?? null;
+    if (product === 'גמל_להשקעה')   return GAMAL_LEHASHKAA_SHEET_MAP[t] ?? null;
+    // fallback: חפש בכל מפות גמל
+    return GAMAL_SHEET_MAP[t] ?? HISHTALMUT_SHEET_MAP[t] ?? GAMAL_LEHASHKAA_SHEET_MAP[t] ?? null;
+  }
 
-function _otherFallback(name, isBituach) {
-  const n = name.toLowerCase();
-  if (n.includes('s&p') || (name.includes('500') && !name.includes('עד'))) return 'S&P 500';
-  if (name.includes('שריעה'))    return 'שריעה';
-  if (['הלכה','הלכתי'].some(k => name.includes(k)) || (name.includes('הלכ') && !name.includes('הכשר')))
-    return isBituach ? 'הלכה' : 'הלכתי';
-  if (['כספי','שקל'].some(k => name.includes(k)))  return 'כספי שקלי';
-  if (['עד 50','עד50','לבני 50 ומטה'].some(k => name.includes(k)))  return 'מובילות-עד50';
-  if (['50 עד 60','50-60','לבני 50 עד 60'].some(k => name.includes(k))) return 'מובילות-50-60';
-  if (['60 ומעלה','60+','מעל 60','לבני 60'].some(k => name.includes(k))) return 'מובילות-60+';
-  if (name.includes('ממשלות'))    return 'אגח ממשלות';
-  if (name.includes('מניות סחיר')) return 'מניות סחיר';
-  if (name.includes('מניות'))     return 'מניות';
-  if (name.includes('משולב סחיר')) return 'משולב סחיר';
-  if (name.includes('עוקב מדדים גמיש')) return 'עוקב מדדים גמיש';
-  if (name.includes('עוקב מדדי מניות')) return 'עוקב מדדי מניות';
-  if (['אשראי','אגח'].some(k => name.includes(k))) return 'אשראי ואגח';
-  if (['קיימות','ירוק'].some(k => name.includes(k))) return 'קיימות';
-  return 'כללי';
+  if (source === 'bituch') return BITUACH_SHEET_MAP[t] ?? null;
+
+  return null;
 }
 
 // ── Global state ──────────────────────────────────────────────────────────────
@@ -903,11 +880,17 @@ function buildCurrentData(history) {
     const last = entries[entries.length - 1];
     if (!last.name || !last.product) continue;
     if (EXCLUDED_FUNDS.has(last.name)) continue;
+
     const source  = fund_id.split('_')[0];
     const product = last.product;
-    const sheet   = assignSheet(last.name, source);
+    const sheet   = assignSheet(last.name, source, product);
+
+    // קרן שלא נמצאת במיפוי האקסל — לא מוצגת במסלולי השקעה
+    if (!sheet) continue;
+
     if (!result[product]) result[product] = {};
     if (!result[product][sheet]) result[product][sheet] = [];
+
     result[product][sheet].push({
       fund_id,
       source,
@@ -917,7 +900,6 @@ function buildCurrentData(history) {
       foreign:   last.foreign  ?? null,
       forex:     last.forex    ?? null,
       illiquid:  last.illiquid ?? null,
-      // שארפ: לא מוצג לפנסיה — הנתון ברמת קרן ולא ברמת מסלול
       sharpe:    source === 'pension' ? null : (last.sharpe ?? null),
       fees:      last.fees     ?? null,
       ret_month: last.ret      ?? null,
