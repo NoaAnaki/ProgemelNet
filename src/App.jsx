@@ -430,25 +430,31 @@ function ComparisonSearch({ allFunds, product }) {
   const [selected, setSelected] = useState([]);
   const [showDrop, setShowDrop] = useState(false);
 
-  // סנן לפי מוצר הנוכחי
-  const results = useMemo(()=>{
-    if(!query.trim()) return [];
-    const words = query.trim().toLowerCase().split(/\s+/);
-      return productFunds.filter(f=>{
-      const n = f.name.toLowerCase().replace(/&amp;/g,'&');
-      return words.every(w=>n.includes(w));
-    }).slice(0,12);
-  },[query,allFunds,product]);
-
-  // סנן לפי המוצר הנוכחי — מ-allFunds שמגיע כ-prop
+  // קרנות לפי מוצר נוכחי — חייב לפני results
   const productFunds = useMemo(()=>{
     if(!product) return [];
     const sheets = getSheets(product);
-    if(!sheets || !sheets.length) return allFunds;
+    if(!sheets || !sheets.length) return [];
     return sheets.flatMap(sh=>getFundsBySheet(product,sh));
-  },[product, allFunds]);
+  },[product]);
 
-  const addFund = f => { if(selected.length<10&&!selected.find(s=>s.name===f.name)) setSelected(p=>[...p,f]); setQuery(''); setShowDrop(false); };
+  // תוצאות חיפוש — מציג top12 כשריק, מחפש לפי מילים כשיש קלט
+  const results = useMemo(()=>{
+    const pool = productFunds.filter(f=>!selected.find(s=>s.name===f.name));
+    if(!query.trim()) return pool.slice(0,12);
+    const words = query.trim().toLowerCase().split(/\s+/);
+    return pool.filter(f=>{
+      const n = f.name.toLowerCase().replace(/&amp;/g,'&');
+      return words.every(w=>n.includes(w));
+    }).slice(0,12);
+  },[query, productFunds, selected]);
+
+  const addFund = f => {
+    if(selected.length<10 && !selected.find(s=>s.name===f.name))
+      setSelected(p=>[...p,f]);
+    setQuery('');
+    setShowDrop(false);
+  };
 
   const COMP_COLS = [
     { key:'ret_month', label:'חודש' },
@@ -458,7 +464,7 @@ function ComparisonSearch({ allFunds, product }) {
     { key:'ret_5y',    label:'5 שנים' },
     { key:'ret_10y',   label:'10 שנים' },
     { key:'stocks',    label:'% מניות', fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#2563EB' },
-    { key:'foreign',   label:'% חו״ל',  fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#7C3AED' },
+    { key:'foreign',   label:'% חו"ל',  fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#7C3AED' },
     { key:'illiquid',  label:'% לא סחיר', fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#9CA3AF' },
     { key:'sharpe',    label:'שארפ',    fmt: v=>v!=null?v.toFixed(2):'—', color:C.dark },
   ];
@@ -468,29 +474,48 @@ function ComparisonSearch({ allFunds, product }) {
       <div style={{ fontSize:13,fontWeight:700,color:C.dark,marginBottom:8,direction:'rtl' }}>⚖️ השוואת מסלולי השקעה</div>
       <div style={{ padding:'0' }}>
         <div style={{ position:'relative',marginBottom:10 }}>
-          <div style={{ position:'relative',marginBottom:10 }}>
-            <input value={query} onChange={e=>{setQuery(e.target.value);setShowDrop(true);}} onFocus={()=>setShowDrop(true)} placeholder="חפש קרן להשוואה... (עד 10)" style={{ width:'100%',padding:'8px 12px',border:`1.5px solid ${C.border}`,borderRadius:8,fontSize:12.5,fontFamily:'inherit',direction:'rtl',outline:'none',background:C.bg,boxSizing:'border-box' }} onBlur={()=>setTimeout(()=>setShowDrop(false),200)}/>
-            {showDrop&&dropResults.length>0&&(
-              <div style={{ position:'absolute',top:'calc(100% + 4px)',right:0,left:0,zIndex:500,background:C.white,border:`1px solid ${C.border}`,borderRadius:8,maxHeight:220,overflowY:'auto',boxShadow:'0 8px 24px rgba(0,0,0,0.12)' }}>
-                {dropResults.map(f=><div key={f.name} onMouseDown={()=>addFund(f)} style={{ padding:'7px 12px',fontSize:12,cursor:'pointer',borderBottom:`1px solid ${C.border}`,direction:'rtl',color:selected.find(s=>s.name===f.name)?C.crimson:C.dark,fontWeight:selected.find(s=>s.name===f.name)?700:400 }} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background=C.white}>{selected.find(s=>s.name===f.name)?'✓ ':''}{f.name}</div>)}
-              </div>
-            )}
-          </div>
-          {selected.length>0&&(
-            <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:10 }}>
-              {selected.map(f=><span key={f.name} style={{ display:'inline-flex',alignItems:'center',gap:4,background:C.crimsonPale,border:`1px solid #F8C8D0`,borderRadius:12,padding:'3px 8px 3px 4px',fontSize:11,color:C.crimson,fontWeight:600 }}>{f.name.slice(0,28)}{f.name.length>28?'…':''}<button onClick={()=>setSelected(p=>p.filter(s=>s.name!==f.name))} style={{ background:'none',border:'none',cursor:'pointer',color:C.crimson,fontSize:13,padding:0,lineHeight:1 }}>×</button></span>)}
-              <button onClick={()=>setSelected([])} style={{ background:'none',border:`1px solid ${C.border}`,borderRadius:12,padding:'3px 8px',fontSize:10.5,color:C.muted,cursor:'pointer',fontFamily:'inherit' }}>נקה הכל</button>
+          <input
+            value={query}
+            onChange={e=>{ setQuery(e.target.value); setShowDrop(true); }}
+            onFocus={()=>setShowDrop(true)}
+            onBlur={()=>setTimeout(()=>setShowDrop(false),200)}
+            placeholder="חפש קרן להשוואה... (עד 10)"
+            style={{ width:'100%',padding:'8px 12px',border:`1.5px solid ${C.border}`,borderRadius:8,fontSize:12.5,fontFamily:'inherit',direction:'rtl',outline:'none',background:C.bg,boxSizing:'border-box' }}
+          />
+          {showDrop && results.length>0 && (
+            <div style={{ position:'absolute',top:'calc(100% + 4px)',right:0,left:0,zIndex:500,background:C.white,border:`1px solid ${C.border}`,borderRadius:8,maxHeight:220,overflowY:'auto',boxShadow:'0 8px 24px rgba(0,0,0,0.12)' }}>
+              {results.map(f=>(
+                <div key={f.name} onMouseDown={()=>addFund(f)}
+                  style={{ padding:'7px 12px',fontSize:12,cursor:'pointer',borderBottom:`1px solid ${C.border}`,direction:'rtl',color:C.dark }}
+                  onMouseEnter={e=>e.currentTarget.style.background=C.bg}
+                  onMouseLeave={e=>e.currentTarget.style.background=C.white}>
+                  {f.name}
+                </div>
+              ))}
             </div>
           )}
-          {selected.length>0&&(
-            <div style={{ overflowX:'auto',border:`1px solid ${C.border}`,borderRadius:8 }}>
-              <table style={{ width:'100%',borderCollapse:'collapse',tableLayout:'auto' }}>
-                <thead><tr style={{ background:C.darkMid }}>
-                  <th style={{ ...TH,textAlign:'right',color:'rgba(255,255,255,0.8)',paddingRight:10 }}>שם המוצר</th>
-                  {COMP_COLS.map(c=><th key={c.key} style={{ ...TH,textAlign:'center',color:c.color?'rgba(255,255,255,0.7)':'rgba(255,255,255,0.7)' }}>{c.label}</th>)}
-                </tr></thead>
-                <tbody>
-                  {selected.map(f=><tr key={f.name} style={{ background:C.white,borderBottom:`1px solid ${C.border}` }}>
+        </div>
+        {selected.length>0&&(
+          <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:10 }}>
+            {selected.map(f=>(
+              <span key={f.name} style={{ display:'inline-flex',alignItems:'center',gap:4,background:C.crimsonPale,border:`1px solid #F8C8D0`,borderRadius:12,padding:'3px 8px 3px 4px',fontSize:11,color:C.crimson,fontWeight:600 }}>
+                {f.name.slice(0,28)}{f.name.length>28?'…':''}
+                <button onClick={()=>setSelected(p=>p.filter(s=>s.name!==f.name))} style={{ background:'none',border:'none',cursor:'pointer',color:C.crimson,fontSize:13,padding:0,lineHeight:1 }}>×</button>
+              </span>
+            ))}
+            <button onClick={()=>setSelected([])} style={{ background:'none',border:`1px solid ${C.border}`,borderRadius:12,padding:'3px 8px',fontSize:10.5,color:C.muted,cursor:'pointer',fontFamily:'inherit' }}>נקה הכל</button>
+          </div>
+        )}
+        {selected.length>0&&(
+          <div style={{ overflowX:'auto',border:`1px solid ${C.border}`,borderRadius:8 }}>
+            <table style={{ width:'100%',borderCollapse:'collapse',tableLayout:'auto' }}>
+              <thead><tr style={{ background:C.darkMid }}>
+                <th style={{ ...TH,textAlign:'right',color:'rgba(255,255,255,0.8)',paddingRight:10 }}>שם המוצר</th>
+                {COMP_COLS.map(c=><th key={c.key} style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.7)' }}>{c.label}</th>)}
+              </tr></thead>
+              <tbody>
+                {selected.map(f=>(
+                  <tr key={f.name} style={{ background:C.white,borderBottom:`1px solid ${C.border}` }}>
                     <td style={{ ...TD,fontWeight:500,color:C.darkMid,whiteSpace:'nowrap',paddingRight:10 }}>{f.name}</td>
                     {COMP_COLS.map(col=>{
                       const v=f[col.key];
@@ -498,12 +523,12 @@ function ComparisonSearch({ allFunds, product }) {
                       const clr=col.color||(typeof v==='number'?numColor(v):C.dark);
                       return <td key={col.key} style={{ ...TD,textAlign:'center',color:clr,fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{fmt(v)}</td>;
                     })}
-                  </tr>)}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
