@@ -430,13 +430,18 @@ function ComparisonSearch({ allFunds, product }) {
   const [selected, setSelected] = useState([]);
   const [showDrop, setShowDrop] = useState(false);
 
-  // קרנות לפי מוצר נוכחי — חייב לפני results
+  // קרנות לפי מוצר נוכחי
   const productFunds = useMemo(()=>{
-    if(!product) return [];
+    if(!product || !allFunds.length) return [];
+    // נסה לקבל לפי sheets
     const sheets = getSheets(product);
-    if(!sheets || !sheets.length) return [];
-    return sheets.flatMap(sh=>getFundsBySheet(product,sh));
-  },[product]);
+    if(sheets && sheets.length) {
+      const bySheet = sheets.flatMap(sh=>getFundsBySheet(product,sh));
+      if(bySheet.length) return bySheet;
+    }
+    // fallback: סנן מ-allFunds לפי מוצר
+    return allFunds.filter(f=>f.product===product || f.sheet!=null);
+  },[product, allFunds]);
 
   // תוצאות חיפוש — מציג top12 כשריק, מחפש לפי מילים כשיש קלט
   const results = useMemo(()=>{
@@ -477,7 +482,7 @@ function ComparisonSearch({ allFunds, product }) {
           <input
             value={query}
             onChange={e=>{ setQuery(e.target.value); setShowDrop(true); }}
-            onFocus={()=>setShowDrop(true)}
+            onFocus={()=>{ setShowDrop(true); }}
             onBlur={()=>setTimeout(()=>setShowDrop(false),200)}
             placeholder="חפש קרן להשוואה... (עד 10)"
             style={{ width:'100%',padding:'8px 12px',border:`1.5px solid ${C.border}`,borderRadius:8,fontSize:12.5,fontFamily:'inherit',direction:'rtl',outline:'none',background:C.bg,boxSizing:'border-box' }}
