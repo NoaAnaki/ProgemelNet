@@ -431,17 +431,20 @@ function ComparisonSearch({ allFunds, product }) {
   const [showDrop, setShowDrop] = useState(false);
 
   // סנן לפי מוצר הנוכחי
-  const productFunds = useMemo(()=>allFunds.filter(f=>f.source==='gamal'||true),[allFunds]);
-
   const results = useMemo(()=>{
     if(!query.trim()) return [];
-    // חיפוש עצמאי ממילים — מתעלם מסדר המילים
     const words = query.trim().toLowerCase().split(/\s+/);
-    return allFunds.filter(f=>{
+      return productFunds.filter(f=>{
       const n = f.name.toLowerCase().replace(/&amp;/g,'&');
       return words.every(w=>n.includes(w));
     }).slice(0,12);
-  },[query,allFunds]);
+  },[query,allFunds,product]);
+
+  // סנן לפי המוצר הנוכחי
+  const productFunds = useMemo(()=>{
+    const sheets = getSheets(product);
+    return sheets.flatMap(sh=>getFundsBySheet(product,sh));
+  },[product]);
 
   const addFund = f => { if(selected.length<10&&!selected.find(s=>s.name===f.name)) setSelected(p=>[...p,f]); setQuery(''); setShowDrop(false); };
 
@@ -623,9 +626,12 @@ function FundTable({ funds, catId, onSelect, selFund, selCatId }) {
         <td style={{ ...TD,color:isSel?C.crimson:isAvg?C.dark:C.darkMid,fontWeight:isAvg?700:500 }}><div style={{ whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis' }} title={fund.name}>{fund.name}</div></td>
         <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_3y),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_3y'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_3y)}</td>
         <td style={{ ...TD,textAlign:'center',color:'#2563EB',fontWeight:600 }}>{fund.stocks!=null?fund.stocks.toFixed(1)+'%':'—'}</td>
+        <td style={{ ...TD,textAlign:'center',color:'#D97706',fontWeight:600 }}>{(()=>{ const b=Math.max(0,Math.round((100-(fund.stocks??0)-(fund.illiquid??0))*10)/10); return b>0?b.toFixed(1)+'%':'—'; })()}</td>
         <td style={{ ...TD,textAlign:'center',color:'#7C3AED',fontWeight:600 }}>{fund.foreign!=null?fund.foreign.toFixed(1)+'%':'—'}</td>
+        <td style={{ ...TD,textAlign:'center',color:'#059669',fontWeight:600 }}>{fund.forex!=null?fund.forex.toFixed(1)+'%':'—'}</td>
         <td style={{ ...TD,textAlign:'center',color:'#9CA3AF',fontWeight:600 }}>{fund.illiquid!=null?fund.illiquid.toFixed(1)+'%':'—'}</td>
-        <td style={{ ...TD,textAlign:'center',color:C.muted,fontWeight:400 }}>—</td>
+        <td style={{ ...TD,textAlign:'center',color:C.dark,fontWeight:600 }}>{fund.sharpe!=null?fund.sharpe.toFixed(2):'—'}</td>
+        <td style={{ ...TD,textAlign:'center',color:C.crimson,fontWeight:700 }}>{fund.profit_index!=null?fund.profit_index.toFixed(1):'—'}</td>
       </tr>
     );
   }
@@ -644,9 +650,12 @@ function FundTable({ funds, catId, onSelect, selFund, selCatId }) {
             <th style={{ ...TH,textAlign:'right',color:'rgba(255,255,255,0.8)' }}>שם המוצר</th>
             <SortTh col={{ key:'ret_3y', label:'3 שנים', tip:'תשואה מצטברת 36 חודשים' }}/>
             <th style={{ ...TH,textAlign:'center',color:'#93C5FD' }}>% מניות</th>
-            <th style={{ ...TH,textAlign:'center',color:'#C4B5FD' }}>% חו״ל</th>
+            <th style={{ ...TH,textAlign:'center',color:'#FCD34D' }}>אג"ח</th>
+            <th style={{ ...TH,textAlign:'center',color:'#C4B5FD' }}>% חו"ל</th>
+            <th style={{ ...TH,textAlign:'center',color:'#6EE7B7' }}>% מט"ח</th>
             <th style={{ ...TH,textAlign:'center',color:'#D1D5DB' }}>% לא סחיר</th>
-            <th style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.5)' }}>מדד פרופיט</th>
+            <th style={{ ...TH,textAlign:'center',color:'#FCA5A5' }}>שארפ</th>
+            <th style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.5)' }}>פרופיט</th>
           </tr></thead>
           <tbody>
             {top12.map((f,i)=><Row key={f.name} fund={f} rank={i+1}/>)}
@@ -709,7 +718,7 @@ export default function App() {
             <ProductSelector selected={product} onChange={k=>{setProduct(k);setSelFund(null);setSelCatId(null);}}/>
           </div>
           <TrackBrowser product={product} onSelectFund={(f,cid)=>{setSelFund(f);setSelCatId(cid);}} selFund={selFund} order={order} funds={funds}/>
-          <ComparisonSearch allFunds={allFunds}/>
+          <ComparisonSearch allFunds={allFunds} product={product}/>
           <CategoryNav catIds={catIds} funds={funds}/>
           <div style={{ padding:'14px 14px 48px' }}>
             {panelOpen && selCatId ? (
@@ -718,7 +727,7 @@ export default function App() {
                 onSelect={(f,cid)=>{setSelFund(f);setSelCatId(cid);}}
                 selFund={selFund} selCatId={selCatId}/>
             ) : (
-              <div style={{ display:'grid',gridTemplateColumns:'1fr',gap:14 }}>
+              <div style={{ display:'grid',gridTemplateColumns:'minmax(0,1fr)',gap:14,maxWidth:panelOpen?'100%':'50%' }}>
                 {catIds.map(id=>(
                   <FundTable key={`${product}-${id}`} catId={id}
                     funds={getFundsForCategory(funds,id)}
