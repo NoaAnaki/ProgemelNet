@@ -467,10 +467,10 @@ function ComparisonSearch({ allFunds, product }) {
       <div style={{ padding:'0' }}>
         <div style={{ position:'relative',marginBottom:10 }}>
           <div style={{ position:'relative',marginBottom:10 }}>
-            <input value={query} onChange={e=>{setQuery(e.target.value);setShowDrop(true);}} onFocus={()=>setShowDrop(true)} placeholder="חפש קרן להשוואה... (עד 10)" style={{ width:'100%',padding:'8px 12px',border:`1.5px solid ${C.border}`,borderRadius:8,fontSize:12.5,fontFamily:'inherit',direction:'rtl',outline:'none',background:C.bg,boxSizing:'border-box' }} onBlur={()=>setTimeout(()=>setShowDrop(false),150)}/>
-            {showDrop&&results.length>0&&(
+            <input value={query} onChange={e=>{setQuery(e.target.value);setShowDrop(true);}} onFocus={()=>setShowDrop(true)} placeholder="חפש קרן להשוואה... (עד 10)" style={{ width:'100%',padding:'8px 12px',border:`1.5px solid ${C.border}`,borderRadius:8,fontSize:12.5,fontFamily:'inherit',direction:'rtl',outline:'none',background:C.bg,boxSizing:'border-box' }} onBlur={()=>setTimeout(()=>setShowDrop(false),200)}/>
+            {showDrop&&dropResults.length>0&&(
               <div style={{ position:'absolute',top:'calc(100% + 4px)',right:0,left:0,zIndex:500,background:C.white,border:`1px solid ${C.border}`,borderRadius:8,maxHeight:220,overflowY:'auto',boxShadow:'0 8px 24px rgba(0,0,0,0.12)' }}>
-                {results.map(f=><div key={f.name} onMouseDown={()=>addFund(f)} style={{ padding:'7px 12px',fontSize:12,cursor:'pointer',borderBottom:`1px solid ${C.border}`,direction:'rtl',color:selected.find(s=>s.name===f.name)?C.crimson:C.dark,fontWeight:selected.find(s=>s.name===f.name)?700:400 }} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background=C.white}>{selected.find(s=>s.name===f.name)?'✓ ':''}{f.name}</div>)}
+                {dropResults.map(f=><div key={f.name} onMouseDown={()=>addFund(f)} style={{ padding:'7px 12px',fontSize:12,cursor:'pointer',borderBottom:`1px solid ${C.border}`,direction:'rtl',color:selected.find(s=>s.name===f.name)?C.crimson:C.dark,fontWeight:selected.find(s=>s.name===f.name)?700:400 }} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background=C.white}>{selected.find(s=>s.name===f.name)?'✓ ':''}{f.name}</div>)}
               </div>
             )}
           </div>
@@ -697,7 +697,7 @@ export default function App() {
   const catFundIds = useMemo(()=>{ if(!selCatId) return []; return getFundsForCategory(funds,selCatId).map(f=>f.fund_id).filter(Boolean); },[selCatId,funds]);
 
   const panelOpen = selFund!==null;
-  const PANEL_W = 420;
+  const PANEL_W = '50%';
 
   return (
     <div style={{ minHeight:'100vh',background:C.bg,fontFamily:"'Assistant','Heebo',Arial,sans-serif",direction:'rtl' }}>
@@ -742,7 +742,7 @@ export default function App() {
           </footer>
         </div>
 
-        <div style={{ width:panelOpen?PANEL_W:0,flexShrink:0,transition:'width 0.25s ease',overflow:'hidden',position:'sticky',top:56,height:'calc(100vh - 56px)',alignSelf:'flex-start' }}>
+        <div style={{ width:panelOpen?PANEL_W:'0px',flexShrink:0,transition:'width 0.25s ease',overflow:'hidden',position:'sticky',top:56,height:'calc(100vh - 56px)',alignSelf:'flex-start' }}>
           {panelOpen&&<FundDetail fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);}} catAvg={catAvg} catFundIds={catFundIds} histData={histData??{}} allFunds={allFunds}/>}
         </div>
       </div>
