@@ -1,4 +1,4 @@
-/*
+/**
  * ProGemel — Data Loader v7
  * sheet = מיפוי מדויק לפי גליונות מיי גמל נט (לחלק "מסלולי השקעה")
  * classifyFund = לפי תנאים ב-classifier.js (לדף הראשי)
@@ -835,12 +835,12 @@ const BITUACH_SHEET_MAP = {
 
 // ── assignSheet: לפי מיפוי האקסל בלבד (לטאבי "מסלולי השקעה") ──────────────
 function assignSheet(name, source) {
-  const t = name.trim();
-  if (source === 'pension') return PENSION_SHEET_MAP[t] || _pensionFallback(name);
-  if (source === 'gamal')   return GAMAL_SHEET_MAP[t]   || _otherFallback(name, false);
-  if (source === 'bituch')  return BITUACH_SHEET_MAP[t] || _otherFallback(name, true);
-  // גמל להשקעה והשתלמות — מחפש בשניהם
-  return GAMAL_LEHASHKAA_SHEET_MAP[t] || HISHTALMUT_SHEET_MAP[t] || _otherFallback(name, false);
+  // תיקון: history.json מכיל &amp; במקום & בחלק מהשמות
+  const t = name.trim().replace(/&amp;/g, '&');
+  if (source === 'pension') return PENSION_SHEET_MAP[t] ?? null;
+  if (source === 'gamal')   return GAMAL_SHEET_MAP[t]   ?? null;
+  if (source === 'bituch')  return BITUACH_SHEET_MAP[t] ?? null;
+  return GAMAL_LEHASHKAA_SHEET_MAP[t] ?? HISHTALMUT_SHEET_MAP[t] ?? null;
 }
 
 function _pensionFallback(name) {
