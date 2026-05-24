@@ -347,7 +347,7 @@ function getCompanyFunds(funds, companyPatterns) {
 function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToComparison }) {
   const [open, setOpen]         = useState(false);
   const [activeSheet, setActiveSheet] = useState(null);
-  const [viewMode, setViewMode]  = useState('category'); // 'category' | 'company'
+  const [viewMode, setViewMode]  = useState('category'); // 'category' | 'exposure' | 'company'
   const [activeCompany, setActiveCompany] = useState(null);
 
   const sheets = useMemo(()=>getSheets(product),[product]);
@@ -381,15 +381,28 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
       </button>
       {open&&(
         <div style={{ padding:'0 14px 14px' }}>
-          {/* טאבים: לפי קטגוריה / לפי חברה */}
+          {/* טאבים */}
           <div style={{ display:'flex',gap:6,marginBottom:10,borderBottom:`1px solid ${C.border}`,paddingBottom:8 }}>
             <button onClick={()=>{setViewMode('category');setActiveCompany(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='category'?C.crimson:C.border}`,background:viewMode==='category'?C.crimson:C.white,color:viewMode==='category'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי קטגוריה</button>
+            <button onClick={()=>{setViewMode('exposure');setActiveSheet(null);setActiveCompany(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='exposure'?C.crimson:C.border}`,background:viewMode==='exposure'?C.crimson:C.white,color:viewMode==='exposure'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי חשיפות</button>
             <button onClick={()=>{setViewMode('company');setActiveSheet(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='company'?C.crimson:C.border}`,background:viewMode==='company'?C.crimson:C.white,color:viewMode==='company'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי חברה מנהלת</button>
           </div>
 
           {viewMode==='category'&&(
             <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:12 }}>
               {sheets.map(sh=><button key={sh} onClick={()=>setActiveSheet(activeSheet===sh?null:sh)} style={{ padding:'4px 11px',borderRadius:14,border:`1.5px solid ${activeSheet===sh?C.crimson:C.border}`,background:activeSheet===sh?C.crimson:C.white,color:activeSheet===sh?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'all 0.12s' }}>{sh}</button>)}
+            </div>
+          )}
+
+          {viewMode==='exposure'&&(
+            <div style={{ display:'flex',flexDirection:'column',gap:12 }}>
+              {order.filter(id=>getFundsForCategory(funds,id).length>0).map(id=>(
+                <FundTable key={`exp-${product}-${id}`} catId={id}
+                  funds={getFundsForCategory(funds,id)}
+                  onSelect={(f,cid)=>{onSelectFund(f,cid);}}
+                  selFund={selFund} selCatId={null}
+                  onAddToComparison={onAddToComparison}/>
+              ))}
             </div>
           )}
 
@@ -514,7 +527,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected }) {
 
   return (
     <div style={{ borderBottom:`1px solid ${C.border}`,background:C.white,padding:'10px 16px 12px' }}>
-      <div style={{ fontSize:13,fontWeight:700,color:C.dark,marginBottom:8,direction:'rtl' }}>⚖️ השוואת מסלולי השקעה</div>
+      <div style={{ fontSize:13,fontWeight:700,color:C.dark,marginBottom:8,direction:'rtl' }}>🔍 חיפוש והשוואת מוצרים</div>
       <div style={{ padding:'0' }}>
         <div style={{ position:'relative',marginBottom:10 }}>
           <input
@@ -612,7 +625,7 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, histData, allFunds }) {
             return <g key={p.key}>
               <rect x={x} y={y} width={barW} height={barH} fill={color} rx="2" opacity="0.85"/>
               <text x={cx} y={val>=0?y-3:y+barH+10} textAnchor="middle" fontSize="8.5" fill={color} fontWeight="700" fontFamily="Assistant,Heebo,sans-serif">{pctFmt(val)}</text>
-              {avg!=null&&(()=>{ const ah=Math.abs(avg)/maxAbs*((H-16)/2-4), ay=avg>=0?zeroY-ah:zeroY+ah; return <circle cx={cx} cy={ay} r="5" fill={C.crimson} opacity="0.85" style={{ cursor:'pointer' }} onMouseEnter={()=>setHov({label:p.label,val:avg,cx,cy:ay})} onMouseLeave={()=>setHov(null)}/>; })()}
+              {avg!=null&&(()=>{ const ah=Math.abs(avg)/maxAbs*((H-16)/2-4), ay=avg>=0?zeroY-ah:zeroY+ah; return <circle cx={cx} cy={ay} r="3" fill={C.crimson} opacity="0.85" style={{ cursor:'pointer' }} onMouseEnter={()=>setHov({label:p.label,val:avg,cx,cy:ay})} onMouseLeave={()=>setHov(null)}/>; })()}
               <text x={cx} y={H+2} textAnchor="middle" fontSize="8.5" fill={C.muted} fontFamily="Assistant,Heebo,sans-serif">{p.label}</text>
             </g>;
           })}
@@ -646,16 +659,7 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, histData, allFunds }) {
               <div style={{ fontSize:11.5,fontWeight:700,color:C.dark,marginBottom:5 }}>תשואות{catAvg&&<span style={{ fontSize:9.5,color:C.muted,fontWeight:400,marginRight:5 }}>| עיגול = ממוצע קטגוריה</span>}</div>
               <div style={{ background:C.bg,borderRadius:8,padding:'9px 7px' }}><ReturnBars/></div>
             </div>
-            <div style={{ marginBottom:11 }}>
-              <div style={{ fontSize:13,fontWeight:700,color:C.dark,marginBottom:10 }}>הרכב החשיפות</div>
-              <Bar label="מניות" val={fund.stocks} color="#2563EB"/>
-              <Bar label={'אג"ח (מחושב)'} val={bonds} color="#D97706"/>
-              <Bar label={'חו"ל'} val={fund.foreign} color="#7C3AED"/>
-              <Bar label={'מט"ח'} val={fund.forex} color="#059669"/>
-              <Bar label="לא סחיר" val={fund.illiquid} color="#9CA3AF"/>
 
-              {fund.sharpe!=null&&<div style={{ display:'flex',justifyContent:'space-between',padding:'7px 0',borderTop:`1px solid ${C.border}` }}><span style={{ fontSize:13,color:C.muted }}>מדד שארפ</span><span style={{ fontSize:14,fontWeight:700 }}>{fund.sharpe.toFixed(2)}</span></div>}
-            </div>
             <div style={{ background:C.bg,border:`1.5px dashed ${C.border}`,borderRadius:9,padding:'10px 12px' }}>
               <div style={{ display:'flex',alignItems:'center',gap:6,marginBottom:5 }}><span style={{ fontSize:14 }}>🤖</span><span style={{ fontSize:11.5,fontWeight:700,color:C.dark }}>ניתוח AI</span><span style={{ fontSize:9.5,color:C.muted,background:C.border,borderRadius:7,padding:'1px 6px' }}>בקרוב</span></div>
               <p style={{ margin:0,fontSize:11,color:C.muted,lineHeight:1.7 }}>כאן יופיע תיאור AI על הגוף המנהל, אסטרטגיית ניהול ההשקעות, וה"סיפור" של המוצר.</p>
@@ -673,7 +677,7 @@ function sortByKey(funds,key,dir) {
   return [...funds].sort((a,b)=>{ const av=a[key]??-Infinity,bv=b[key]??-Infinity; return dir==='desc'?bv-av:av-bv; });
 }
 
-function FundTable({ funds, catId, onSelect, selFund, selCatId }) {
+function FundTable({ funds, catId, onSelect, selFund, selCatId, onAddToComparison }) {
   const [sortKey, setSortKey] = useState('ret_3y');
   const [sortDir, setSortDir] = useState('desc');
   const [showAll, setShowAll] = useState(false);
@@ -797,17 +801,7 @@ export default function App() {
           <TrackBrowser product={product} onSelectFund={(f,cid)=>{setSelFund(f);setSelCatId(cid);}} selFund={selFund} order={order} funds={funds}
             onAddToComparison={f=>setCompSelected(prev=>prev.find(s=>s.name===f.name)||prev.length>=10?prev:[...prev,f])}/>
           <ComparisonSearch allFunds={allFunds} product={product} selected={compSelected} setSelected={setCompSelected}/>
-          <CategoryNav catIds={catIds} funds={funds}/>
-          <div style={{ padding:'14px 14px 48px' }}>
-            <div style={{ display:'grid',gridTemplateColumns:'minmax(0,1fr)',gap:14,maxWidth:panelOpen?'100%':'50%' }}>
-              {catIds.map(id=>(
-                <FundTable key={`${product}-${id}`} catId={id}
-                  funds={getFundsForCategory(funds,id)}
-                  onSelect={(f,cid)=>{setSelFund(f);setSelCatId(cid);}}
-                  selFund={selFund} selCatId={selCatId}/>
-              ))}
-            </div>
-          </div>
+          <div style={{ padding:'0 0 48px' }}/>
           <footer style={{ background:C.dark,color:'rgba(255,255,255,0.3)',textAlign:'center',padding:'13px',fontSize:11 }}>
             © {new Date().getFullYear()} Profit Financial Group · הנתונים לצורך מידע בלבד ואינם מהווים ייעוץ השקעות
           </footer>
