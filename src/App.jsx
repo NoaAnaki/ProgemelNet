@@ -911,7 +911,7 @@ export default function App() {
       <div style={{ display:'flex',minHeight:'calc(100vh - 56px)' }}>
         <div style={{ flex:1,minWidth:0,display:'flex',flexDirection:'column' }}>
           <div style={{ padding:'10px 16px 9px',background:C.white,borderBottom:`1px solid ${C.border}` }}>
-            <ProductSelector selected={product||'השתלמות'} onChange={k=>{setProduct(k);setSelFund(null);setSelCatId(null);}}/>
+            <ProductSelector selected={product} onChange={k=>{setProduct(k);setSelFund(null);setSelCatId(null);}}/>
           </div>
           <ComparisonSearch allFunds={allFunds} product={product||'השתלמות'} selected={compSelected} setSelected={setCompSelected} onSelectFund={(f)=>{setSelFund(f);setSelCatId(null);}}/>
           {product===null ? (
@@ -938,9 +938,11 @@ export default function App() {
             <span><b style={{ color:'#FFD6DE' }}>{addedFund.slice(0,30)}{addedFund.length>30?'…':''}</b> התווסף לטבלת השוואת מוצרים</span>
           </div>
         )}
-        <div style={{ width:panelOpen?PANEL_W:'0px',flexShrink:0,transition:'width 0.25s ease',overflow:'hidden',position:'sticky',top:56,height:'calc(100vh - 56px)',alignSelf:'flex-start' }}>
-          {panelOpen&&<FundDetail fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);}} catAvg={catAvg} catFundIds={catFundIds} histData={histData??{}} allFunds={allFunds}/>}
-        </div>
+        {panelOpen&&(
+          <div style={{ position:'fixed',top:56,left:0,width:PANEL_W,height:'calc(100vh - 56px)',overflow:'hidden',zIndex:50,boxShadow:'4px 0 20px rgba(0,0,0,0.15)' }}>
+            <FundDetail fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);}} catAvg={catAvg} catFundIds={catFundIds} histData={histData??{}} allFunds={allFunds}/>
+          </div>
+        )}
       </div>
     </div>
   );
