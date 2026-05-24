@@ -881,13 +881,13 @@ export default function App() {
     }).catch(console.error);
   },[]);
 
+  const rawFundsProduct = product||'השתלמות';
   const rawFunds = useMemo(()=>getAllFunds(rawFundsProduct),[rawFundsProduct,dataReady]);
   const funds = useMemo(()=>rawFunds.map(f=>({...f,profit_index:profitIndex[f.name]??f.profit_index??null})),[rawFunds,profitIndex]);
   const allFunds = useMemo(()=>Object.keys(PRODUCT_LABELS).flatMap(p=>getAllFunds(p)),[dataReady]);
 
-  const order = product==='גמל'?GEMEL_ORDER:BASE_ORDER;
+  const order = (product||'השתלמות')==='גמל'?GEMEL_ORDER:BASE_ORDER;
   const catIds = useMemo(()=>order.filter(id=>getFundsForCategory(funds,id).length>0),[funds,order]);
-  const rawFundsProduct = product||'השתלמות';
 
   const catAvg = useMemo(()=>selCatId?calcAverages(getFundsForCategory(funds,selCatId)):null,[selCatId,funds]);
   const catFundIds = useMemo(()=>{ if(!selCatId) return []; return getFundsForCategory(funds,selCatId).map(f=>f.fund_id).filter(Boolean); },[selCatId,funds]);
