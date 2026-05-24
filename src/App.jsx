@@ -601,6 +601,167 @@ function ComparisonSearch({ allFunds, product, selected, setSelected }) {
 }
 
 // ─── Fund Detail Panel ────────────────────────────────────────────────────────
+
+// ─── Risk/Return Bubble Chart ────────────────────────────────────────────────
+function computeRiskMetrics(entries, nMonths) {
+  if(!entries || entries.length < nMonths * 0.75) return null;
+  const latest = entries[entries.length-1].period;
+  const y=+latest.slice(0,4), mo=+latest.slice(4,6);
+  let sy=y, sm=mo-nMonths; while(sm<=0){sm+=12;sy--;}
+  const startP=`${sy}${String(sm).padStart(2,'0')}`;
+  const sl = entries.filter(e=>e.period>startP);
+  if(sl.length < nMonths * 0.75) return null;
+
+  // CAGR
+  let cum=1;
+  sl.forEach(e=>{ if(e.ret!=null) cum*=(1+e.ret/100); });
+  const years=sl.length/12;
+  const cagr = years>0 ? (Math.pow(cum,1/years)-1)*100 : null;
+
+  // Max Drawdown
+  let peak=1, cumD=1, maxDD=0;
+  sl.forEach(e=>{ if(e.ret!=null){ cumD*=(1+e.ret/100); if(cumD>peak) peak=cumD; const dd=(peak-cumD)/peak; if(dd>maxDD) maxDD=dd; } });
+  const maxDrawdown = -maxDD*100;
+
+  // Max Recovery
+  let peak2=1, cumR=1, inDD=false, ddStart=0, maxRec=0;
+  sl.forEach((e,i)=>{ if(e.ret!=null){ cumR*=(1+e.ret/100); if(cumR>=peak2){ if(inDD) maxRec=Math.max(maxRec,i-ddStart); peak2=cumR; inDD=false; } else if(!inDD){ ddStart=i; inDD=true; } } });
+
+  const last=entries[entries.length-1];
+  return { cagr:Math.round(cagr*100)/100, maxDrawdown:Math.round(maxDrawdown*100)/100, maxRecovery:maxRec, aum:last.assets??0 };
+}
+
+function recoveryColor(months) {
+  if(months===0) return '#22C55E';
+  if(months<=6)  return '#86EFAC';
+  if(months<=12) return '#FCD34D';
+  if(months<=24) return '#F97316';
+  return '#EF4444';
+}
+
+function RiskReturnChart({ fund, catFundIds, histData, onSelectFund }) {
+  const [period, setPeriod] = useState(60); // 60=5y, 120=10y
+
+  const points = useMemo(()=>{
+    if(!catFundIds || !histData) return [];
+    return catFundIds.map(fid=>{
+      const entries = histData[fid];
+      if(!Array.isArray(entries)||!entries.length) return null;
+      const last = entries[entries.length-1];
+      const m = computeRiskMetrics(entries, period);
+      if(!m) return null;
+      return { fid, name:last.name, ...m };
+    }).filter(Boolean);
+  },[catFundIds, histData, period]);
+
+  const isSel = p => fund && p.name===fund.name;
+
+  if(!points.length) return (
+    <div style={{ padding:20, textAlign:'center', color:C.muted, fontSize:12 }}>
+      אין מספיק נתונים היסטוריים להצגת הגרף לתקופה זו
+    </div>
+  );
+
+  // חשב גבולות
+  const xs = points.map(p=>p.maxDrawdown), ys = points.map(p=>p.cagr);
+  const xMin=Math.min(...xs)-1, xMax=Math.max(...xs)+1;
+  const yMin=Math.min(...ys)-1, yMax=Math.max(...ys)+1;
+  const auMs = points.map(p=>p.aum);
+  const aumMin=Math.min(...auMs), aumMax=Math.max(...auMs);
+
+  const W=500, H=340, PAD={l:48,r:16,t:16,b:48};
+  const cW=W-PAD.l-PAD.r, cH=H-PAD.t-PAD.b;
+
+  const toX = v => PAD.l + (v-xMin)/(xMax-xMin)*cW;
+  const toY = v => PAD.t + (1-(v-yMin)/(yMax-yMin))*cH;
+  const toR = aum => {
+    if(aumMax===aumMin) return 8;
+    return 5 + ((aum-aumMin)/(aumMax-aumMin))*14;
+  };
+
+  const [hov, setHov] = useState(null);
+
+  // ציר X ticks
+  const xTicks = [], xStep = Math.ceil((xMax-xMin)/5);
+  for(let v=Math.ceil(xMin); v<=xMax; v+=Math.max(1,xStep)) xTicks.push(v);
+  const yTicks = [], yStep = Math.ceil((yMax-yMin)/5);
+  for(let v=Math.ceil(yMin); v<=yMax; v+=Math.max(1,yStep)) yTicks.push(v);
+
+  return (
+    <div style={{ padding:'10px 13px' }}>
+      <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
+        <span style={{ fontSize:11.5,fontWeight:700,color:C.dark }}>ניתוח סיכון/תשואה</span>
+        <div style={{ display:'flex',gap:4 }}>
+          {[{v:60,l:'5 שנים'},{v:120,l:'10 שנים'}].map(o=>(
+            <button key={o.v} onClick={()=>setPeriod(o.v)}
+              style={{ padding:'2px 9px',borderRadius:10,border:`1.5px solid ${period===o.v?C.crimson:C.border}`,background:period===o.v?C.crimson:C.white,color:period===o.v?C.white:C.mid,fontSize:10.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>{o.l}</button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ position:'relative' }}>
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display:'block' }}>
+          {/* רשת */}
+          {yTicks.map(v=><line key={`gy${v}`} x1={PAD.l} x2={W-PAD.r} y1={toY(v)} y2={toY(v)} stroke={C.border} strokeWidth="0.5"/>)}
+          {xTicks.map(v=><line key={`gx${v}`} x1={toX(v)} x2={toX(v)} y1={PAD.t} y2={H-PAD.b} stroke={C.border} strokeWidth="0.5"/>)}
+
+          {/* תוויות ציר Y */}
+          {yTicks.map(v=><text key={`ty${v}`} x={PAD.l-4} y={toY(v)+4} textAnchor="end" fontSize="9" fill={C.muted}>{v}%</text>)}
+          {/* תוויות ציר X */}
+          {xTicks.map(v=><text key={`tx${v}`} x={toX(v)} y={H-PAD.b+14} textAnchor="middle" fontSize="9" fill={C.muted}>{v}%</text>)}
+
+          {/* כיתוב צירים */}
+          <text x={PAD.l-38} y={PAD.t+cH/2} fontSize="9" fill={C.muted} transform={`rotate(-90,${PAD.l-38},${PAD.t+cH/2})`} textAnchor="middle">CAGR %</text>
+          <text x={PAD.l+cW/2} y={H-2} fontSize="9" fill={C.muted} textAnchor="middle">Max Drawdown %</text>
+
+          {/* קו אפס drawdown */}
+          {xMin<0&&xMax>0&&<line x1={toX(0)} x2={toX(0)} y1={PAD.t} y2={H-PAD.b} stroke="#9CA3AF" strokeWidth="0.8" strokeDasharray="3 2"/>}
+
+          {/* נקודות */}
+          {points.map((p,i)=>{
+            const cx=toX(p.maxDrawdown), cy=toY(p.cagr), r=toR(p.aum);
+            const sel=isSel(p);
+            return (
+              <g key={p.fid} style={{ cursor:'pointer' }}
+                onMouseEnter={()=>setHov(p)} onMouseLeave={()=>setHov(null)}>
+                <circle cx={cx} cy={cy} r={r}
+                  fill={recoveryColor(p.maxRecovery)}
+                  opacity={hov&&hov.fid!==p.fid&&!sel?0.3:0.85}
+                  stroke={sel?C.crimson:'rgba(0,0,0,0.1)'}
+                  strokeWidth={sel?3:1}/>
+                {sel&&<circle cx={cx} cy={cy} r={r+5} fill="none" stroke={C.crimson} strokeWidth="2" opacity="0.6"/>}
+              </g>
+            );
+          })}
+        </svg>
+
+        {/* Tooltip */}
+        {hov&&(
+          <div style={{ position:'absolute',top:10,left:10,background:C.dark,color:C.white,borderRadius:8,padding:'8px 11px',fontSize:10.5,minWidth:170,pointerEvents:'none',zIndex:20,direction:'rtl' }}>
+            <div style={{ fontWeight:700,marginBottom:4,fontSize:11 }}>{hov.name}</div>
+            <div>CAGR: <b>{hov.cagr}%</b></div>
+            <div>Max Drawdown: <b>{hov.maxDrawdown}%</b></div>
+            <div>זמן התאוששות: <b>{hov.maxRecovery} חודשים</b></div>
+            <div>AUM: <b>{hov.aum?.toLocaleString()} מ׳</b></div>
+          </div>
+        )}
+      </div>
+
+      {/* מקרא */}
+      <div style={{ display:'flex',gap:12,marginTop:6,flexWrap:'wrap',fontSize:10,color:C.muted }}>
+        <span>זמן התאוששות:</span>
+        {[{c:'#22C55E',l:'0 חודשים'},{c:'#86EFAC',l:'עד 6'},{c:'#FCD34D',l:'עד שנה'},{c:'#F97316',l:'עד שנתיים'},{c:'#EF4444',l:'מעל שנתיים'}].map(({c,l})=>(
+          <span key={l} style={{ display:'flex',alignItems:'center',gap:3 }}>
+            <span style={{ width:10,height:10,borderRadius:'50%',background:c,display:'inline-block' }}/>
+            {l}
+          </span>
+        ))}
+        <span style={{ marginRight:'auto' }}>גודל הנקודה = AUM</span>
+      </div>
+    </div>
+  );
+}
+
 function FundDetail({ fund, onClose, catAvg, catFundIds, histData, allFunds }) {
   if(!fund) return null;
   const [activeTab, setActiveTab] = useState('returns');
@@ -657,7 +818,7 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, histData, allFunds }) {
         </div>
       </div>
       <div style={{ display:'flex',borderBottom:`1px solid ${C.border}`,flexShrink:0,background:C.white }}>
-        {[{id:'returns',label:'תשואות וחשיפות'},{id:'history',label:'📈 גרף היסטורי'}].map(tab=>(
+        {[{id:'returns',label:'תשואות וחשיפות'},{id:'history',label:'📈 גרף היסטורי'},{id:'risk',label:'⚡ סיכון/תשואה'}].map(tab=>(
           <button key={tab.id} onClick={()=>setActiveTab(tab.id)} style={{ flex:1,padding:'9px 0',border:'none',background:'none',color:activeTab===tab.id?C.crimson:C.muted,fontFamily:'inherit',fontSize:12,fontWeight:700,cursor:'pointer',borderBottom:activeTab===tab.id?`2px solid ${C.crimson}`:'2px solid transparent' }}>{tab.label}</button>
         ))}
       </div>
@@ -677,6 +838,7 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, histData, allFunds }) {
           </div>
         )}
         {activeTab==='history'&&<HistoricalChart fund={fundWithAll} catFundIds={catFundIds} histData={histData}/>}
+        {activeTab==='risk'&&<RiskReturnChart fund={fund} catFundIds={catFundIds} histData={histData} onSelectFund={onClose}/>}
       </div>
     </div>
   );
