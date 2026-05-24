@@ -521,8 +521,8 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
               selFund={selFund} selCatId={null}
               onAddToComparison={onAddToComparison}/>
           )}
+        </div>
       </div>
-    </div>
   );
 }
 
