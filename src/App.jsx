@@ -379,7 +379,7 @@ function HomePage({ onSelectProduct, onSelectFund, compSelected, setCompSelected
                 לכל המסלולים ←
               </button>
             </div>
-            <div style={{ display:'grid',gridTemplateColumns:`repeat(${sheets.length},1fr)`,gap:14 }}>
+            <div style={{ display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:14 }}>
               {sheets.map(({sh,funds})=>(
                 <FundTable key={sh} catId={sh} catLabel={sh}
                   funds={funds}
