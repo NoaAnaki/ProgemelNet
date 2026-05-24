@@ -12,7 +12,7 @@ const C = {
 
 const COMP_COLORS = ['#E63946','#2563EB','#16A34A','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D','#EA580C','#6366F1'];
 
-
+const BASE_ORDER = [
   'general','equities','bonds','govBonds','moneyMarket','israel','foreign',
   'forex','equitiesIsrael','equitiesForeign','bondsIsrael','bondsForeign',
   'illiquid','liquid','sp500',
