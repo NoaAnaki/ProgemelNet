@@ -344,6 +344,62 @@ function getCompanyFunds(funds, companyPatterns) {
 }
 
 // ─── Track Browser ────────────────────────────────────────────────────────────
+
+// ─── Home Page — 3 טבלאות מובילות לכל מוצר ───────────────────────────────────
+const HOME_SHEETS = {
+  'השתלמות':    ['מובילות-כללי', 'מניות', 'S&P 500'],
+  'גמל':        ['מובילות-כללי', 'מניות', 'S&P 500'],
+  'גמל_להשקעה': ['כללי',         'מניות', 'S&P 500'],
+  'פוליסות':    ['כללי',         'מניות', 'S&P 500'],
+  'פנסיה':      ['מקיפה-כללי',   'מקיפה-מניות', 'מקיפה-עד50'],
+};
+
+function HomePage({ onSelectProduct, onSelectFund, compSelected, setCompSelected, setAddedFund }) {
+  const [ready, setReady] = useState(false);
+  useEffect(()=>{ loadData().then(()=>setReady(true)); },[]);
+  if(!ready) return <div style={{ padding:40,textAlign:'center',color:C.muted }}>טוען...</div>;
+
+  return (
+    <div style={{ padding:'16px 20px 48px' }}>
+      {Object.entries(PRODUCT_LABELS).map(([productKey, productInfo])=>{
+        const sheetNames = HOME_SHEETS[productKey]||[];
+        const sheets = sheetNames.map(sh=>({ sh, funds:getFundsBySheet(productKey,sh) })).filter(s=>s.funds.length>0);
+        if(!sheets.length) return null;
+        return (
+          <div key={productKey} style={{ marginBottom:32 }}>
+            <div style={{ display:'flex',alignItems:'center',gap:10,marginBottom:12 }}>
+              <span style={{ fontSize:20 }}>{productInfo.icon}</span>
+              <h2 style={{ fontSize:15,fontWeight:800,color:C.dark,margin:0 }}>
+                <span style={{ cursor:'pointer',borderBottom:`2px solid ${C.crimson}` }}
+                  onClick={()=>onSelectProduct(productKey)}>
+                  {productInfo.label}
+                </span>
+              </h2>
+              <button onClick={()=>onSelectProduct(productKey)}
+                style={{ marginRight:'auto',padding:'3px 12px',borderRadius:10,border:`1.5px solid ${C.crimson}`,background:'none',color:C.crimson,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>
+                לכל המסלולים ←
+              </button>
+            </div>
+            <div style={{ display:'grid',gridTemplateColumns:`repeat(${sheets.length},1fr)`,gap:14 }}>
+              {sheets.map(({sh,funds})=>(
+                <FundTable key={sh} catId={sh} catLabel={sh}
+                  funds={funds}
+                  onSelect={(f)=>onSelectFund(productKey,f)}
+                  selFund={null} selCatId={null}
+                  onAddToComparison={f=>{
+                    setCompSelected(prev=>prev.find(s=>s.name===f.name)||prev.length>=10?prev:[...prev,f]);
+                    setAddedFund(f.name);
+                    setTimeout(()=>setAddedFund(null),2500);
+                  }}/>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToComparison }) {
   const [open, setOpen]         = useState(false);
   const [activeSheet, setActiveSheet] = useState(null);
@@ -398,40 +454,66 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
             <button onClick={()=>{setViewMode('company');setActiveSheet(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='company'?C.crimson:C.border}`,background:viewMode==='company'?C.crimson:C.white,color:viewMode==='company'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי חברה מנהלת</button>
           </div>
 
-          {viewMode==='category'&&(
+          {/* ── לפי קטגוריה: לחצנים + גלילה לטבלה ── */}
+          {viewMode==='category'&&(<>
             <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:12 }}>
-              {sheets.map(sh=><button key={sh} onClick={()=>setActiveSheet(activeSheet===sh?null:sh)} style={{ padding:'4px 11px',borderRadius:14,border:`1.5px solid ${activeSheet===sh?C.crimson:C.border}`,background:activeSheet===sh?C.crimson:C.white,color:activeSheet===sh?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'all 0.12s' }}>{sh}</button>)}
-            </div>
-          )}
-
-          {viewMode==='exposure'&&(
-            <div style={{ display:'flex',flexDirection:'column',gap:12 }}>
-              {order.filter(id=>getFundsForCategory(funds,id).length>0).map(id=>(
-                <FundTable key={`exp-${product}-${id}`} catId={id}
-                  funds={getFundsForCategory(funds,id)}
-                  onSelect={(f,cid)=>{onSelectFund(f,cid);}}
-                  selFund={selFund} selCatId={null}
-                  onAddToComparison={onAddToComparison}/>
+              {sheets.map(sh=>(
+                <button key={sh}
+                  onClick={()=>{ setActiveSheet(sh); setTimeout(()=>{ const el=document.getElementById(`cat-table-${product}-${sh}`); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); },50); }}
+                  style={{ padding:'4px 11px',borderRadius:14,border:`1.5px solid ${activeSheet===sh?C.crimson:C.border}`,background:activeSheet===sh?C.crimson:C.white,color:activeSheet===sh?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'all 0.12s' }}>
+                  {sh}
+                </button>
               ))}
             </div>
-          )}
-
-          {viewMode==='company'&&(
-            <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:12 }}>
-              {availableCompanies.map(co=><button key={co.name} onClick={()=>setActiveCompany(activeCompany===co.name?null:co.name)} style={{ padding:'4px 11px',borderRadius:14,border:`1.5px solid ${activeCompany===co.name?C.crimson:C.border}`,background:activeCompany===co.name?C.crimson:C.white,color:activeCompany===co.name?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'all 0.12s' }}>{co.name}</button>)}
-            </div>
-          )}
-          {viewMode==='category'&&(
             <div style={{ display:'flex',flexDirection:'column',gap:12 }}>
               {sheets.map(sh=>(
-                <FundTable key={`cat-${product}-${sh}`} catId={sh} catLabel={sh}
-                  funds={getFundsBySheet(product,sh)}
-                  onSelect={(f)=>{onSelectFund(f,null);}}
-                  selFund={selFund} selCatId={null}
-                  onAddToComparison={onAddToComparison}/>
+                <div key={sh} id={`cat-table-${product}-${sh}`}>
+                  <FundTable catId={sh} catLabel={sh}
+                    funds={getFundsBySheet(product,sh)}
+                    onSelect={(f)=>{onSelectFund(f,null);}}
+                    selFund={selFund} selCatId={null}
+                    onAddToComparison={onAddToComparison}/>
+                </div>
               ))}
             </div>
-          )}
+          </>)}
+
+          {/* ── לפי חשיפות: לחצנים + גלילה לטבלה ── */}
+          {viewMode==='exposure'&&(<>
+            <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:12 }}>
+              {order.filter(id=>getFundsForCategory(funds,id).length>0).map(id=>(
+                <button key={id}
+                  onClick={()=>{ setTimeout(()=>{ const el=document.getElementById(`exp-table-${product}-${id}`); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); },50); }}
+                  style={{ padding:'4px 11px',borderRadius:14,border:`1.5px solid ${C.border}`,background:C.white,color:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'all 0.12s' }}>
+                  {CATEGORIES[id]?.label||id}
+                </button>
+              ))}
+            </div>
+            <div style={{ display:'flex',flexDirection:'column',gap:12 }}>
+              {order.filter(id=>getFundsForCategory(funds,id).length>0).map(id=>(
+                <div key={id} id={`exp-table-${product}-${id}`}>
+                  <FundTable catId={id}
+                    funds={getFundsForCategory(funds,id)}
+                    onSelect={(f,cid)=>{onSelectFund(f,cid);}}
+                    selFund={selFund} selCatId={null}
+                    onAddToComparison={onAddToComparison}/>
+                </div>
+              ))}
+            </div>
+          </>)}
+
+          {/* ── לפי חברה: לחצנים + טבלה ── */}
+          {viewMode==='company'&&(<>
+            <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:12 }}>
+              {availableCompanies.map(co=>(
+                <button key={co.name}
+                  onClick={()=>setActiveCompany(activeCompany===co.name?null:co.name)}
+                  style={{ padding:'4px 11px',borderRadius:14,border:`1.5px solid ${activeCompany===co.name?C.crimson:C.border}`,background:activeCompany===co.name?C.crimson:C.white,color:activeCompany===co.name?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'all 0.12s' }}>
+                  {co.name}
+                </button>
+              ))}
+            </div>
+          </>)}
           {((viewMode==='company'&&activeCompany&&companyFunds.length>0))&&(
             <div style={{ overflowX:'auto',border:`1px solid ${C.border}`,borderRadius:8 }}>
               <table style={{ width:'100%',borderCollapse:'collapse',tableLayout:'auto' }}>
@@ -783,7 +865,7 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [product, setProduct] = useState('השתלמות');
+  const [product, setProduct] = useState(null); // null = דף ראשי
   const [selFund, setSelFund] = useState(null);
   const [selCatId, setSelCatId] = useState(null);
   const [dataReady, setDataReady] = useState(false);
@@ -800,12 +882,13 @@ export default function App() {
     }).catch(console.error);
   },[]);
 
-  const rawFunds = useMemo(()=>getAllFunds(product),[product,dataReady]);
+  const rawFunds = useMemo(()=>getAllFunds(rawFundsProduct),[rawFundsProduct,dataReady]);
   const funds = useMemo(()=>rawFunds.map(f=>({...f,profit_index:profitIndex[f.name]??f.profit_index??null})),[rawFunds,profitIndex]);
   const allFunds = useMemo(()=>Object.keys(PRODUCT_LABELS).flatMap(p=>getAllFunds(p)),[dataReady]);
 
   const order = product==='גמל'?GEMEL_ORDER:BASE_ORDER;
   const catIds = useMemo(()=>order.filter(id=>getFundsForCategory(funds,id).length>0),[funds,order]);
+  const rawFundsProduct = product||'השתלמות';
 
   const catAvg = useMemo(()=>selCatId?calcAverages(getFundsForCategory(funds,selCatId)):null,[selCatId,funds]);
   const catFundIds = useMemo(()=>{ if(!selCatId) return []; return getFundsForCategory(funds,selCatId).map(f=>f.fund_id).filter(Boolean); },[selCatId,funds]);
@@ -829,11 +912,20 @@ export default function App() {
       <div style={{ display:'flex',minHeight:'calc(100vh - 56px)' }}>
         <div style={{ flex:1,minWidth:0,display:'flex',flexDirection:'column' }}>
           <div style={{ padding:'10px 16px 9px',background:C.white,borderBottom:`1px solid ${C.border}` }}>
-            <ProductSelector selected={product} onChange={k=>{setProduct(k);setSelFund(null);setSelCatId(null);}}/>
+            <ProductSelector selected={product||'השתלמות'} onChange={k=>{setProduct(k);setSelFund(null);setSelCatId(null);}}/>
           </div>
-          <ComparisonSearch allFunds={allFunds} product={product} selected={compSelected} setSelected={setCompSelected} onSelectFund={(f)=>{setSelFund(f);setSelCatId(null);}}/>
-          <TrackBrowser product={product} onSelectFund={(f,cid)=>{setSelFund(f);setSelCatId(cid);}} selFund={selFund} order={order} funds={funds}
-            onAddToComparison={f=>{ setCompSelected(prev=>prev.find(s=>s.name===f.name)||prev.length>=10?prev:[...prev,f]); setAddedFund(f.name); setTimeout(()=>setAddedFund(null),2500); }}/>
+          <ComparisonSearch allFunds={allFunds} product={product||'השתלמות'} selected={compSelected} setSelected={setCompSelected} onSelectFund={(f)=>{setSelFund(f);setSelCatId(null);}}/>
+          {product===null ? (
+            <HomePage
+              onSelectProduct={(k)=>{setProduct(k);setSelFund(null);setSelCatId(null);}}
+              onSelectFund={(productKey,f)=>{setProduct(productKey);setSelFund(f);setSelCatId(null);}}
+              compSelected={compSelected}
+              setCompSelected={setCompSelected}
+              setAddedFund={setAddedFund}/>
+          ) : (
+            <TrackBrowser product={product} onSelectFund={(f,cid)=>{setSelFund(f);setSelCatId(cid);}} selFund={selFund} order={order} funds={funds}
+              onAddToComparison={f=>{ setCompSelected(prev=>prev.find(s=>s.name===f.name)||prev.length>=10?prev:[...prev,f]); setAddedFund(f.name); setTimeout(()=>setAddedFund(null),2500); }}/>
+          )}
           <div style={{ padding:'0 0 48px' }}/>
           <footer style={{ background:C.dark,color:'rgba(255,255,255,0.3)',textAlign:'center',padding:'13px',fontSize:11 }}>
             © {new Date().getFullYear()} Profit Financial Group · הנתונים לצורך מידע בלבד ואינם מהווים ייעוץ השקעות
