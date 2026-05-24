@@ -10,8 +10,8 @@ const C = {
   pos:'#16A34A', neg:'#DC2626', avgBg:'#F5F0EA',
 };
 
-const COMP_COLORS = ['#E63946','#2563EB','#16A34A','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D','#EA580C','#6366F1'];
 
+const COMP_COLORS = ['#E63946','#2563EB','#16A34A','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D','#EA580C','#6366F1'];
 const BASE_ORDER = [
   'general','equities','bonds','govBonds','moneyMarket','israel','foreign',
   'forex','equitiesIsrael','equitiesForeign','bondsIsrael','bondsForeign',
@@ -511,10 +511,10 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
               ))}
             </div>
           </>)}
-          {((viewMode==='company'&&activeCompany&&companyFunds.length>0))&&(
+          {(viewMode==='company'&&activeCompany&&companyFunds.length>0)&&(
             <FundTable catId={activeCompany} catLabel={activeCompany}
               funds={companyFunds}
-              onSelect={(f)=>{ const cid = order ? classifyFund(f).find(c=>order.includes(c)&&funds&&getFundsForCategory(funds,c).length>0) ?? null : null; onSelectFund(f,cid); }}
+              onSelect={(f)=>{ const cid=order?classifyFund(f).find(c=>order.includes(c)&&funds&&getFundsForCategory(funds,c).length>0)??null:null; onSelectFund(f,cid); }}
               selFund={selFund} selCatId={null}
               onAddToComparison={onAddToComparison}/>
           )}
@@ -602,7 +602,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
         {selected.length>0&&(
           <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:10 }}>
             {selected.map((f,i)=>{
-              const clr = COMP_COLORS[i % COMP_COLORS.length];
+              const clr=COMP_COLORS[i%COMP_COLORS.length];
               return (
                 <span key={f.name} style={{ display:'inline-flex',alignItems:'center',gap:4,background:`${clr}18`,border:`1.5px solid ${clr}`,borderRadius:12,padding:'3px 8px 3px 6px',fontSize:11,color:clr,fontWeight:600 }}>
                   <span style={{ width:8,height:8,borderRadius:'50%',background:clr,flexShrink:0,display:'inline-block' }}/>
@@ -625,7 +625,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
               </tr></thead>
               <tbody>
                 {selected.map((f,i)=>{
-                  const clr = COMP_COLORS[i % COMP_COLORS.length];
+                  const clr=COMP_COLORS[i%COMP_COLORS.length];
                   return (
                     <tr key={f.name} onClick={()=>onSelectFund&&onSelectFund(f)} style={{ background:C.white,borderBottom:`1px solid ${C.border}`,cursor:'pointer' }} onMouseEnter={e=>e.currentTarget.style.background='#FDF8F6'} onMouseLeave={e=>e.currentTarget.style.background=C.white}>
                       <td style={{ padding:0,width:6,background:clr }}/>
@@ -823,7 +823,7 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [product, setProduct] = useState('השתלמות'); // ברירת מחדל = קרנות השתלמות
+  const [product, setProduct] = useState('השתלמות'); // ברירת מחדל
   const [selFund, setSelFund] = useState(null);
   const [selCatId, setSelCatId] = useState(null);
   const [dataReady, setDataReady] = useState(false);
