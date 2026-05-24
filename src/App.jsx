@@ -402,17 +402,56 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
             <div style={{ overflowX:'auto',border:`1px solid ${C.border}`,borderRadius:8 }}>
               <table style={{ width:'100%',borderCollapse:'collapse',tableLayout:'auto' }}>
                 <thead><tr style={{ background:C.darkMid }}>
+                  <th style={{ ...TH,width:30,padding:'4px' }}></th>
                   <th style={{ ...TH,textAlign:'right',color:'rgba(255,255,255,0.8)',paddingRight:10 }}>שם המוצר</th>
-                  {SORT_COLS.map(c=><th key={c.key} style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.7)' }}>{c.label}</th>)}
+                  <th style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.7)' }}>חודש</th>
+                  <th style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.7)' }}>YTD</th>
+                  <th style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.7)' }}>שנה</th>
+                  <th style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.7)' }}>3 שנים</th>
+                  <th style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.7)' }}>5 שנים</th>
+                  <th style={{ ...TH,textAlign:'center',color:'#93C5FD' }}>% מניות</th>
+                  <th style={{ ...TH,textAlign:'center',color:'#C4B5FD' }}>% חו"ל</th>
+                  <th style={{ ...TH,textAlign:'center',color:'#6EE7B7' }}>% מט"ח</th>
+                  <th style={{ ...TH,textAlign:'center',color:'#D1D5DB' }}>% לא סחיר</th>
+                  <th style={{ ...TH,textAlign:'center',color:'#FCA5A5' }}>שארפ</th>
                 </tr></thead>
                 <tbody>
-                  {displayFunds.map(f=>{ const isSel=selFund?.name===f.name; const cid = order ? classifyFund(f).find(c=>order.includes(c)&&funds&&getFundsForCategory(funds,c).length>0) ?? null : null; return <tr key={f.name} onClick={()=>onSelectFund(f,cid)} style={{ background:isSel?'#FFF0F3':C.white,cursor:'pointer',borderBottom:`1px solid ${C.border}` }} onMouseEnter={e=>{if(!isSel)e.currentTarget.style.background='#FDF8F6';}} onMouseLeave={e=>{if(!isSel)e.currentTarget.style.background=C.white;}}>
-                    <td style={{ ...TD,color:isSel?C.crimson:C.darkMid,fontWeight:500,whiteSpace:'nowrap',paddingRight:10 }}>{f.name}</td>
-                    {SORT_COLS.map(col=><td key={col.key} style={{ ...TD,textAlign:'center',color:numColor(f[col.key]),fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{pctFmt(f[col.key])}</td>)}
+                  {displayFunds.map(f=>{ const isSel=selFund?.name===f.name; const cid = order ? classifyFund(f).find(c=>order.includes(c)&&funds&&getFundsForCategory(funds,c).length>0) ?? null : null; return <tr key={f.name} style={{ background:isSel?'#FFF0F3':C.white,borderBottom:`1px solid ${C.border}` }} onMouseEnter={e=>{if(!isSel)e.currentTarget.style.background='#FDF8F6';}} onMouseLeave={e=>{if(!isSel)e.currentTarget.style.background=C.white;}}>
+                    <td style={{ ...TD,width:30,padding:'4px',textAlign:'center' }}>
+                      <button
+                        title="הוסף להשוואת מסלולי השקעה"
+                        onClick={e=>{e.stopPropagation();onAddToComparison&&onAddToComparison(f);}}
+                        style={{ background:'none',border:`1.5px solid ${C.border}`,borderRadius:5,cursor:'pointer',fontSize:14,width:22,height:22,display:'flex',alignItems:'center',justifyContent:'center',color:C.muted,transition:'all 0.1s' }}
+                        onMouseEnter={e=>{e.currentTarget.style.background=C.crimson;e.currentTarget.style.color='white';e.currentTarget.style.borderColor=C.crimson;}}
+                        onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color=C.muted;e.currentTarget.style.borderColor=C.border;}}>
+                        +
+                      </button>
+                    </td>
+                    <td style={{ ...TD,color:isSel?C.crimson:C.darkMid,fontWeight:500,whiteSpace:'nowrap',paddingRight:10,cursor:'pointer' }} onClick={()=>onSelectFund(f,cid)}>{f.name}</td>
+                    <td style={{ ...TD,textAlign:'center',color:numColor(f.ret_month),fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{pctFmt(f.ret_month)}</td>
+                    <td style={{ ...TD,textAlign:'center',color:numColor(f.ret_ytd),fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{pctFmt(f.ret_ytd)}</td>
+                    <td style={{ ...TD,textAlign:'center',color:numColor(f.ret_1y),fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{pctFmt(f.ret_1y)}</td>
+                    <td style={{ ...TD,textAlign:'center',color:numColor(f.ret_3y),fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{pctFmt(f.ret_3y)}</td>
+                    <td style={{ ...TD,textAlign:'center',color:numColor(f.ret_5y),fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{pctFmt(f.ret_5y)}</td>
+                    <td style={{ ...TD,textAlign:'center',color:'#2563EB',fontWeight:600 }}>{f.stocks!=null?f.stocks.toFixed(1)+'%':'—'}</td>
+                    <td style={{ ...TD,textAlign:'center',color:'#7C3AED',fontWeight:600 }}>{f.foreign!=null?f.foreign.toFixed(1)+'%':'—'}</td>
+                    <td style={{ ...TD,textAlign:'center',color:'#059669',fontWeight:600 }}>{f.forex!=null?f.forex.toFixed(1)+'%':'—'}</td>
+                    <td style={{ ...TD,textAlign:'center',color:'#9CA3AF',fontWeight:600 }}>{f.illiquid!=null?f.illiquid.toFixed(1)+'%':'—'}</td>
+                    <td style={{ ...TD,textAlign:'center',color:C.dark,fontWeight:600 }}>{f.sharpe!=null?f.sharpe.toFixed(2):'—'}</td>
                   </tr>; })}
                   <tr style={{ background:C.avgBg,borderTop:`2px solid ${C.border}` }}>
+                    <td style={{ ...TD,width:30 }}></td>
                     <td style={{ ...TD,fontWeight:700,color:C.dark,paddingRight:10 }}>⌀ ממוצע</td>
-                    {SORT_COLS.map(col=><td key={col.key} style={{ ...TD,textAlign:'center',color:numColor(avg[col.key]),fontWeight:700 }}>{pctFmt(avg[col.key])}</td>)}
+                    <td style={{ ...TD,textAlign:'center',color:numColor(avg.ret_month),fontWeight:700 }}>{pctFmt(avg.ret_month)}</td>
+                    <td style={{ ...TD,textAlign:'center',color:numColor(avg.ret_ytd),fontWeight:700 }}>{pctFmt(avg.ret_ytd)}</td>
+                    <td style={{ ...TD,textAlign:'center',color:numColor(avg.ret_1y),fontWeight:700 }}>{pctFmt(avg.ret_1y)}</td>
+                    <td style={{ ...TD,textAlign:'center',color:numColor(avg.ret_3y),fontWeight:700 }}>{pctFmt(avg.ret_3y)}</td>
+                    <td style={{ ...TD,textAlign:'center',color:numColor(avg.ret_5y),fontWeight:700 }}>{pctFmt(avg.ret_5y)}</td>
+                    <td style={{ ...TD,textAlign:'center',color:'#2563EB',fontWeight:700 }}>{avg.stocks!=null?avg.stocks.toFixed(1)+'%':'—'}</td>
+                    <td style={{ ...TD,textAlign:'center',color:'#7C3AED',fontWeight:700 }}>{avg.foreign!=null?avg.foreign.toFixed(1)+'%':'—'}</td>
+                    <td style={{ ...TD,textAlign:'center',color:'#059669',fontWeight:700 }}>{avg.forex!=null?avg.forex.toFixed(1)+'%':'—'}</td>
+                    <td style={{ ...TD,textAlign:'center',color:'#9CA3AF',fontWeight:700 }}>{avg.illiquid!=null?avg.illiquid.toFixed(1)+'%':'—'}</td>
+                    <td style={{ ...TD,textAlign:'center',color:C.dark,fontWeight:700 }}>{avg.sharpe!=null?avg.sharpe.toFixed(2):'—'}</td>
                   </tr>
                 </tbody>
               </table>
