@@ -281,14 +281,13 @@ const HE_MONTHS = ['','ינואר','פברואר','מרץ','אפריל','מאי'
 function UpdatedLabel() {
   const [label, setLabel] = useState('...');
   useEffect(()=>{
-    import('./utils/dataLoader').then(m=>{
-      if(m.historyData){
-        const periods = Object.values(m.historyData).flatMap(e=>Array.isArray(e)&&e.length?[e[e.length-1].period]:[]);
-        if(periods.length){
-          const latest = periods.sort().reverse()[0];
-          const y=+latest.slice(0,4), mo=+latest.slice(4,6);
-          setLabel(`מעודכן ל־${HE_MONTHS[mo]} ${y}`);
-        }
+    loadData().then(({historyData})=>{
+      if(!historyData) return;
+      const periods = Object.values(historyData).flatMap(e=>Array.isArray(e)&&e.length?[e[e.length-1].period]:[]);
+      if(periods.length){
+        const latest = periods.sort().reverse()[0];
+        const y=+latest.slice(0,4), mo=+latest.slice(4,6);
+                setLabel(`מעודכן לִ${HE_MONTHS[mo]} ${y}`);
       }
     }).catch(()=>{});
   },[]);
