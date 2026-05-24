@@ -400,7 +400,6 @@ function HomePage({ onSelectProduct, onSelectFund, compSelected, setCompSelected
 }
 
 function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToComparison }) {
-  const [open, setOpen]         = useState(false);
   const [activeSheet, setActiveSheet] = useState(null);
   const [viewMode, setViewMode]  = useState('category'); // 'category' | 'exposure' | 'company'
   const [activeCompany, setActiveCompany] = useState(null);
@@ -439,13 +438,8 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
   }
 
   return (
-    <div style={{ borderBottom:`1px solid ${C.border}`,background:C.white }}>
-      <button onClick={()=>setOpen(o=>!o)} style={{ width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 16px',background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',direction:'rtl' }}>
-        <span style={{ fontSize:13,fontWeight:700,color:C.dark }}>📂 מסלולי השקעה</span>
-        <span style={{ fontSize:12,color:C.muted }}>{open?'▲':'▼'}</span>
-      </button>
-      {open&&(
-        <div style={{ padding:'0 14px 14px',maxWidth:'50%' }}>
+    <div style={{ background:C.white }}>
+      <div style={{ padding:'0 14px 14px' }}>
           {/* טאבים */}
           <div style={{ display:'flex',gap:6,marginBottom:10,borderBottom:`1px solid ${C.border}`,paddingBottom:8 }}>
             <button onClick={()=>{setViewMode('category');setActiveCompany(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='category'?C.crimson:C.border}`,background:viewMode==='category'?C.crimson:C.white,color:viewMode==='category'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי קטגוריה</button>
@@ -579,6 +573,8 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
 }
 
 // ─── Comparison Search ────────────────────────────────────────────────────────
+const COMP_COLORS = ['#E63946','#2563EB','#16A34A','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D','#EA580C','#6366F1'];
+
 function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFund }) {
   const [query, setQuery]       = useState('');
   const [showDrop, setShowDrop] = useState(false);
@@ -654,14 +650,20 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
           )}
         </div>
         {selected.length>0&&(
-          <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:10 }}>
-            {selected.map(f=>(
-              <span key={f.name} style={{ display:'inline-flex',alignItems:'center',gap:4,background:C.crimsonPale,border:`1px solid #F8C8D0`,borderRadius:12,padding:'3px 8px 3px 4px',fontSize:11,color:C.crimson,fontWeight:600 }}>
-                {f.name.slice(0,28)}{f.name.length>28?'…':''}
-                <button onClick={()=>setSelected(p=>p.filter(s=>s.name!==f.name))} style={{ background:'none',border:'none',cursor:'pointer',color:C.crimson,fontSize:13,padding:0,lineHeight:1 }}>×</button>
-              </span>
-            ))}
-            <button onClick={()=>setSelected([])} style={{ background:'none',border:`1px solid ${C.border}`,borderRadius:12,padding:'3px 8px',fontSize:10.5,color:C.muted,cursor:'pointer',fontFamily:'inherit' }}>נקה הכל</button>
+          <div style={{ marginBottom:10 }}>
+            <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:6 }}>
+              {selected.map((f,i)=>{
+                const clr=COMP_COLORS[i%COMP_COLORS.length];
+                return (
+                  <span key={f.name} style={{ display:'inline-flex',alignItems:'center',gap:5,background:clr+'22',border:`1.5px solid ${clr}`,borderRadius:12,padding:'3px 8px 3px 6px',fontSize:11,color:clr,fontWeight:700 }}>
+                    <span style={{ width:8,height:8,borderRadius:'50%',background:clr,display:'inline-block',flexShrink:0 }}/>
+                    {f.name.slice(0,26)}{f.name.length>26?'…':''}
+                    <button onClick={()=>setSelected(p=>p.filter(s=>s.name!==f.name))} title="הסר מהשוואה" style={{ background:'none',border:'none',cursor:'pointer',color:clr,fontSize:14,padding:'0 0 0 2px',lineHeight:1,fontWeight:900 }}>×</button>
+                  </span>
+                );
+              })}
+              {selected.length>0&&<button onClick={()=>setSelected([])} style={{ background:'none',border:`1px solid ${C.border}`,borderRadius:12,padding:'3px 8px',fontSize:10.5,color:C.muted,cursor:'pointer',fontFamily:'inherit' }}>נקה הכל</button>}
+            </div>
           </div>
         )}
         {selected.length>0&&(
@@ -693,7 +695,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
 }
 
 // ─── Fund Detail Panel ────────────────────────────────────────────────────────
-function FundDetail({ fund, onClose, catAvg, catFundIds, histData, allFunds }) {
+function FundDetail({ fund, onClose, catAvg, catFundIds, histData, allFunds, compSelected=[], onRemoveFromComp, onAddToComp }) {
   if(!fund) return null;
   const [activeTab, setActiveTab] = useState('returns');
   const cats = classifyFund(fund).map(id=>CATEGORIES[id]?.label).filter(Boolean);
@@ -864,7 +866,7 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [product, setProduct] = useState(null); // null = דף ראשי
+  const [product, setProduct] = useState('השתלמות');
   const [selFund, setSelFund] = useState(null);
   const [selCatId, setSelCatId] = useState(null);
   const [dataReady, setDataReady] = useState(false);
@@ -914,17 +916,8 @@ export default function App() {
             <ProductSelector selected={product} onChange={k=>{setProduct(k);setSelFund(null);setSelCatId(null);}}/>
           </div>
           <ComparisonSearch allFunds={allFunds} product={product||'השתלמות'} selected={compSelected} setSelected={setCompSelected} onSelectFund={(f)=>{setSelFund(f);setSelCatId(null);}}/>
-          {product===null ? (
-            <HomePage
-              onSelectProduct={(k)=>{setProduct(k);setSelFund(null);setSelCatId(null);}}
-              onSelectFund={(productKey,f)=>{setProduct(productKey);setSelFund(f);setSelCatId(null);}}
-              compSelected={compSelected}
-              setCompSelected={setCompSelected}
-              setAddedFund={setAddedFund}/>
-          ) : (
-            <TrackBrowser product={product} onSelectFund={(f,cid)=>{setSelFund(f);setSelCatId(cid);}} selFund={selFund} order={order} funds={funds}
-              onAddToComparison={f=>{ setCompSelected(prev=>prev.find(s=>s.name===f.name)||prev.length>=10?prev:[...prev,f]); setAddedFund(f.name); setTimeout(()=>setAddedFund(null),2500); }}/>
-          )}
+          <TrackBrowser product={product} onSelectFund={(f,cid)=>{setSelFund(f);setSelCatId(cid);}} selFund={selFund} order={order} funds={funds}
+            onAddToComparison={f=>{ setCompSelected(prev=>prev.find(s=>s.name===f.name)||prev.length>=10?prev:[...prev,f]); setAddedFund(f.name); setTimeout(()=>setAddedFund(null),2500); }}/>
           <div style={{ padding:'0 0 48px' }}/>
           <footer style={{ background:C.dark,color:'rgba(255,255,255,0.3)',textAlign:'center',padding:'13px',fontSize:11 }}>
             © {new Date().getFullYear()} Profit Financial Group · הנתונים לצורך מידע בלבד ואינם מהווים ייעוץ השקעות
@@ -940,7 +933,7 @@ export default function App() {
         )}
         {panelOpen&&(
           <div style={{ position:'fixed',top:56,left:0,width:PANEL_W,height:'calc(100vh - 56px)',overflow:'hidden',zIndex:50,boxShadow:'4px 0 20px rgba(0,0,0,0.15)' }}>
-            <FundDetail fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);}} catAvg={catAvg} catFundIds={catFundIds} histData={histData??{}} allFunds={allFunds}/>
+            <FundDetail fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);}} catAvg={catAvg} catFundIds={catFundIds} histData={histData??{}} allFunds={allFunds} compSelected={compSelected} onRemoveFromComp={f=>setCompSelected(p=>p.filter(s=>s.name!==f.name))} onAddToComp={f=>{ setCompSelected(prev=>prev.find(s=>s.name===f.name)||prev.length>=10?prev:[...prev,f]); setAddedFund(f.name); setTimeout(()=>setAddedFund(null),2500); }}/>
           </div>
         )}
       </div>
