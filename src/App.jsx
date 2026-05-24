@@ -445,7 +445,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
         <span style={{ fontSize:12,color:C.muted }}>{open?'▲':'▼'}</span>
       </button>
       {open&&(
-        <div style={{ padding:'0 14px 14px' }}>
+        <div style={{ padding:'0 14px 14px',maxWidth:'50%' }}>
           {/* טאבים */}
           <div style={{ display:'flex',gap:6,marginBottom:10,borderBottom:`1px solid ${C.border}`,paddingBottom:8 }}>
             <button onClick={()=>{setViewMode('category');setActiveCompany(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='category'?C.crimson:C.border}`,background:viewMode==='category'?C.crimson:C.white,color:viewMode==='category'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי קטגוריה</button>
@@ -458,7 +458,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
             <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:12 }}>
               {sheets.map(sh=>(
                 <button key={sh}
-                  onClick={()=>{ setActiveSheet(sh); setTimeout(()=>{ const el=document.getElementById(`cat-table-${product}-${sh}`); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); },50); }}
+                  onClick={()=>{ setActiveSheet(sh); setTimeout(()=>{ const el=document.getElementById(`cat-table-${product}-${sh}`); if(el){ const y=el.getBoundingClientRect().top+window.scrollY-70; window.scrollTo({top:y,behavior:'smooth'}); } },80); }}
                   style={{ padding:'4px 11px',borderRadius:14,border:`1.5px solid ${activeSheet===sh?C.crimson:C.border}`,background:activeSheet===sh?C.crimson:C.white,color:activeSheet===sh?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'all 0.12s' }}>
                   {sh}
                 </button>
@@ -482,7 +482,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
             <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:12 }}>
               {order.filter(id=>getFundsForCategory(funds,id).length>0).map(id=>(
                 <button key={id}
-                  onClick={()=>{ setTimeout(()=>{ const el=document.getElementById(`exp-table-${product}-${id}`); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); },50); }}
+                  onClick={()=>{ setTimeout(()=>{ const el=document.getElementById(`exp-table-${product}-${id}`); if(el){ const y=el.getBoundingClientRect().top+window.scrollY-70; window.scrollTo({top:y,behavior:'smooth'}); } },80); }}
                   style={{ padding:'4px 11px',borderRadius:14,border:`1.5px solid ${C.border}`,background:C.white,color:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'all 0.12s' }}>
                   {CATEGORIES[id]?.label||id}
                 </button>
@@ -628,7 +628,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
   ];
 
   return (
-    <div style={{ borderBottom:`1px solid ${C.border}`,background:C.white,padding:'10px 16px 12px' }}>
+    <div style={{ borderBottom:`1px solid ${C.border}`,background:C.white,padding:'10px 16px 12px',maxWidth:'50%' }}>
       <div style={{ fontSize:13,fontWeight:700,color:C.dark,marginBottom:8,direction:'rtl' }}>🔍 חיפוש והשוואת מוצרים</div>
       <div style={{ padding:'0' }}>
         <div style={{ position:'relative',marginBottom:10 }}>
