@@ -344,7 +344,7 @@ function getCompanyFunds(funds, companyPatterns) {
 }
 
 // ─── Track Browser ────────────────────────────────────────────────────────────
-function TrackBrowser({ product, onSelectFund, selFund, order, funds }) {
+function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToComparison }) {
   const [open, setOpen]         = useState(false);
   const [activeSheet, setActiveSheet] = useState(null);
   const [viewMode, setViewMode]  = useState('category'); // 'category' | 'company'
@@ -425,9 +425,8 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds }) {
 }
 
 // ─── Comparison Search ────────────────────────────────────────────────────────
-function ComparisonSearch({ allFunds, product }) {
+function ComparisonSearch({ allFunds, product, selected, setSelected }) {
   const [query, setQuery]       = useState('');
-  const [selected, setSelected] = useState([]);
   const [showDrop, setShowDrop] = useState(false);
 
   // קרנות לפי מוצר נוכחי
@@ -656,9 +655,12 @@ function FundTable({ funds, catId, onSelect, selFund, selCatId }) {
       <tr onClick={()=>!isAvg&&onSelect(fund,catId)} style={{ background:isAvg?C.avgBg:isSel?'#FFF0F3':C.white,cursor:isAvg?'default':'pointer',borderBottom:`1px solid #F0EBE6` }} onMouseEnter={e=>{if(!isAvg&&!isSel)e.currentTarget.style.background='#FDF8F6';}} onMouseLeave={e=>{if(!isAvg&&!isSel)e.currentTarget.style.background=C.white;}}>
         <td style={{ ...TD,color:C.muted,textAlign:'center',fontSize:9.5,width:18,padding:'4px 3px' }}>{isAvg?'⌀':rank}</td>
         <td style={{ ...TD,color:isSel?C.crimson:isAvg?C.dark:C.darkMid,fontWeight:isAvg?700:500 }}><div style={{ whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis' }} title={fund.name}>{fund.name}</div></td>
+        <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_month),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_month'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_month)}</td>
+        <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_ytd),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_ytd'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_ytd)}</td>
+        <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_1y),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_1y'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_1y)}</td>
         <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_3y),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_3y'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_3y)}</td>
+        <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_5y),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_5y'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_5y)}</td>
         <td style={{ ...TD,textAlign:'center',color:'#2563EB',fontWeight:600 }}>{fund.stocks!=null?fund.stocks.toFixed(1)+'%':'—'}</td>
-        <td style={{ ...TD,textAlign:'center',color:'#D97706',fontWeight:600 }}>{(()=>{ const b=Math.max(0,Math.round((100-(fund.stocks??0)-(fund.illiquid??0))*10)/10); return b>0?b.toFixed(1)+'%':'—'; })()}</td>
         <td style={{ ...TD,textAlign:'center',color:'#7C3AED',fontWeight:600 }}>{fund.foreign!=null?fund.foreign.toFixed(1)+'%':'—'}</td>
         <td style={{ ...TD,textAlign:'center',color:'#059669',fontWeight:600 }}>{fund.forex!=null?fund.forex.toFixed(1)+'%':'—'}</td>
         <td style={{ ...TD,textAlign:'center',color:'#9CA3AF',fontWeight:600 }}>{fund.illiquid!=null?fund.illiquid.toFixed(1)+'%':'—'}</td>
@@ -680,14 +682,17 @@ function FundTable({ funds, catId, onSelect, selFund, selCatId }) {
           <thead><tr style={{ background:'#2A2A2A' }}>
             <th style={{ ...TH,width:18,color:'rgba(255,255,255,0.4)',padding:'5px 3px' }}>#</th>
             <th style={{ ...TH,textAlign:'right',color:'rgba(255,255,255,0.8)' }}>שם המוצר</th>
-            <SortTh col={{ key:'ret_3y', label:'3 שנים', tip:'תשואה מצטברת 36 חודשים' }}/>
+            <SortTh col={{ key:'ret_month', label:'% חודש',    tip:'תשואה בחודש האחרון' }}/>
+            <SortTh col={{ key:'ret_ytd',   label:'% YTD',      tip:'תשואה מתחילת שנה' }}/>
+            <SortTh col={{ key:'ret_1y',    label:'% שנה',      tip:'תשואה שנתית' }}/>
+            <SortTh col={{ key:'ret_3y',    label:'% 3 שנים',   tip:'תשואה מצטברת 36 חודשים' }}/>
+            <SortTh col={{ key:'ret_5y',    label:'% 5 שנים',   tip:'תשואה מצטברת 60 חודשים' }}/>
             <th style={{ ...TH,textAlign:'center',color:'#93C5FD' }}>% מניות</th>
-            <th style={{ ...TH,textAlign:'center',color:'#FCD34D' }}>אג"ח</th>
             <th style={{ ...TH,textAlign:'center',color:'#C4B5FD' }}>% חו"ל</th>
             <th style={{ ...TH,textAlign:'center',color:'#6EE7B7' }}>% מט"ח</th>
             <th style={{ ...TH,textAlign:'center',color:'#D1D5DB' }}>% לא סחיר</th>
-            <th style={{ ...TH,textAlign:'center',color:'#FCA5A5' }}>שארפ</th>
-            <th style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.5)' }}>פרופיט</th>
+            <th style={{ ...TH,textAlign:'center',color:'#FCA5A5' }}>מדד שארפ</th>
+            <th style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.5)' }}>מדד פרופיט</th>
           </tr></thead>
           <tbody>
             {top12.map((f,i)=><Row key={f.name} fund={f} rank={i+1}/>)}
@@ -707,6 +712,7 @@ export default function App() {
   const [selFund, setSelFund] = useState(null);
   const [selCatId, setSelCatId] = useState(null);
   const [dataReady, setDataReady] = useState(false);
+  const [compSelected, setCompSelected] = useState([]); // קרנות להשוואה — state משותף
   const profitIndex = useProfitIndex();
 
   // טוען history.json אחד שמכיל הכל
@@ -749,8 +755,9 @@ export default function App() {
           <div style={{ padding:'10px 16px 9px',background:C.white,borderBottom:`1px solid ${C.border}` }}>
             <ProductSelector selected={product} onChange={k=>{setProduct(k);setSelFund(null);setSelCatId(null);}}/>
           </div>
-          <TrackBrowser product={product} onSelectFund={(f,cid)=>{setSelFund(f);setSelCatId(cid);}} selFund={selFund} order={order} funds={funds}/>
-          <ComparisonSearch allFunds={allFunds} product={product}/>
+          <TrackBrowser product={product} onSelectFund={(f,cid)=>{setSelFund(f);setSelCatId(cid);}} selFund={selFund} order={order} funds={funds}
+            onAddToComparison={f=>setCompSelected(prev=>prev.find(s=>s.name===f.name)||prev.length>=10?prev:[...prev,f])}/>
+          <ComparisonSearch allFunds={allFunds} product={product} selected={compSelected} setSelected={setCompSelected}/>
           <CategoryNav catIds={catIds} funds={funds}/>
           <div style={{ padding:'14px 14px 48px' }}>
             <div style={{ display:'grid',gridTemplateColumns:'minmax(0,1fr)',gap:14,maxWidth:panelOpen?'100%':'50%' }}>
