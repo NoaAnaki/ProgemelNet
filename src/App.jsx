@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-
 import { CATEGORIES, getFundsForCategory, classifyFund } from "./utils/classifier";
 import { PRODUCT_LABELS, getAllFunds, calcAverages, getSheets, getFundsBySheet, loadData, getHistory } from "./utils/dataLoader";
 import { computeSeries, computeAvgSeries, availableRanges, fmtPeriod } from "./utils/historyLoader";
