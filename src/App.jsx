@@ -458,7 +458,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
         <button onClick={()=>{setViewMode('exposure');setActiveSheet(null);setActiveCompany(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='exposure'?C.crimson:C.border}`,background:viewMode==='exposure'?C.crimson:C.white,color:viewMode==='exposure'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי חשיפות</button>
         <button onClick={()=>{setViewMode('company');setActiveSheet(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='company'?C.crimson:C.border}`,background:viewMode==='company'?C.crimson:C.white,color:viewMode==='company'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי חברה מנהלת</button>
       </div>
-      <div style={{ padding:'0 14px 14px',maxWidth:'50%' }}>
+      <div style={{ padding:'0 14px 14px',maxWidth:'60%' }}>
 
           {/* ── לפי קטגוריה: לחצנים + גלילה לטבלה ── */}
           {viewMode==='category'&&(<>
@@ -585,10 +585,10 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
   ];
 
   return (
-    <div style={{ borderBottom:`1px solid ${C.border}`,background:C.white,padding:'10px 16px 12px',maxWidth:'50%' }}>
+    <div style={{ borderBottom:`1px solid ${C.border}`,background:C.white,padding:'10px 16px 12px' }}>
       <div style={{ fontSize:13,fontWeight:700,color:C.dark,marginBottom:8,direction:'rtl' }}>🔍 חיפוש והשוואת מוצרים</div>
       <div style={{ padding:'0' }}>
-        <div style={{ position:'relative',marginBottom:10 }}>
+        <div style={{ position:'relative',marginBottom:10,maxWidth:'60%' }}>
           <input
             value={query}
             onChange={e=>{ setQuery(e.target.value); setShowDrop(true); }}
