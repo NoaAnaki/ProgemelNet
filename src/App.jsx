@@ -10,7 +10,7 @@ const C = {
   pos:'#16A34A', neg:'#DC2626', avgBg:'#F5F0EA',
 };
 
-const COMP_COLORS = ['#E63946','#2563EB','#16A34A','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D','#EA580C','#6366F1'];
+const COMP_COLORS=['#E63946','#2563EB','#16A34A','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D','#EA580C','#6366F1'];
 
 const BASE_ORDER = [
   'general','equities','bonds','govBonds','moneyMarket','israel','foreign',
@@ -441,8 +441,8 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
 
   return (
     <div style={{ borderBottom:`1px solid ${C.border}`,background:C.white }}>
-      <div style={{ display:'flex',alignItems:'center',gap:8,padding:'10px 16px',direction:'rtl',borderBottom:`1px solid ${C.border}` }}>
-        <span style={{ fontSize:13,fontWeight:700,color:C.dark,marginLeft:'auto' }}>📂 מסלולי השקעה</span>
+      <div style={{ display:'flex',alignItems:'center',gap:6,padding:'10px 16px',direction:'rtl' }}>
+        <span style={{ fontSize:13,fontWeight:700,color:C.dark,marginLeft:8 }}>📂 מסלולי השקעה</span>
         <button onClick={()=>{setViewMode('category');setActiveCompany(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='category'?C.crimson:C.border}`,background:viewMode==='category'?C.crimson:C.white,color:viewMode==='category'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי קטגוריה</button>
         <button onClick={()=>{setViewMode('exposure');setActiveSheet(null);setActiveCompany(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='exposure'?C.crimson:C.border}`,background:viewMode==='exposure'?C.crimson:C.white,color:viewMode==='exposure'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי חשיפות</button>
         <button onClick={()=>{setViewMode('company');setActiveSheet(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='company'?C.crimson:C.border}`,background:viewMode==='company'?C.crimson:C.white,color:viewMode==='company'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי חברה מנהלת</button>
@@ -603,7 +603,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
           <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:10 }}>
             {selected.map((f,i)=>{
               const clr=COMP_COLORS[i%COMP_COLORS.length];
-              return (
+              return(
                 <span key={f.name} style={{ display:'inline-flex',alignItems:'center',gap:4,background:clr+'18',border:'1.5px solid '+clr,borderRadius:12,padding:'3px 8px 3px 6px',fontSize:11,color:clr,fontWeight:600 }}>
                   <span style={{ width:8,height:8,borderRadius:'50%',background:clr,flexShrink:0,display:'inline-block' }}/>
                   {f.name.slice(0,28)}{f.name.length>28?'…':''}
@@ -626,7 +626,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
               <tbody>
                 {selected.map((f,i)=>{
                   const clr=COMP_COLORS[i%COMP_COLORS.length];
-                  return (
+                  return(
                     <tr key={f.name} onClick={()=>onSelectFund&&onSelectFund(f)} style={{ background:C.white,borderBottom:`1px solid ${C.border}`,cursor:'pointer' }} onMouseEnter={e=>e.currentTarget.style.background='#FDF8F6'} onMouseLeave={e=>e.currentTarget.style.background=C.white}>
                       <td style={{ padding:0,width:5,background:clr }}/>
                       <td style={{ ...TD,fontWeight:500,color:C.darkMid,whiteSpace:'nowrap',paddingRight:10 }}>{f.name}</td>
@@ -637,7 +637,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
                         return <td key={col.key} style={{ ...TD,textAlign:'center',color,fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{fmt(v)}</td>;
                       })}
                       <td style={{ ...TD,width:24,textAlign:'center',padding:'4px 4px' }}>
-                        <button onClick={e=>{e.stopPropagation();setSelected(p=>p.filter(s=>s.name!==f.name));}} title="הסר מהשוואה" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:12,width:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted }} onMouseEnter={e=>{e.currentTarget.style.borderColor='#E63946';e.currentTarget.style.color='#E63946';}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>×</button>
+                        <button onClick={e=>{e.stopPropagation();setSelected(p=>p.filter(s=>s.name!==f.name));}} title="הסר" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:12,width:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted }} onMouseEnter={e=>{e.currentTarget.style.borderColor='#E63946';e.currentTarget.style.color='#E63946';}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>×</button>
                       </td>
                     </tr>
                   );
