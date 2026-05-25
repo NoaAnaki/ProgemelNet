@@ -10,6 +10,8 @@ const C = {
   pos:'#16A34A', neg:'#DC2626', avgBg:'#F5F0EA',
 };
 
+const COMP_COLORS=['#E63946','#2563EB','#16A34A','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D','#EA580C','#6366F1'];
+
 const BASE_ORDER = [
   'general','equities','bonds','govBonds','moneyMarket','israel','foreign',
   'forex','equitiesIsrael','equitiesForeign','bondsIsrael','bondsForeign',
@@ -400,7 +402,6 @@ function HomePage({ onSelectProduct, onSelectFund, compSelected, setCompSelected
 }
 
 function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToComparison }) {
-  const [open, setOpen]         = useState(false);
   const [activeSheet, setActiveSheet] = useState(null);
   const [viewMode, setViewMode]  = useState('category'); // 'category' | 'exposure' | 'company'
   const [activeCompany, setActiveCompany] = useState(null);
@@ -440,18 +441,13 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
 
   return (
     <div style={{ borderBottom:`1px solid ${C.border}`,background:C.white }}>
-      <button onClick={()=>setOpen(o=>!o)} style={{ width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 16px',background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',direction:'rtl' }}>
-        <span style={{ fontSize:13,fontWeight:700,color:C.dark }}>📂 מסלולי השקעה</span>
-        <span style={{ fontSize:12,color:C.muted }}>{open?'▲':'▼'}</span>
-      </button>
-      {open&&(
-        <div style={{ padding:'0 14px 14px',maxWidth:'50%' }}>
-          {/* טאבים */}
-          <div style={{ display:'flex',gap:6,marginBottom:10,borderBottom:`1px solid ${C.border}`,paddingBottom:8 }}>
-            <button onClick={()=>{setViewMode('category');setActiveCompany(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='category'?C.crimson:C.border}`,background:viewMode==='category'?C.crimson:C.white,color:viewMode==='category'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי קטגוריה</button>
-            <button onClick={()=>{setViewMode('exposure');setActiveSheet(null);setActiveCompany(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='exposure'?C.crimson:C.border}`,background:viewMode==='exposure'?C.crimson:C.white,color:viewMode==='exposure'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי חשיפות</button>
-            <button onClick={()=>{setViewMode('company');setActiveSheet(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='company'?C.crimson:C.border}`,background:viewMode==='company'?C.crimson:C.white,color:viewMode==='company'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי חברה מנהלת</button>
-          </div>
+      <div style={{ display:'flex',alignItems:'center',gap:6,padding:'10px 16px',direction:'rtl' }}>
+        <span style={{ fontSize:13,fontWeight:700,color:C.dark,marginLeft:8 }}>📂 מסלולי השקעה</span>
+        <button onClick={()=>{setViewMode('category');setActiveCompany(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='category'?C.crimson:C.border}`,background:viewMode==='category'?C.crimson:C.white,color:viewMode==='category'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי קטגוריה</button>
+        <button onClick={()=>{setViewMode('exposure');setActiveSheet(null);setActiveCompany(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='exposure'?C.crimson:C.border}`,background:viewMode==='exposure'?C.crimson:C.white,color:viewMode==='exposure'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי חשיפות</button>
+        <button onClick={()=>{setViewMode('company');setActiveSheet(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='company'?C.crimson:C.border}`,background:viewMode==='company'?C.crimson:C.white,color:viewMode==='company'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי חברה מנהלת</button>
+      </div>
+      <div style={{ padding:'0 14px 14px',maxWidth:'60%' }}>
 
           {/* ── לפי קטגוריה: לחצנים + גלילה לטבלה ── */}
           {viewMode==='category'&&(<>
@@ -513,68 +509,18 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
               ))}
             </div>
           </>)}
-          {((viewMode==='company'&&activeCompany&&companyFunds.length>0))&&(
-            <div style={{ overflowX:'auto',border:`1px solid ${C.border}`,borderRadius:8 }}>
-              <table style={{ width:'100%',borderCollapse:'collapse',tableLayout:'auto' }}>
-                <thead><tr style={{ background:C.darkMid }}>
-                  <th style={{ ...TH,width:30,padding:'4px' }}></th>
-                  <th style={{ ...TH,textAlign:'right',color:'rgba(255,255,255,0.8)',paddingRight:10 }}>שם המוצר</th>
-                  <TrackSortTh label="חודש"      colKey="ret_month"/>
-                  <TrackSortTh label="YTD"        colKey="ret_ytd"/>
-                  <TrackSortTh label="שנה"        colKey="ret_1y"/>
-                  <TrackSortTh label="3 שנים"     colKey="ret_3y"/>
-                  <TrackSortTh label="5 שנים"     colKey="ret_5y"/>
-                  <TrackSortTh label="% מניות"    colKey="stocks"   color="#93C5FD"/>
-                  <TrackSortTh label="% חו&quot;ל" colKey="foreign"  color="#C4B5FD"/>
-                  <TrackSortTh label="% מט&quot;ח" colKey="forex"    color="#6EE7B7"/>
-                  <TrackSortTh label="% לא סחיר"  colKey="illiquid" color="#D1D5DB"/>
-                  <TrackSortTh label="שארפ"       colKey="sharpe"   color="#FCA5A5"/>
-                </tr></thead>
-                <tbody>
-                  {displayFunds.map(f=>{ const isSel=selFund?.name===f.name; const cid = order ? classifyFund(f).find(c=>order.includes(c)&&funds&&getFundsForCategory(funds,c).length>0) ?? null : null; return <tr key={f.name} style={{ background:isSel?'#FFF0F3':C.white,borderBottom:`1px solid ${C.border}` }} onMouseEnter={e=>{if(!isSel)e.currentTarget.style.background='#FDF8F6';}} onMouseLeave={e=>{if(!isSel)e.currentTarget.style.background=C.white;}}>
-                    <td style={{ ...TD,width:30,padding:'4px',textAlign:'center' }}>
-                      <button
-                        title="הוסף להשוואת מסלולי השקעה"
-                        onClick={e=>{e.stopPropagation();onAddToComparison&&onAddToComparison(f);}}
-                        style={{ background:'none',border:`1.5px solid ${C.border}`,borderRadius:5,cursor:'pointer',fontSize:14,width:22,height:22,display:'flex',alignItems:'center',justifyContent:'center',color:C.muted,transition:'all 0.1s' }}
-                        onMouseEnter={e=>{e.currentTarget.style.background=C.crimson;e.currentTarget.style.color='white';e.currentTarget.style.borderColor=C.crimson;}}
-                        onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color=C.muted;e.currentTarget.style.borderColor=C.border;}}>
-                        +
-                      </button>
-                    </td>
-                    <td style={{ ...TD,color:isSel?C.crimson:C.darkMid,fontWeight:500,whiteSpace:'nowrap',paddingRight:10,cursor:'pointer' }} onClick={()=>onSelectFund(f,cid)}>{f.name}</td>
-                    <td style={{ ...TD,textAlign:'center',color:numColor(f.ret_month),fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{pctFmt(f.ret_month)}</td>
-                    <td style={{ ...TD,textAlign:'center',color:numColor(f.ret_ytd),fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{pctFmt(f.ret_ytd)}</td>
-                    <td style={{ ...TD,textAlign:'center',color:numColor(f.ret_1y),fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{pctFmt(f.ret_1y)}</td>
-                    <td style={{ ...TD,textAlign:'center',color:numColor(f.ret_3y),fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{pctFmt(f.ret_3y)}</td>
-                    <td style={{ ...TD,textAlign:'center',color:numColor(f.ret_5y),fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{pctFmt(f.ret_5y)}</td>
-                    <td style={{ ...TD,textAlign:'center',color:'#2563EB',fontWeight:600 }}>{f.stocks!=null?f.stocks.toFixed(1)+'%':'—'}</td>
-                    <td style={{ ...TD,textAlign:'center',color:'#7C3AED',fontWeight:600 }}>{f.foreign!=null?f.foreign.toFixed(1)+'%':'—'}</td>
-                    <td style={{ ...TD,textAlign:'center',color:'#059669',fontWeight:600 }}>{f.forex!=null?f.forex.toFixed(1)+'%':'—'}</td>
-                    <td style={{ ...TD,textAlign:'center',color:'#9CA3AF',fontWeight:600 }}>{f.illiquid!=null?f.illiquid.toFixed(1)+'%':'—'}</td>
-                    <td style={{ ...TD,textAlign:'center',color:C.dark,fontWeight:600 }}>{f.sharpe!=null?f.sharpe.toFixed(2):'—'}</td>
-                  </tr>; })}
-                  <tr style={{ background:C.avgBg,borderTop:`2px solid ${C.border}` }}>
-                    <td style={{ ...TD,width:30 }}></td>
-                    <td style={{ ...TD,fontWeight:700,color:C.dark,paddingRight:10 }}>⌀ ממוצע</td>
-                    <td style={{ ...TD,textAlign:'center',color:numColor(avg.ret_month),fontWeight:700 }}>{pctFmt(avg.ret_month)}</td>
-                    <td style={{ ...TD,textAlign:'center',color:numColor(avg.ret_ytd),fontWeight:700 }}>{pctFmt(avg.ret_ytd)}</td>
-                    <td style={{ ...TD,textAlign:'center',color:numColor(avg.ret_1y),fontWeight:700 }}>{pctFmt(avg.ret_1y)}</td>
-                    <td style={{ ...TD,textAlign:'center',color:numColor(avg.ret_3y),fontWeight:700 }}>{pctFmt(avg.ret_3y)}</td>
-                    <td style={{ ...TD,textAlign:'center',color:numColor(avg.ret_5y),fontWeight:700 }}>{pctFmt(avg.ret_5y)}</td>
-                    <td style={{ ...TD,textAlign:'center',color:'#2563EB',fontWeight:700 }}>{avg.stocks!=null?avg.stocks.toFixed(1)+'%':'—'}</td>
-                    <td style={{ ...TD,textAlign:'center',color:'#7C3AED',fontWeight:700 }}>{avg.foreign!=null?avg.foreign.toFixed(1)+'%':'—'}</td>
-                    <td style={{ ...TD,textAlign:'center',color:'#059669',fontWeight:700 }}>{avg.forex!=null?avg.forex.toFixed(1)+'%':'—'}</td>
-                    <td style={{ ...TD,textAlign:'center',color:'#9CA3AF',fontWeight:700 }}>{avg.illiquid!=null?avg.illiquid.toFixed(1)+'%':'—'}</td>
-                    <td style={{ ...TD,textAlign:'center',color:C.dark,fontWeight:700 }}>{avg.sharpe!=null?avg.sharpe.toFixed(2):'—'}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+          {(viewMode==='company'&&activeCompany&&companyFunds.length>0)&&(
+            <FundTable catId={activeCompany} catLabel={activeCompany}
+              funds={companyFunds}
+              onSelect={(f)=>{
+                const cats=order?classifyFund(f).filter(c=>order.includes(c)&&funds&&getFundsForCategory(funds,c).length>0):[];
+                onSelectFund(f,cats.length>0?cats[0]:null);
+              }}
+              selFund={selFund} selCatId={null}
+              onAddToComparison={onAddToComparison}/>
           )}
         </div>
-      )}
-    </div>
+      </div>
   );
 }
 
@@ -628,10 +574,10 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
   ];
 
   return (
-    <div style={{ borderBottom:`1px solid ${C.border}`,background:C.white,padding:'10px 16px 12px',maxWidth:'50%' }}>
+    <div style={{ borderBottom:`1px solid ${C.border}`,background:C.white,padding:'10px 16px 12px' }}>
       <div style={{ fontSize:13,fontWeight:700,color:C.dark,marginBottom:8,direction:'rtl' }}>🔍 חיפוש והשוואת מוצרים</div>
       <div style={{ padding:'0' }}>
-        <div style={{ position:'relative',marginBottom:10 }}>
+        <div style={{ position:'relative',marginBottom:10,maxWidth:'60%' }}>
           <input
             value={query}
             onChange={e=>{ setQuery(e.target.value); setShowDrop(true); }}
@@ -655,12 +601,16 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
         </div>
         {selected.length>0&&(
           <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:10 }}>
-            {selected.map(f=>(
-              <span key={f.name} style={{ display:'inline-flex',alignItems:'center',gap:4,background:C.crimsonPale,border:`1px solid #F8C8D0`,borderRadius:12,padding:'3px 8px 3px 4px',fontSize:11,color:C.crimson,fontWeight:600 }}>
-                {f.name.slice(0,28)}{f.name.length>28?'…':''}
-                <button onClick={()=>setSelected(p=>p.filter(s=>s.name!==f.name))} style={{ background:'none',border:'none',cursor:'pointer',color:C.crimson,fontSize:13,padding:0,lineHeight:1 }}>×</button>
-              </span>
-            ))}
+            {selected.map((f,i)=>{
+              const clr=COMP_COLORS[i%COMP_COLORS.length];
+              return(
+                <span key={f.name} style={{ display:'inline-flex',alignItems:'center',gap:4,background:clr+'18',border:'1.5px solid '+clr,borderRadius:12,padding:'3px 8px 3px 6px',fontSize:11,color:clr,fontWeight:600 }}>
+                  <span style={{ width:8,height:8,borderRadius:'50%',background:clr,flexShrink:0,display:'inline-block' }}/>
+                  {f.name.slice(0,28)}{f.name.length>28?'…':''}
+                  <button onClick={()=>setSelected(p=>p.filter(s=>s.name!==f.name))} style={{ background:'none',border:'none',cursor:'pointer',color:clr,fontSize:13,padding:0,lineHeight:1,marginRight:1 }}>×</button>
+                </span>
+              );
+            })}
             <button onClick={()=>setSelected([])} style={{ background:'none',border:`1px solid ${C.border}`,borderRadius:12,padding:'3px 8px',fontSize:10.5,color:C.muted,cursor:'pointer',fontFamily:'inherit' }}>נקה הכל</button>
           </div>
         )}
@@ -668,21 +618,30 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
           <div style={{ overflowX:'auto',border:`1px solid ${C.border}`,borderRadius:8 }}>
             <table style={{ width:'100%',borderCollapse:'collapse',tableLayout:'auto' }}>
               <thead><tr style={{ background:C.darkMid }}>
+                <th style={{ ...TH,width:5,padding:0 }}></th>
                 <th style={{ ...TH,textAlign:'right',color:'rgba(255,255,255,0.8)',paddingRight:10 }}>שם המוצר</th>
                 {COMP_COLS.map(c=><th key={c.key} style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.7)' }}>{c.label}</th>)}
+                <th style={{ ...TH,width:24 }}></th>
               </tr></thead>
               <tbody>
-                {selected.map(f=>(
-                  <tr key={f.name} onClick={()=>onSelectFund&&onSelectFund(f)} style={{ background:C.white,borderBottom:`1px solid ${C.border}`,cursor:'pointer' }} onMouseEnter={e=>e.currentTarget.style.background='#FDF8F6'} onMouseLeave={e=>e.currentTarget.style.background=C.white}>
-                    <td style={{ ...TD,fontWeight:500,color:C.darkMid,whiteSpace:'nowrap',paddingRight:10 }}>{f.name}</td>
-                    {COMP_COLS.map(col=>{
-                      const v=f[col.key];
-                      const fmt=col.fmt||pctFmt;
-                      const clr=col.color||(typeof v==='number'?numColor(v):C.dark);
-                      return <td key={col.key} style={{ ...TD,textAlign:'center',color:clr,fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{fmt(v)}</td>;
-                    })}
-                  </tr>
-                ))}
+                {selected.map((f,i)=>{
+                  const clr=COMP_COLORS[i%COMP_COLORS.length];
+                  return(
+                    <tr key={f.name} onClick={()=>onSelectFund&&onSelectFund(f)} style={{ background:C.white,borderBottom:`1px solid ${C.border}`,cursor:'pointer' }} onMouseEnter={e=>e.currentTarget.style.background='#FDF8F6'} onMouseLeave={e=>e.currentTarget.style.background=C.white}>
+                      <td style={{ padding:0,width:5,background:clr }}/>
+                      <td style={{ ...TD,fontWeight:500,color:C.darkMid,whiteSpace:'nowrap',paddingRight:10 }}>{f.name}</td>
+                      {COMP_COLS.map(col=>{
+                        const v=f[col.key];
+                        const fmt=col.fmt||pctFmt;
+                        const color=col.color||(typeof v==='number'?numColor(v):C.dark);
+                        return <td key={col.key} style={{ ...TD,textAlign:'center',color,fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{fmt(v)}</td>;
+                      })}
+                      <td style={{ ...TD,width:24,textAlign:'center',padding:'4px 4px' }}>
+                        <button onClick={e=>{e.stopPropagation();setSelected(p=>p.filter(s=>s.name!==f.name));}} title="הסר" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:12,width:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted }} onMouseEnter={e=>{e.currentTarget.style.borderColor='#E63946';e.currentTarget.style.color='#E63946';}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>×</button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -864,7 +823,7 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [product, setProduct] = useState(null); // null = דף ראשי
+  const [product, setProduct] = useState('השתלמות');
   const [selFund, setSelFund] = useState(null);
   const [selCatId, setSelCatId] = useState(null);
   const [dataReady, setDataReady] = useState(false);
