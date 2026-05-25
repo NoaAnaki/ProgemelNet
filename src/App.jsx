@@ -254,6 +254,17 @@ function HistoricalChart({ fund, catFundIds, histData }) {
               ממוצע קטגוריה
             </span>
           )}
+          {compareSeries.map((c,ci)=>{
+            const cf=allFunds.find(f=>f.fund_id===c.id);
+            const stroke=CC[ci+2]??'#888';
+            return c.series.length>0&&(
+              <span key={c.id} style={{ display:'flex',alignItems:'center',gap:4,fontSize:10.5,color:stroke,fontWeight:600 }}>
+                <svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke={stroke} strokeWidth="1.5"/></svg>
+                {(cf?.name||c.id).slice(0,18)}…
+                <button onClick={()=>setCompare(p=>p.filter(id=>id!==c.id))} style={{ background:'none',border:'none',cursor:'pointer',color:stroke,fontSize:12,padding:0,lineHeight:1,marginRight:1,fontWeight:700 }}>×</button>
+              </span>
+            );
+          })}
         </div>
 
         <div style={{ padding:'0 14px 10px',borderTop:`1px solid ${C.border}` }}>
@@ -447,7 +458,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
         <button onClick={()=>{setViewMode('exposure');setActiveSheet(null);setActiveCompany(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='exposure'?C.crimson:C.border}`,background:viewMode==='exposure'?C.crimson:C.white,color:viewMode==='exposure'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי חשיפות</button>
         <button onClick={()=>{setViewMode('company');setActiveSheet(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='company'?C.crimson:C.border}`,background:viewMode==='company'?C.crimson:C.white,color:viewMode==='company'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי חברה מנהלת</button>
       </div>
-      <div style={{ padding:'0 14px 14px',maxWidth:'60%' }}>
+      <div style={{ padding:'0 14px 14px',maxWidth:'50%' }}>
 
           {/* ── לפי קטגוריה: לחצנים + גלילה לטבלה ── */}
           {viewMode==='category'&&(<>
@@ -465,7 +476,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
                 <div key={sh} id={`cat-table-${product}-${sh}`}>
                   <FundTable catId={sh} catLabel={sh}
                     funds={getFundsBySheet(product,sh)}
-                    onSelect={(f)=>{onSelectFund(f,null);}}
+                    onSelect={(f)=>{onSelectFund(f,sh);}}
                     selFund={selFund} selCatId={null}
                     onAddToComparison={onAddToComparison}/>
                 </div>
@@ -574,10 +585,10 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
   ];
 
   return (
-    <div style={{ borderBottom:`1px solid ${C.border}`,background:C.white,padding:'10px 16px 12px' }}>
+    <div style={{ borderBottom:`1px solid ${C.border}`,background:C.white,padding:'10px 16px 12px',maxWidth:'50%' }}>
       <div style={{ fontSize:13,fontWeight:700,color:C.dark,marginBottom:8,direction:'rtl' }}>🔍 חיפוש והשוואת מוצרים</div>
       <div style={{ padding:'0' }}>
-        <div style={{ position:'relative',marginBottom:10,maxWidth:'60%' }}>
+        <div style={{ position:'relative',marginBottom:10 }}>
           <input
             value={query}
             onChange={e=>{ setQuery(e.target.value); setShowDrop(true); }}
@@ -848,8 +859,17 @@ export default function App() {
   const order = (product||'השתלמות')==='גמל'?GEMEL_ORDER:BASE_ORDER;
   const catIds = useMemo(()=>order.filter(id=>getFundsForCategory(funds,id).length>0),[funds,order]);
 
-  const catAvg = useMemo(()=>selCatId?calcAverages(getFundsForCategory(funds,selCatId)):null,[selCatId,funds]);
-  const catFundIds = useMemo(()=>{ if(!selCatId) return []; return getFundsForCategory(funds,selCatId).map(f=>f.fund_id).filter(Boolean); },[selCatId,funds]);
+  const catFunds = useMemo(()=>{
+    if(!selCatId) return [];
+    const byCat = getFundsForCategory(funds,selCatId);
+    if(byCat.length>0) return byCat;
+    // sheet name (לפי קטגוריה) או company name (לפי חברה)
+    const bySheet = getSheets(product).includes(selCatId)?getFundsBySheet(product,selCatId):[];
+    if(bySheet.length>0) return bySheet;
+    return funds.filter(f=>f.company===selCatId||f.managingCompany===selCatId);
+  },[selCatId,funds,product]);
+  const catAvg = useMemo(()=>catFunds.length>0?calcAverages(catFunds):null,[catFunds]);
+  const catFundIds = useMemo(()=>catFunds.map(f=>f.fund_id).filter(Boolean),[catFunds]);
 
   const panelOpen = selFund!==null;
   const PANEL_W = '30%';
