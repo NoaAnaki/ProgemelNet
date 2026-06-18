@@ -117,7 +117,7 @@ function ChartModal({ fund, mainSeries, avgSeries, catLabel, ranges, range, setR
           <div style={{ display:'flex',gap:16,padding:'6px 0 4px',alignItems:'center' }}>
             <span style={{ display:'flex',alignItems:'center',gap:5,fontSize:12,color:C.dark }}>
               <svg width="22" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke={C.crimson} strokeWidth="3"/></svg>
-              {fund.name.slice(0,35)}{fund.name.length>35?'…':''}
+              {fund.name}
             </span>
             {avgSeries.length>0 && (
               <span style={{ display:'flex',alignItems:'center',gap:5,fontSize:12,color:'#2563EB',fontWeight:600 }}>
@@ -246,9 +246,10 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData }) {
           {ranges.map(r=>(
             <button key={r.key} onClick={()=>setRange(r.key)} style={{ padding:'3px 10px',borderRadius:12,border:`1px solid ${range===r.key?C.crimson:C.border}`,background:range===r.key?C.crimson:C.white,color:range===r.key?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>{r.label}</button>
           ))}
-          <button onClick={()=>setShowModal(true)} style={{ marginRight:'auto',background:'none',border:`1px solid ${C.border}`,borderRadius:6,padding:'3px 9px',fontSize:11,color:C.muted,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4 }}>
-            🔍 הגדל
-          </button>
+          <div style={{ marginRight:'auto',display:'flex',gap:5 }}>
+            <button onClick={()=>setShowModal(true)} style={{ background:'none',border:`1px solid ${C.border}`,borderRadius:6,padding:'3px 9px',fontSize:11,color:C.muted,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4 }}>🔍 הגדל</button>
+            <button onClick={()=>window.print()} style={{ background:'none',border:`1px solid ${C.border}`,borderRadius:6,padding:'3px 9px',fontSize:11,color:C.muted,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4 }}>🖨️ הדפס</button>
+          </div>
         </div>
 
         <div style={{ padding:'8px 14px 4px',position:'relative' }}>
@@ -280,7 +281,7 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData }) {
         <div style={{ padding:'4px 14px 8px',display:'flex',gap:10,flexWrap:'wrap',alignItems:'center' }}>
           <span style={{ display:'flex',alignItems:'center',gap:4,fontSize:10.5,color:C.dark }}>
             <svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke={C.crimson} strokeWidth="2.5"/></svg>
-            {fund.name.slice(0,22)}{fund.name.length>22?'…':''}
+            {fund.name}
           </span>
           {avgSeries.length>0&&(
             <span style={{ display:'flex',alignItems:'center',gap:4,fontSize:10.5,color:'#2563EB',fontWeight:600 }}>
@@ -294,7 +295,7 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData }) {
             return c.series.length>0&&(
               <span key={c.id} style={{ display:'flex',alignItems:'center',gap:4,fontSize:10.5,color:stroke,fontWeight:600 }}>
                 <svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke={stroke} strokeWidth="1.5"/></svg>
-                {(cf?.name||c.id).slice(0,18)}…
+                {cf?.name||c.id}
                 <button onClick={()=>setCompare(p=>p.filter(id=>id!==c.id))} style={{ background:'none',border:'none',cursor:'pointer',color:stroke,fontSize:12,padding:0,lineHeight:1,marginRight:1,fontWeight:700 }}>×</button>
               </span>
             );
@@ -745,6 +746,7 @@ const MIX_PARAMS = [
 
 function MixChart({ fund, catFundIds, catLabel, histData, allFunds }) {
   const [param, setParam]           = useState('stocks');
+  const [showMixModal, setShowMixModal] = useState(false);
   const [extraIds, setExtraIds]     = useState([]);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQ, setSearchQ]       = useState('');
@@ -830,6 +832,38 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds }) {
 
   return (
     <div style={{ direction:'rtl' }}>
+      {showMixModal&&(
+        <div onClick={()=>setShowMixModal(false)} style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.65)',zIndex:10000,display:'flex',alignItems:'center',justifyContent:'center' }}>
+          <div onClick={e=>e.stopPropagation()} style={{ background:C.white,borderRadius:14,width:'min(94vw,600px)',boxShadow:'0 24px 64px rgba(0,0,0,0.4)',overflow:'hidden',direction:'rtl' }}>
+            <div style={{ background:C.crimson,padding:'11px 16px',display:'flex',alignItems:'center',justifyContent:'space-between' }}>
+              <span style={{ color:C.white,fontSize:13,fontWeight:700 }}>גרף תמהיל — {MIX_PARAMS.find(p=>p.key===param)?.label}</span>
+              <button onClick={()=>setShowMixModal(false)} style={{ background:'rgba(255,255,255,0.2)',border:'none',color:C.white,width:28,height:28,borderRadius:'50%',cursor:'pointer',fontSize:18,display:'flex',alignItems:'center',justifyContent:'center' }}>×</button>
+            </div>
+            <div style={{ padding:'16px',display:'flex',justifyContent:'center' }}>
+              <svg width={svgW*1.5} height={(chartH+PT+PB)*1.5} viewBox={`0 0 ${svgW} ${chartH+PT+PB}`} style={{ maxWidth:'100%' }}>
+                <line x1={0} y1={PT+chartH} x2={svgW} y2={PT+chartH} stroke={C.border} strokeWidth="1"/>
+                {allEntries.map((entry,ei)=>{
+                  const val=entry.vals[param];
+                  const bH=val!=null?Math.max(3,(val/maxVal)*chartH):0;
+                  const x=gap+ei*(barW+gap), y=PT+chartH-bH;
+                  return <g key={entry.id}>
+                    <rect x={x} y={y} width={barW} height={bH} rx="3" fill={entry.color} opacity={entry.isAvg?0.55:0.85}/>
+                    {val!=null&&<text x={x+barW/2} y={y-3} textAnchor="middle" fontSize="8.5" fontWeight="700" fill={entry.color}>{val.toFixed(1)}%</text>}
+                  </g>;
+                })}
+              </svg>
+            </div>
+            <div style={{ padding:'8px 16px 14px',display:'flex',gap:10,flexWrap:'wrap',borderTop:`1px solid ${C.border}` }}>
+              {allEntries.map(e=>(
+                <span key={e.id} style={{ display:'flex',alignItems:'center',gap:4,fontSize:11,color:e.color,fontWeight:600 }}>
+                  <span style={{ width:10,height:10,borderRadius:2,background:e.color,display:'inline-block' }}/>
+                  {e.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       {/* בחירת פרמטר */}
       <div style={{ padding:'10px 14px 6px',borderBottom:`1px solid ${C.border}`,display:'flex',gap:6,flexWrap:'wrap',alignItems:'center' }}>
         <span style={{ fontSize:11,color:C.muted,fontWeight:600,marginLeft:4 }}>רכיב:</span>
@@ -839,6 +873,10 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds }) {
             {p.label}
           </button>
         ))}
+        <div style={{ marginRight:'auto',display:'flex',gap:5 }}>
+          <button onClick={()=>setShowMixModal(true)} style={{ background:'none',border:`1px solid ${C.border}`,borderRadius:6,padding:'3px 9px',fontSize:11,color:C.muted,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4 }}>🔍 הגדל</button>
+          <button onClick={()=>window.print()} style={{ background:'none',border:`1px solid ${C.border}`,borderRadius:6,padding:'3px 9px',fontSize:11,color:C.muted,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4 }}>🖨️ הדפס</button>
+        </div>
       </div>
 
       {/* גרף bars אנכי */}
