@@ -837,7 +837,7 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds }) {
 
       {/* גרף bars אנכי */}
       <div style={{ padding:'10px 14px 6px' }}>
-        <svg width="100%" viewBox={`0 0 ${svgW} ${chartH+PT+PB}`} style={{ display:'block' }}>
+        <svg width={svgW} height={chartH+PT+PB} viewBox={`0 0 ${svgW} ${chartH+PT+PB}`} style={{ display:'block', maxWidth:'100%' }}>
           {/* קו בסיס */}
           <line x1={0} y1={PT+chartH} x2={svgW} y2={PT+chartH} stroke={C.border} strokeWidth="1"/>
           {allEntries.map((entry, ei)=>{
