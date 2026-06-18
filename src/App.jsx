@@ -29,6 +29,10 @@ const pctFmtRaw = v => v == null ? '—' : `${v.toFixed(1)}%`;
 const numColor  = v => v == null ? C.dark : v >= 0 ? C.pos : C.neg;
 const calcBonds = fund => Math.max(0, Math.round((100-(fund.stocks??0)-(fund.illiquid??0))*10)/10);
 
+// שם חודש גלובלי — מתמלא פעם אחת כשהנתונים נטענים
+let _latestMonthName = 'חודש';
+function getLatestMonthName() { return _latestMonthName; }
+
 const SORT_COLS = [
   { key:'ret_month', label:getLatestMonthName(), tip:'תשואה בחודש האחרון' },
   { key:'ret_ytd',   label:'מתחילת שנה', tip:'תשואה מצטברת מתחילת השנה' },
@@ -336,10 +340,6 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData }) {
 
 // ─── Updated Label ────────────────────────────────────────────────────────────
 const HE_MONTHS = ['','ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
-
-// שם חודש גלובלי — מתמלא פעם אחת כשהנתונים נטענים
-let _latestMonthName = 'חודש';
-function getLatestMonthName() { return _latestMonthName; }
 
 function UpdatedLabel() {
   const [label, setLabel] = useState('...');
