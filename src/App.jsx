@@ -818,8 +818,8 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds }) {
   const maxVal = useMemo(()=>Math.max(1,...allEntries.map(e=>e.vals[param]??0)),[allEntries, param]);
 
   // גרף אנכי — רוחב בר קבוע, גובה לפי ערך
-  const barW = 36, gap = 12;
-  const chartH = 120, PT = 20, PB = 10;
+  const barW = 28, gap = 8;
+  const chartH = 80, PT = 16, PB = 6;
   const svgW = allEntries.length * (barW + gap) + gap;
 
   return (
@@ -866,7 +866,7 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds }) {
         {allEntries.map(e=>(
           <span key={e.id} style={{ display:'flex',alignItems:'center',gap:4,fontSize:10.5,color:e.color,fontWeight:e.isAvg?700:600 }}>
             <span style={{ width:10,height:10,borderRadius:2,background:e.color,display:'inline-block',opacity:e.isAvg?0.6:0.85 }}/>
-            {e.name.slice(0,24)}{e.name.length>24?'…':''}
+            {e.name}
             {e.id!=='main'&&e.id!=='avg'&&(
               <button onClick={()=>setExtraIds(p=>p.filter(id=>id!==e.id))}
                 style={{ background:'none',border:'none',cursor:'pointer',color:e.color,fontSize:13,padding:0,fontWeight:700,lineHeight:1 }}>×</button>
