@@ -738,6 +738,7 @@ const MIX_PARAMS = [
 ];
 
 function MixChart({ fund, catFundIds, catLabel, histData, allFunds }) {
+  const [param, setParam]           = useState('stocks');
   const [extraIds, setExtraIds]     = useState([]);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQ, setSearchQ]       = useState('');
@@ -813,53 +814,54 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds }) {
     return pool.filter(f=>words.every(w=>f.name.includes(w))).slice(0,10);
   },[searchQ, searchFunds, fund.fund_id, extraIds]);
 
-  // חישוב מקסימום לכל פרמטר (לגרף)
-  const maxByParam = useMemo(()=>Object.fromEntries(
-    MIX_PARAMS.map(p=>[p.key, Math.max(1, ...allEntries.map(e=>e.vals[p.key]??0))])
-  ),[allEntries]);
+  // מקסימום לפרמטר הנוכחי
+  const maxVal = useMemo(()=>Math.max(1,...allEntries.map(e=>e.vals[param]??0)),[allEntries, param]);
 
-  const W = 400, barH = 18, gap = 6, groupGap = 14;
-  const labelW = 70, valW = 36, barMaxW = W - labelW - valW - 10;
+  // גובה SVG דינמי לפי מספר קרנות
+  const barH = 22, gap = 8;
+  const labelW = 130, barMaxW = 200, valW = 40;
+  const W = labelW + barMaxW + valW + 10;
+  const svgH = allEntries.length * (barH + gap) + 10;
+
+  const currentParam = MIX_PARAMS.find(p=>p.key===param);
 
   return (
     <div style={{ direction:'rtl' }}>
-      {/* גרף bars — כל פרמטר = קבוצה */}
-      <div style={{ padding:'10px 14px 6px',overflowX:'auto' }}>
-        <svg width="100%" viewBox={`0 0 ${W} ${MIX_PARAMS.length*(allEntries.length*(barH+gap)+groupGap)+10}`}
-          style={{ display:'block' }}>
-          {MIX_PARAMS.map((p, pi)=>{
-            const groupY = pi * (allEntries.length*(barH+gap) + groupGap) + 8;
-            const maxV = maxByParam[p.key] || 1;
+      {/* בחירת פרמטר */}
+      <div style={{ padding:'10px 14px 6px',borderBottom:`1px solid ${C.border}`,display:'flex',gap:6,flexWrap:'wrap',alignItems:'center' }}>
+        <span style={{ fontSize:11,color:C.muted,fontWeight:600,marginLeft:4 }}>רכיב:</span>
+        {MIX_PARAMS.map(p=>(
+          <button key={p.key} onClick={()=>setParam(p.key)}
+            style={{ padding:'3px 10px',borderRadius:12,border:`1.5px solid ${param===p.key?p.color:C.border}`,background:param===p.key?p.color:C.white,color:param===p.key?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* גרף bars אופקי — פרמטר נבחר */}
+      <div style={{ padding:'10px 14px 6px' }}>
+        <svg width="100%" viewBox={`0 0 ${W} ${svgH}`} style={{ display:'block' }}>
+          {allEntries.map((entry, ei)=>{
+            const val = entry.vals[param];
+            const barW = val!=null ? Math.max(2,(val/maxVal)*barMaxW) : 0;
+            const y = ei*(barH+gap) + 4;
             return (
-              <g key={p.key}>
-                {/* כותרת פרמטר */}
-                <text x={W-2} y={groupY-2} textAnchor="end" fontSize="9" fontWeight="700" fill={p.color}>{p.label}</text>
-                {allEntries.map((entry, ei)=>{
-                  const val = entry.vals[p.key];
-                  const barW = val!=null ? (val/maxV)*barMaxW : 0;
-                  const y = groupY + ei*(barH+gap);
-                  return (
-                    <g key={entry.id}>
-                      {/* שם קרן */}
-                      <text x={labelW-4} y={y+barH*0.72} textAnchor="end" fontSize="8"
-                        fill={entry.isAvg?'#2563EB':C.mid} fontWeight={entry.isAvg?700:400}
-                        fontStyle={entry.isAvg?'italic':'normal'}>
-                        {entry.name.slice(0,18)}{entry.name.length>18?'…':''}
-                      </text>
-                      {/* בר */}
-                      <rect x={labelW} y={y} width={Math.max(barW,0)} height={barH} rx="3"
-                        fill={entry.color} opacity={entry.isAvg?0.6:0.85}/>
-                      {/* ערך */}
-                      {val!=null&&(
-                        <text x={labelW+barW+4} y={y+barH*0.72} fontSize="8.5" fontWeight="600"
-                          fill={entry.color}>{val.toFixed(1)}%</text>
-                      )}
-                      {val==null&&(
-                        <text x={labelW+4} y={y+barH*0.72} fontSize="8" fill={C.muted}>—</text>
-                      )}
-                    </g>
-                  );
-                })}
+              <g key={entry.id}>
+                {/* שם קרן — שמאל לבר */}
+                <text x={labelW-6} y={y+barH*0.68} textAnchor="end" fontSize="9"
+                  fill={entry.isAvg?'#2563EB':C.mid}
+                  fontWeight={entry.isAvg?700:400}
+                  fontStyle={entry.isAvg?'italic':'normal'}>
+                  {entry.name.slice(0,22)}{entry.name.length>22?'…':''}
+                </text>
+                {/* בר */}
+                <rect x={labelW} y={y+2} width={barW} height={barH-4} rx="3"
+                  fill={entry.color} opacity={entry.isAvg?0.55:0.85}/>
+                {/* ערך — ימין לבר */}
+                <text x={labelW+barW+5} y={y+barH*0.68} fontSize="9" fontWeight="700"
+                  fill={entry.color}>
+                  {val!=null ? val.toFixed(1)+'%' : '—'}
+                </text>
               </g>
             );
           })}
