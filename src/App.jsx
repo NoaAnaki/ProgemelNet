@@ -738,7 +738,6 @@ const MIX_PARAMS = [
 ];
 
 function MixChart({ fund, catFundIds, catLabel, histData, allFunds }) {
-  const [param, setParam]           = useState('stocks');
   const [extraIds, setExtraIds]     = useState([]);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQ, setSearchQ]       = useState('');
@@ -746,7 +745,9 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds }) {
   const [showDrop, setShowDrop]     = useState(false);
   const wrapRef = useRef(null);
 
-  // ברירת מחדל לבורר מוצר — זהה למוצר הקרן
+  const COLORS = ['#E63946','#16A34A','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D','#EA580C'];
+
+  // ברירת מחדל לבורר מוצר
   useEffect(()=>{
     if(!searchProduct && fund.fund_id) {
       const entry = Object.entries(PRODUCT_LABELS).find(([k])=>getAllFunds(k).some(f=>f.fund_id===fund.fund_id));
@@ -761,35 +762,43 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds }) {
     return ()=>document.removeEventListener('mousedown', h);
   },[]);
 
-  // בנה סדרת נתוני תמהיל לפי fund_id + param
-  const buildSeries = (fund_id) => {
-    const entries = histData[fund_id] ?? [];
-    return entries
-      .filter(e => e[param] != null)
-      .map(e => ({ period: e.period, val: e[param] }))
-      .sort((a,b)=>a.period.localeCompare(b.period));
-  };
+  // קרנות להשוואה: הקרן הנוכחית + הוספות
+  const extraFunds = useMemo(()=>extraIds.map(id=>allFunds.find(f=>f.fund_id===id)).filter(Boolean),[extraIds, allFunds]);
 
-  // ממוצע קטגוריה לפי param
-  const avgSeries = useMemo(()=>{
-    if(!catFundIds?.length) return [];
-    const byPeriod = {};
-    catFundIds.forEach(id => {
-      (histData[id]??[]).forEach(e => {
-        if(e[param]==null) return;
-        if(!byPeriod[e.period]) byPeriod[e.period] = [];
-        byPeriod[e.period].push(e[param]);
-      });
+  // ממוצע קטגוריה
+  const catAvgData = useMemo(()=>{
+    if(!catFundIds?.length) return {};
+    const result = {};
+    MIX_PARAMS.forEach(p=>{
+      const vals = catFundIds.map(id=>{
+        const last = (histData[id]??[]).slice(-1)[0];
+        return last?.[p.key] ?? null;
+      }).filter(v=>v!=null);
+      result[p.key] = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
     });
-    return Object.entries(byPeriod)
-      .map(([period,vals])=>({ period, val: vals.reduce((a,b)=>a+b,0)/vals.length }))
-      .sort((a,b)=>a.period.localeCompare(b.period));
-  },[catFundIds, histData, param]);
+    return result;
+  },[catFundIds, histData]);
 
-  const mainSeries = useMemo(()=>buildSeries(fund.fund_id),[fund.fund_id, histData, param]);
-  const extraSeries = useMemo(()=>extraIds.map(id=>({ id, series:buildSeries(id) })),[extraIds, histData, param]);
+  // כל הקרנות שמשווים: הנוכחית + extras + ממוצע קטגוריה
+  const allEntries = useMemo(()=>{
+    const getVal = (f, key) => {
+      // ערך מה-fund object ישירות (נוכחי)
+      return f[key] ?? null;
+    };
+    const rows = [
+      { id:'main', name:fund.name, color:COLORS[0], isAvg:false,
+        vals: Object.fromEntries(MIX_PARAMS.map(p=>[p.key, getVal(fund, p.key)])) },
+      ...extraFunds.map((f,i)=>({
+        id:f.fund_id, name:f.name, color:COLORS[(i+1)%COLORS.length], isAvg:false,
+        vals: Object.fromEntries(MIX_PARAMS.map(p=>[p.key, getVal(f, p.key)]))
+      })),
+      { id:'avg', name:`ממוצע קטגוריה '${catLabel||''}'`, color:'#2563EB', isAvg:true,
+        vals: catAvgData },
+    ];
+    return rows;
+  },[fund, extraFunds, catAvgData, catLabel]);
 
-  // חיפוש מוצרים להשוואה
+  // חיפוש
   const searchFunds = useMemo(()=>{
     if(!searchProduct) return [];
     const funds = getAllFunds(searchProduct);
@@ -804,112 +813,80 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds }) {
     return pool.filter(f=>words.every(w=>f.name.includes(w))).slice(0,10);
   },[searchQ, searchFunds, fund.fund_id, extraIds]);
 
-  // SVG ציור
-  const allSeries = [
-    { id:'main', series:mainSeries, color:MIX_PARAMS.find(p=>p.key===param)?.color??'#E63946', name:fund.name, dash:false },
-    { id:'avg',  series:avgSeries,  color:'#2563EB', name:`ממוצע '${catLabel||'קטגוריה'}'`, dash:true },
-    ...extraSeries.map((e,i)=>({ id:e.id, series:e.series, color:['#16A34A','#D97706','#7C3AED','#0891B2','#DB2777'][i%5], name:allFunds.find(f=>f.fund_id===e.id)?.name??e.id, dash:false })),
-  ].filter(s=>s.series.length>1);
+  // חישוב מקסימום לכל פרמטר (לגרף)
+  const maxByParam = useMemo(()=>Object.fromEntries(
+    MIX_PARAMS.map(p=>[p.key, Math.max(1, ...allEntries.map(e=>e.vals[p.key]??0))])
+  ),[allEntries]);
 
-  const W=440, H=140, PL=36, PR=10, PT=8, PB=24;
-  const chartW=W-PL-PR, chartH=H-PT-PB;
-
-  const allVals = allSeries.flatMap(s=>s.series.map(p=>p.val));
-  const minV = allVals.length ? Math.floor(Math.min(...allVals)) : 0;
-  const maxV = allVals.length ? Math.ceil(Math.max(...allVals)) : 100;
-  const rangeV = maxV - minV || 1;
-
-  // ציר X — periods מהסדרה הראשית
-  const xPeriods = mainSeries.map(p=>p.period);
-  const xStep = xPeriods.length > 1 ? chartW / (xPeriods.length-1) : chartW;
-
-  const toX = i => PL + i * xStep;
-  const toY = v => PT + chartH - ((v - minV) / rangeV) * chartH;
-
-  const pathD = (series) => {
-    if(!series.length) return '';
-    let first = true;
-    return series.map(p=>{
-      const xi = xPeriods.indexOf(p.period);
-      if(xi===-1) return null;
-      const cmd = first ? (first=false,'M') : 'L';
-      return `${cmd}${toX(xi).toFixed(1)},${toY(p.val).toFixed(1)}`;
-    }).filter(Boolean).join(' ');
-  };
-
-  // תוויות X — 5 לכל היותר
-  const xLabels = (() => {
-    if(!xPeriods.length) return [];
-    const step = Math.max(1, Math.floor(xPeriods.length/5));
-    return xPeriods.filter((_,i)=>i%step===0||i===xPeriods.length-1).map(p=>({
-      period:p, x:toX(xPeriods.indexOf(p)),
-      label:`${p.slice(4,6)}/${p.slice(2,4)}`
-    }));
-  })();
-
-  // תוויות Y
-  const yTicks = [minV, (minV+maxV)/2, maxV].map(v=>({ v, y:toY(v), label:`${v.toFixed(0)}%` }));
+  const W = 400, barH = 18, gap = 6, groupGap = 14;
+  const labelW = 70, valW = 36, barMaxW = W - labelW - valW - 10;
 
   return (
     <div style={{ direction:'rtl' }}>
-      {mainSeries.length===0&&(
-        <div style={{ padding:'28px 20px',textAlign:'center',color:C.muted,fontSize:13 }}>
-          <div style={{ fontSize:24,marginBottom:8 }}>📊</div>אין נתוני תמהיל היסטוריים עבור רכיב זה
-        </div>
-      )}
-      {mainSeries.length>0&&(
-        <div>
-      {/* בחירת פרמטר */}
-      <div style={{ padding:'10px 14px 6px',borderBottom:`1px solid ${C.border}`,display:'flex',gap:6,flexWrap:'wrap',alignItems:'center' }}>
-        <span style={{ fontSize:11,color:C.muted,fontWeight:600,marginLeft:4 }}>רכיב:</span>
-        {MIX_PARAMS.map(p=>(
-          <button key={p.key} onClick={()=>setParam(p.key)}
-            style={{ padding:'3px 10px',borderRadius:12,border:`1.5px solid ${param===p.key?p.color:C.border}`,background:param===p.key?p.color:C.white,color:param===p.key?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>
-            {p.label}
-          </button>
-        ))}
-      </div>
-
-      {/* גרף */}
-      <div style={{ padding:'8px 4px 0' }}>
-        <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display:'block',overflow:'visible' }}>
-          {/* קווי עזר */}
-          {yTicks.map(t=>(
-            <line key={t.v} x1={PL} y1={t.y} x2={W-PR} y2={t.y} stroke={C.border} strokeWidth="1" strokeDasharray="3 3"/>
-          ))}
-          {/* ציר Y */}
-          {yTicks.map(t=>(
-            <text key={t.v} x={PL-3} y={t.y+4} textAnchor="end" fontSize="8" fill={C.muted}>{t.label}</text>
-          ))}
-          {/* ציר X */}
-          {xLabels.map(l=>(
-            <text key={l.period} x={l.x} y={H-2} textAnchor="middle" fontSize="8" fill={C.muted}>{l.label}</text>
-          ))}
-          {/* קווים */}
-          {allSeries.map(s=>(
-            <path key={s.id} d={pathD(s.series)} fill="none" stroke={s.color} strokeWidth={s.id==='main'?2:1.5}
-              strokeDasharray={s.dash?'6 3':undefined} opacity={s.id==='avg'?0.7:1}/>
-          ))}
+      {/* גרף bars — כל פרמטר = קבוצה */}
+      <div style={{ padding:'10px 14px 6px',overflowX:'auto' }}>
+        <svg width="100%" viewBox={`0 0 ${W} ${MIX_PARAMS.length*(allEntries.length*(barH+gap)+groupGap)+10}`}
+          style={{ display:'block' }}>
+          {MIX_PARAMS.map((p, pi)=>{
+            const groupY = pi * (allEntries.length*(barH+gap) + groupGap) + 8;
+            const maxV = maxByParam[p.key] || 1;
+            return (
+              <g key={p.key}>
+                {/* כותרת פרמטר */}
+                <text x={W-2} y={groupY-2} textAnchor="end" fontSize="9" fontWeight="700" fill={p.color}>{p.label}</text>
+                {allEntries.map((entry, ei)=>{
+                  const val = entry.vals[p.key];
+                  const barW = val!=null ? (val/maxV)*barMaxW : 0;
+                  const y = groupY + ei*(barH+gap);
+                  return (
+                    <g key={entry.id}>
+                      {/* שם קרן */}
+                      <text x={labelW-4} y={y+barH*0.72} textAnchor="end" fontSize="8"
+                        fill={entry.isAvg?'#2563EB':C.mid} fontWeight={entry.isAvg?700:400}
+                        fontStyle={entry.isAvg?'italic':'normal'}>
+                        {entry.name.slice(0,18)}{entry.name.length>18?'…':''}
+                      </text>
+                      {/* בר */}
+                      <rect x={labelW} y={y} width={Math.max(barW,0)} height={barH} rx="3"
+                        fill={entry.color} opacity={entry.isAvg?0.6:0.85}/>
+                      {/* ערך */}
+                      {val!=null&&(
+                        <text x={labelW+barW+4} y={y+barH*0.72} fontSize="8.5" fontWeight="600"
+                          fill={entry.color}>{val.toFixed(1)}%</text>
+                      )}
+                      {val==null&&(
+                        <text x={labelW+4} y={y+barH*0.72} fontSize="8" fill={C.muted}>—</text>
+                      )}
+                    </g>
+                  );
+                })}
+              </g>
+            );
+          })}
         </svg>
       </div>
 
       {/* מקרא */}
-      <div style={{ padding:'4px 14px 8px',display:'flex',gap:10,flexWrap:'wrap',alignItems:'center' }}>
-        {allSeries.map(s=>(
-          <span key={s.id} style={{ display:'flex',alignItems:'center',gap:4,fontSize:10.5,color:s.color,fontWeight:600 }}>
-            <svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke={s.color} strokeWidth={s.id==='main'?2.5:1.5} strokeDasharray={s.dash?'6 3':undefined}/></svg>
-            {s.name.slice(0,22)}{s.name.length>22?'…':''}
-            {s.id!=='main'&&s.id!=='avg'&&(
-              <button onClick={()=>setExtraIds(p=>p.filter(id=>id!==s.id))} style={{ background:'none',border:'none',cursor:'pointer',color:s.color,fontSize:12,padding:0,fontWeight:700 }}>×</button>
+      <div style={{ padding:'4px 14px 8px',display:'flex',gap:10,flexWrap:'wrap',alignItems:'center',borderTop:`1px solid ${C.border}` }}>
+        {allEntries.map(e=>(
+          <span key={e.id} style={{ display:'flex',alignItems:'center',gap:4,fontSize:10.5,color:e.color,fontWeight:e.isAvg?700:600 }}>
+            <span style={{ width:10,height:10,borderRadius:2,background:e.color,display:'inline-block',opacity:e.isAvg?0.6:0.85 }}/>
+            {e.name.slice(0,24)}{e.name.length>24?'…':''}
+            {e.id!=='main'&&e.id!=='avg'&&(
+              <button onClick={()=>setExtraIds(p=>p.filter(id=>id!==e.id))}
+                style={{ background:'none',border:'none',cursor:'pointer',color:e.color,fontSize:13,padding:0,fontWeight:700,lineHeight:1 }}>×</button>
             )}
           </span>
         ))}
       </div>
 
       {/* הוספת מוצר להשוואה */}
-      <div style={{ padding:'0 14px 10px',borderTop:`1px solid ${C.border}` }}>
+      <div style={{ padding:'0 14px 10px' }}>
         {!showSearch ? (
-          <button onClick={()=>setShowSearch(true)} style={{ background:'none',border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:11,padding:'4px 10px',cursor:'pointer',fontFamily:'inherit',marginTop:8 }}>+ השוואה למוצר נוסף</button>
+          <button onClick={()=>setShowSearch(true)}
+            style={{ background:'none',border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:11,padding:'4px 10px',cursor:'pointer',fontFamily:'inherit',marginTop:4 }}>
+            + השוואה למוצר נוסף
+          </button>
         ) : (
           <div ref={wrapRef} style={{ marginTop:8 }}>
             <div style={{ display:'flex',gap:4,flexWrap:'wrap',marginBottom:6 }}>
@@ -937,12 +914,11 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds }) {
                 </div>
               )}
             </div>
-            <button onClick={()=>{setShowSearch(false);setSearchQ('');setShowDrop(false);}} style={{ background:'none',border:'none',color:C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit',marginTop:4 }}>ביטול</button>
+            <button onClick={()=>{setShowSearch(false);setSearchQ('');setShowDrop(false);}}
+              style={{ background:'none',border:'none',color:C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit',marginTop:4 }}>ביטול</button>
           </div>
         )}
       </div>
-    </div>
-      )}
     </div>
   );
 }
