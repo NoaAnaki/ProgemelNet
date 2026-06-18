@@ -817,13 +817,10 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds }) {
   // מקסימום לפרמטר הנוכחי
   const maxVal = useMemo(()=>Math.max(1,...allEntries.map(e=>e.vals[param]??0)),[allEntries, param]);
 
-  // גובה SVG דינמי לפי מספר קרנות
-  const barH = 22, gap = 8;
-  const labelW = 130, barMaxW = 200, valW = 40;
-  const W = labelW + barMaxW + valW + 10;
-  const svgH = allEntries.length * (barH + gap) + 10;
-
-  const currentParam = MIX_PARAMS.find(p=>p.key===param);
+  // גרף אנכי — רוחב בר קבוע, גובה לפי ערך
+  const barW = 36, gap = 12;
+  const chartH = 120, PT = 20, PB = 10;
+  const svgW = allEntries.length * (barW + gap) + gap;
 
   return (
     <div style={{ direction:'rtl' }}>
@@ -838,30 +835,26 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds }) {
         ))}
       </div>
 
-      {/* גרף bars אופקי — פרמטר נבחר */}
+      {/* גרף bars אנכי */}
       <div style={{ padding:'10px 14px 6px' }}>
-        <svg width="100%" viewBox={`0 0 ${W} ${svgH}`} style={{ display:'block' }}>
+        <svg width="100%" viewBox={`0 0 ${svgW} ${chartH+PT+PB}`} style={{ display:'block' }}>
+          {/* קו בסיס */}
+          <line x1={0} y1={PT+chartH} x2={svgW} y2={PT+chartH} stroke={C.border} strokeWidth="1"/>
           {allEntries.map((entry, ei)=>{
             const val = entry.vals[param];
-            const barW = val!=null ? Math.max(2,(val/maxVal)*barMaxW) : 0;
-            const y = ei*(barH+gap) + 4;
+            const bH = val!=null ? Math.max(3,(val/maxVal)*chartH) : 0;
+            const x = gap + ei*(barW+gap);
+            const y = PT + chartH - bH;
             return (
               <g key={entry.id}>
-                {/* שם קרן — שמאל לבר */}
-                <text x={labelW-6} y={y+barH*0.68} textAnchor="end" fontSize="9"
-                  fill={entry.isAvg?'#2563EB':C.mid}
-                  fontWeight={entry.isAvg?700:400}
-                  fontStyle={entry.isAvg?'italic':'normal'}>
-                  {entry.name.slice(0,22)}{entry.name.length>22?'…':''}
-                </text>
                 {/* בר */}
-                <rect x={labelW} y={y+2} width={barW} height={barH-4} rx="3"
+                <rect x={x} y={y} width={barW} height={bH} rx="3"
                   fill={entry.color} opacity={entry.isAvg?0.55:0.85}/>
-                {/* ערך — ימין לבר */}
-                <text x={labelW+barW+5} y={y+barH*0.68} fontSize="9" fontWeight="700"
-                  fill={entry.color}>
-                  {val!=null ? val.toFixed(1)+'%' : '—'}
-                </text>
+                {/* ערך מעל הבר */}
+                {val!=null&&(
+                  <text x={x+barW/2} y={y-3} textAnchor="middle" fontSize="8.5" fontWeight="700"
+                    fill={entry.color}>{val.toFixed(1)}%</text>
+                )}
               </g>
             );
           })}
