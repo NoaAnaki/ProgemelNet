@@ -30,7 +30,7 @@ const numColor  = v => v == null ? C.dark : v >= 0 ? C.pos : C.neg;
 const calcBonds = fund => Math.max(0, Math.round((100-(fund.stocks??0)-(fund.illiquid??0))*10)/10);
 
 const SORT_COLS = [
-  { key:'ret_month', label:'חודש',       tip:'תשואה בחודש האחרון' },
+  { key:'ret_month', label:getLatestMonthName(), tip:'תשואה בחודש האחרון' },
   { key:'ret_ytd',   label:'מתחילת שנה', tip:'תשואה מצטברת מתחילת השנה' },
   { key:'ret_1y',    label:'שנה',         tip:'תשואה מצטברת 12 חודשים' },
   { key:'ret_3y',    label:'3 שנים',      tip:'תשואה מצטברת 36 חודשים' },
@@ -336,6 +336,11 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData }) {
 
 // ─── Updated Label ────────────────────────────────────────────────────────────
 const HE_MONTHS = ['','ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+
+// שם חודש גלובלי — מתמלא פעם אחת כשהנתונים נטענים
+let _latestMonthName = 'חודש';
+function getLatestMonthName() { return _latestMonthName; }
+
 function UpdatedLabel() {
   const [label, setLabel] = useState('...');
   useEffect(()=>{
@@ -345,7 +350,8 @@ function UpdatedLabel() {
       if(periods.length){
         const latest = periods.sort().reverse()[0];
         const y=+latest.slice(0,4), mo=+latest.slice(4,6);
-                setLabel(`מעודכן לִ${HE_MONTHS[mo]} ${y}`);
+        _latestMonthName = HE_MONTHS[mo] || 'חודש';
+        setLabel(`מעודכן לִ${HE_MONTHS[mo]} ${y}`);
       }
     }).catch(()=>{});
   },[]);
@@ -628,7 +634,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
   };
 
   const COMP_COLS = [
-    { key:'ret_month', label:'חודש' },
+    { key:'ret_month', label:getLatestMonthName() },
     { key:'ret_ytd',   label:'YTD' },
     { key:'ret_1y',    label:'שנה' },
     { key:'ret_3y',    label:'3 שנים' },
@@ -933,7 +939,7 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
 
   function ReturnBars() {
     const [hov, setHov] = useState(null);
-    const periods=[{key:'ret_month',label:'חודש'},{key:'ret_ytd',label:'YTD'},{key:'ret_1y',label:'שנה'},{key:'ret_3y',label:'3 שנ׳'},{key:'ret_5y',label:'5 שנ׳'},{key:'ret_10y',label:'10 שנ׳'}].filter(p=>fund[p.key]!=null);
+    const periods=[{key:'ret_month',label:getLatestMonthName()},{key:'ret_ytd',label:'YTD'},{key:'ret_1y',label:'שנה'},{key:'ret_3y',label:'3 שנ׳'},{key:'ret_5y',label:'5 שנ׳'},{key:'ret_10y',label:'10 שנ׳'}].filter(p=>fund[p.key]!=null);
     if(!periods.length) return <p style={{ textAlign:'center',color:C.muted,fontSize:11,margin:0 }}>אין נתוני תשואה</p>;
     const vals=periods.map(p=>fund[p.key]);
     const avgVals=catAvg?periods.map(p=>catAvg[p.key]).filter(v=>v!=null):[];
@@ -1072,7 +1078,7 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
             <th style={{ ...TH,width:18,color:'rgba(255,255,255,0.4)',padding:'5px 3px' }}>#</th>
             <th style={{ ...TH,width:28,padding:'4px' }}></th>
             <th style={{ ...TH,textAlign:'right',color:'rgba(255,255,255,0.8)' }}>שם המוצר</th>
-            <SortTh col={{ key:'ret_month', label:'% חודש',    tip:'תשואה בחודש האחרון' }}/>
+            <SortTh col={{ key:'ret_month', label:`% ${getLatestMonthName()}`,    tip:'תשואה בחודש האחרון' }}/>
             <SortTh col={{ key:'ret_ytd',   label:'% YTD',      tip:'תשואה מתחילת שנה' }}/>
             <SortTh col={{ key:'ret_1y',    label:'% שנה',      tip:'תשואה שנתית' }}/>
             <SortTh col={{ key:'ret_3y',    label:'% 3 שנים',   tip:'תשואה מצטברת 36 חודשים' }}/>
