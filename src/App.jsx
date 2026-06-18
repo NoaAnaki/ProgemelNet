@@ -641,10 +641,12 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
     { key:'ret_3y',    label:'3 שנים' },
     { key:'ret_5y',    label:'5 שנים' },
     { key:'ret_10y',   label:'10 שנים' },
-    { key:'stocks',    label:'% מניות', fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#2563EB' },
-    { key:'foreign',   label:'% חו"ל',  fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#7C3AED' },
+    { key:'stocks',    label:'% מניות',   fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#2563EB' },
+    { key:'foreign',   label:'% חו"ל',    fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#7C3AED' },
+    { key:'forex',     label:'% מט"ח',    fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#059669' },
     { key:'illiquid',  label:'% לא סחיר', fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#9CA3AF' },
-    { key:'sharpe',    label:'שארפ',    fmt: v=>v!=null?v.toFixed(2):'—', color:C.dark },
+    { key:'sharpe',    label:'מדד שארפ',  fmt: v=>v!=null?v.toFixed(2):'—', color:C.dark },
+    { key:'profit_index', label:'מדד פרוגמלנט', fmt: v=>v!=null?v.toFixed(1):'—', color:C.crimson },
   ];
 
   return (
@@ -1026,7 +1028,7 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
       <div style={{ flex:1,overflowY:'auto' }}>
         {activeTab==='returns'&&(
           <div style={{ padding:'11px 13px' }}>
-            {fund.profit_index!=null&&<div style={{ background:'linear-gradient(135deg,#FFF0F3,#FFE4EA)',border:`1px solid #F8C8D0`,borderRadius:9,padding:'8px 12px',marginBottom:11,display:'flex',alignItems:'center',justifyContent:'space-between' }}><div><div style={{ fontSize:13,color:C.crimson,fontWeight:700 }}>מדד פרופיט</div><div style={{ fontSize:11,color:C.muted }}>שירות ואיכות ניהול</div></div><span style={{ fontSize:30,fontWeight:900,color:C.crimson }}>{fund.profit_index.toFixed(1)}</span></div>}
+            {fund.profit_index!=null&&<div style={{ background:'linear-gradient(135deg,#FFF0F3,#FFE4EA)',border:`1px solid #F8C8D0`,borderRadius:9,padding:'8px 12px',marginBottom:11,display:'flex',alignItems:'center',justifyContent:'space-between' }}><div><div style={{ fontSize:13,color:C.crimson,fontWeight:700 }}>מדד פרוגמלנט</div><div style={{ fontSize:11,color:C.muted }}>שירות ואיכות ניהול</div></div><span style={{ fontSize:30,fontWeight:900,color:C.crimson }}>{fund.profit_index.toFixed(1)}</span></div>}
             <div style={{ marginBottom:11 }}>
               <div style={{ fontSize:11.5,fontWeight:700,color:C.dark,marginBottom:5 }}>תשואות{catAvg&&<span style={{ fontSize:9.5,color:C.muted,fontWeight:400,marginRight:5 }}>| עיגול = ממוצע קטגוריה</span>}</div>
               <div style={{ background:C.bg,borderRadius:8,padding:'9px 7px' }}><ReturnBars/></div>
@@ -1126,7 +1128,7 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
             <SortTh col={{ key:'forex',    label:'% מט"ח',     tip:'חשיפה למט"ח',      color:'#6EE7B7' }}/>
             <SortTh col={{ key:'illiquid', label:'% לא סחיר',  tip:'חשיפה ללא סחיר',   color:'#D1D5DB' }}/>
             <SortTh col={{ key:'sharpe',   label:'מדד שארפ',   tip:'מדד שארפ',          color:'#FCA5A5' }}/>
-            <th style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.5)' }}>מדד פרופיט</th>
+            <th style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.5)' }}>מדד פרוגמלנט</th>
           </tr></thead>
           <tbody>
             {top12.map((f,i)=><Row key={f.name} fund={f} rank={i+1}/>)}
