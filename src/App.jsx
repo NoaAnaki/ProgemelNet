@@ -818,8 +818,8 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds }) {
   const maxVal = useMemo(()=>Math.max(1,...allEntries.map(e=>e.vals[param]??0)),[allEntries, param]);
 
   // גרף אנכי — רוחב בר קבוע, גובה לפי ערך
-  const barW = 28, gap = 8;
-  const chartH = 80, PT = 16, PB = 6;
+  const barW = 56, gap = 16;
+  const chartH = 160, PT = 24, PB = 10;
   const svgW = allEntries.length * (barW + gap) + gap;
 
   return (
