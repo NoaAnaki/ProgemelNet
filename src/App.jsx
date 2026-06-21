@@ -1073,13 +1073,27 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
             </div>
           </div>
         )}
-        {activeTab==='history'&&<HistoricalChart fund={fundWithAll} catFundIds={catFundIds} catLabel={catLabel} histData={histData} externalCompare={externalCompare}/>}
-        {activeTab==='mix'&&<MixChart fund={fund} catFundIds={catFundIds} catLabel={catLabel} histData={histData} allFunds={allFunds} externalIds={externalCompare}/>}
+        {activeTab==='history'&&<div><HistoricalChart fund={fundWithAll} catFundIds={catFundIds} catLabel={catLabel} histData={histData} externalCompare={externalCompare}/>
+      <div style={{ background:'linear-gradient(135deg,#F8F5FF,#EEF2FF)',border:'1px solid #C4B5FD',borderRadius:9,padding:'10px 12px',margin:'8px 14px 10px',direction:'rtl' }}>
+        <div style={{ display:'flex',alignItems:'center',gap:6,marginBottom:6 }}><span style={{ fontSize:14 }}>🤖</span><span style={{ fontSize:11.5,fontWeight:700,color:'#4C1D95' }}>ניתוח AI</span><span style={{ fontSize:9.5,color:'#7C3AED',background:'#EDE9FE',borderRadius:7,padding:'1px 6px' }}>בדיקה</span></div>
+        <p style={{ margin:0,fontSize:11,color:'#3D3D3D',lineHeight:1.75 }}>בתקופה שנבדקה (בין השנים 2016 ל־2026), המוצר השיג תשואה שנתית ממוצעת של כ־6.2%, מול ממוצע קטגוריאלי של כ־7.1%. המבנה הייחודי שלו, שכבת בסיס אג"חית צרה יחסית לצד גג מניות ומט"ח רחב – גבה לעיתים מחיר של תנודתיות מוגברת. תמהיל דומה* אליו רשם בשיא המשברים העולמיים (2000 ו-2008) ירידות שהגיעו לאזור ה־15%–20%, ואופיינו בזמן התאוששות שנמשך בשיא עד 3 שנים.</p>
+      </div></div>}
+        {activeTab==='mix'&&<div><MixChart fund={fund} catFundIds={catFundIds} catLabel={catLabel} histData={histData} allFunds={allFunds} externalIds={externalCompare}/>
+      <div style={{ background:'linear-gradient(135deg,#F8F5FF,#EEF2FF)',border:'1px solid #C4B5FD',borderRadius:9,padding:'10px 12px',margin:'8px 14px 10px',direction:'rtl' }}>
+        <div style={{ display:'flex',alignItems:'center',gap:6,marginBottom:6 }}><span style={{ fontSize:14 }}>🤖</span><span style={{ fontSize:11.5,fontWeight:700,color:'#4C1D95' }}>ניתוח AI</span><span style={{ fontSize:9.5,color:'#7C3AED',background:'#EDE9FE',borderRadius:7,padding:'1px 6px' }}>בדיקה</span></div>
+        <p style={{ margin:0,fontSize:11,color:'#3D3D3D',lineHeight:1.75 }}>בתקופה שנבדקה (בין השנים 2016 ל־2026), המוצר השיג תשואה שנתית ממוצעת של כ־6.2%, מול ממוצע קטגוריאלי של כ־7.1%. המבנה הייחודי שלו, שכבת בסיס אג"חית צרה יחסית לצד גג מניות ומט"ח רחב – גבה לעיתים מחיר של תנודתיות מוגברת. תמהיל דומה* אליו רשם בשיא המשברים העולמיים (2000 ו-2008) ירידות שהגיעו לאזור ה־15%–20%, ואופיינו בזמן התאוששות שנמשך בשיא עד 3 שנים.</p>
+      </div></div>}
         {activeTab==='risk'&&(
-          <div style={{ padding:'40px 20px',textAlign:'center',color:C.muted,fontSize:13 }}>
-            <div style={{ fontSize:32,marginBottom:12 }}>⚠️</div>
-            <div style={{ fontWeight:700,color:C.dark,marginBottom:6 }}>גרף סיכון</div>
-            <div style={{ fontSize:11.5 }}>בקרוב — ציר X: ירידה מקסימלית | ציר Y: טווח השקעה | גודל נקודה: היקף נכסים</div>
+          <div>
+            <div style={{ padding:'40px 20px',textAlign:'center',color:C.muted,fontSize:13 }}>
+              <div style={{ fontSize:32,marginBottom:12 }}>⚠️</div>
+              <div style={{ fontWeight:700,color:C.dark,marginBottom:6 }}>גרף סיכון</div>
+              <div style={{ fontSize:11.5 }}>בקרוב — ציר X: ירידה מקסימלית | ציר Y: טווח השקעה | גודל נקודה: היקף נכסים</div>
+            </div>
+      <div style={{ background:'linear-gradient(135deg,#F8F5FF,#EEF2FF)',border:'1px solid #C4B5FD',borderRadius:9,padding:'10px 12px',margin:'8px 14px 10px',direction:'rtl' }}>
+        <div style={{ display:'flex',alignItems:'center',gap:6,marginBottom:6 }}><span style={{ fontSize:14 }}>🤖</span><span style={{ fontSize:11.5,fontWeight:700,color:'#4C1D95' }}>ניתוח AI</span><span style={{ fontSize:9.5,color:'#7C3AED',background:'#EDE9FE',borderRadius:7,padding:'1px 6px' }}>בדיקה</span></div>
+        <p style={{ margin:0,fontSize:11,color:'#3D3D3D',lineHeight:1.75 }}>בתקופה שנבדקה (בין השנים 2016 ל־2026), המוצר השיג תשואה שנתית ממוצעת של כ־6.2%, מול ממוצע קטגוריאלי של כ־7.1%. המבנה הייחודי שלו, שכבת בסיס אג"חית צרה יחסית לצד גג מניות ומט"ח רחב – גבה לעיתים מחיר של תנודתיות מוגברת. תמהיל דומה* אליו רשם בשיא המשברים העולמיים (2000 ו-2008) ירידות שהגיעו לאזור ה־15%–20%, ואופיינו בזמן התאוששות שנמשך בשיא עד 3 שנים.</p>
+      </div>
           </div>
         )}
       </div>
