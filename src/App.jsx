@@ -144,10 +144,19 @@ function ChartModal({ fund, mainSeries, avgSeries, compareSeries, allFunds, catL
 }
 
 // ─── Historical Chart (panel) ─────────────────────────────────────────────────
-function HistoricalChart({ fund, catFundIds, catLabel, histData }) {
+function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare }) {
   const [range, setRange]       = useState('3y');
   const [showModal, setShowModal] = useState(false);
   const [compare, setCompare]   = useState([]);
+
+  // מיזג עם קרנות שנשלחו מבחוץ
+  useEffect(()=>{
+    if(!externalCompare?.length) return;
+    setCompare(prev=>{
+      const toAdd = externalCompare.filter(id=>!prev.includes(id)&&id!==fund.fund_id);
+      return toAdd.length ? [...prev,...toAdd].slice(0,3) : prev;
+    });
+  },[externalCompare]);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQ, setSearchQ]   = useState('');
   const [hoverIdx, setHoverIdx] = useState(null);
@@ -599,7 +608,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
 }
 
 // ─── Comparison Search ────────────────────────────────────────────────────────
-function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFund }) {
+function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFund, setSentToChart }) {
   const [query, setQuery]             = useState('');
   const [showDrop, setShowDrop]       = useState(false);
   const [showProductSelector, setShowProductSelector] = useState(false);
@@ -736,7 +745,8 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
                         const color=col.color||(typeof v==='number'?numColor(v):C.dark);
                         return <td key={col.key} style={{ ...TD,textAlign:'center',color,fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{fmt(v)}</td>;
                       })}
-                      <td style={{ ...TD,width:24,textAlign:'center',padding:'4px 4px' }}>
+                      <td style={{ ...TD,width:48,textAlign:'center',padding:'4px 4px',whiteSpace:'nowrap' }}>
+                        <button onClick={e=>{e.stopPropagation(); if(f.fund_id) setSentToChart(prev=>[...new Set([...prev,f.fund_id])]);}} title="שלח לגרף בפירוט" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:11,padding:'1px 5px',height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted,marginLeft:3 }} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.crimson;e.currentTarget.style.color=C.crimson;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>📈</button>
                         <button onClick={e=>{e.stopPropagation();setSelected(p=>p.filter(s=>s.name!==f.name));}} title="הסר" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:12,width:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted }} onMouseEnter={e=>{e.currentTarget.style.borderColor='#E63946';e.currentTarget.style.color='#E63946';}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>×</button>
                       </td>
                     </tr>
@@ -979,7 +989,7 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds }) {
 }
 
 // ─── Fund Detail Panel ────────────────────────────────────────────────────────
-function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, allFunds }) {
+function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, allFunds, externalCompare }) {
   if(!fund) return null;
   const [activeTab, setActiveTab] = useState('returns');
   const cats = classifyFund(fund).map(id=>CATEGORIES[id]?.label).filter(Boolean);
@@ -1054,7 +1064,7 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
             </div>
           </div>
         )}
-        {activeTab==='history'&&<HistoricalChart fund={fundWithAll} catFundIds={catFundIds} catLabel={catLabel} histData={histData}/>}
+        {activeTab==='history'&&<HistoricalChart fund={fundWithAll} catFundIds={catFundIds} catLabel={catLabel} histData={histData} externalCompare={externalCompare}/>}
         {activeTab==='mix'&&<MixChart fund={fund} catFundIds={catFundIds} catLabel={catLabel} histData={histData} allFunds={allFunds}/>}
         {activeTab==='risk'&&(
           <div style={{ padding:'40px 20px',textAlign:'center',color:C.muted,fontSize:13 }}>
@@ -1167,6 +1177,7 @@ export default function App() {
   const [dataReady, setDataReady] = useState(false);
   const [compSelected, setCompSelected] = useState([]); // קרנות להשוואה — state משותף
   const [addedFund, setAddedFund] = useState(null); // שם קרן שהוספה — לפידבק
+  const [sentToChart, setSentToChart] = useState([]); // fund_ids שנשלחו לגרף
   const profitIndex = useProfitIndex();
 
   // טוען history.json אחד שמכיל הכל
@@ -1223,7 +1234,7 @@ export default function App() {
           <div style={{ padding:'10px 16px 9px',background:C.white,borderBottom:`1px solid ${C.border}` }}>
             <ProductSelector selected={product} onChange={k=>{setProduct(k);setSelFund(null);setSelCatId(null);}}/>
           </div>
-          <ComparisonSearch allFunds={allFunds} product={product||'השתלמות'} selected={compSelected} setSelected={setCompSelected} onSelectFund={(f)=>{setSelFund(f);setSelCatId(null);}}/>
+          <ComparisonSearch allFunds={allFunds} product={product||'השתלמות'} selected={compSelected} setSelected={setCompSelected} onSelectFund={(f)=>{setSelFund(f);setSelCatId(null);}} setSentToChart={setSentToChart}/>
           {product===null ? (
             <HomePage
               onSelectProduct={(k)=>{setProduct(k);setSelFund(null);setSelCatId(null);}}
@@ -1250,7 +1261,7 @@ export default function App() {
         )}
         {panelOpen&&(
           <div style={{ position:'fixed',top:56,left:0,width:PANEL_W,height:'calc(100vh - 56px)',overflow:'hidden',zIndex:50,boxShadow:'4px 0 20px rgba(0,0,0,0.15)' }}>
-            <FundDetail fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);}} catAvg={catAvg} catFundIds={catFundIds} catLabel={catLabel} histData={histData??{}} allFunds={allFunds}/>
+            <FundDetail fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);}} catAvg={catAvg} catFundIds={catFundIds} catLabel={catLabel} histData={histData??{}} allFunds={allFunds} externalCompare={sentToChart}/>
           </div>
         )}
       </div>
