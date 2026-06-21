@@ -75,7 +75,7 @@ function Tooltip({ text }) {
 }
 
 // ─── Chart Modal ──────────────────────────────────────────────────────────────
-function ChartModal({ fund, mainSeries, avgSeries, catLabel, ranges, range, setRange, minV, maxV, valRange, onClose }) {
+function ChartModal({ fund, mainSeries, avgSeries, compareSeries, allFunds, catLabel, ranges, range, setRange, minV, maxV, valRange, onClose }) {
   const MW=780, MH=340, MPAD={t:16,r:14,b:32,l:52};
   const mcW=MW-MPAD.l-MPAD.r, mcH=MH-MPAD.t-MPAD.b;
   const mxFor = (i,tot) => MPAD.l+(i/Math.max(tot-1,1))*mcW;
@@ -108,6 +108,7 @@ function ChartModal({ fund, mainSeries, avgSeries, catLabel, ranges, range, setR
               </g>
             ))}
             {avgSeries.length>0 && <path d={mPath(avgSeries)} fill="none" stroke="#2563EB" strokeWidth="2.5" strokeDasharray="8 4" opacity="0.9"/>}
+            {(compareSeries||[]).map((c,ci)=>c.series.length>0&&<path key={c.id} d={mPath(c.series)} fill="none" stroke={['#D97706','#059669','#7C3AED'][ci]??'#888'} strokeWidth="2" opacity="0.8"/>)}
             <path d={mPath(mainSeries)} fill="none" stroke={C.crimson} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
             {mainSeries.filter((_,i)=>{ const step=mainSeries.length>60?12:mainSeries.length>24?6:3; return i%step===0||i===mainSeries.length-1; }).map(p=>{
               const i=mainSeries.indexOf(p);
@@ -125,6 +126,16 @@ function ChartModal({ fund, mainSeries, avgSeries, catLabel, ranges, range, setR
                 {catLabel ? `ממוצע מסלולי '${catLabel}'` : 'ממוצע קטגוריה'}
               </span>
             )}
+            {(compareSeries||[]).map((c,ci)=>{
+              const cf=allFunds?.find(f=>f.fund_id===c.id);
+              const stroke=['#D97706','#059669','#7C3AED'][ci]??'#888';
+              return c.series.length>0&&(
+                <span key={c.id} style={{ display:'flex',alignItems:'center',gap:5,fontSize:12,color:stroke,fontWeight:600 }}>
+                  <svg width="22" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke={stroke} strokeWidth="2"/></svg>
+                  {cf?.name||c.id}
+                </span>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -239,7 +250,7 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData }) {
 
   return (
     <>
-      {showModal && <ChartModal fund={fund} mainSeries={mainSeries} avgSeries={avgSeries} catLabel={catLabel} ranges={ranges} range={range} setRange={setRange} minV={minV} maxV={maxV} valRange={valRange} onClose={()=>setShowModal(false)}/>}
+      {showModal && <ChartModal fund={fund} mainSeries={mainSeries} avgSeries={avgSeries} compareSeries={compareSeries} allFunds={allFunds} catLabel={catLabel} ranges={ranges} range={range} setRange={setRange} minV={minV} maxV={maxV} valRange={valRange} onClose={()=>setShowModal(false)}/>}
       <div style={{ padding:'0 0 4px' }}>
         <div style={{ display:'flex',gap:4,padding:'10px 14px 8px',borderBottom:`1px solid ${C.border}`,alignItems:'center' }}>
           <span style={{ fontSize:11,color:C.muted,marginLeft:6 }}>טווח:</span>
@@ -248,7 +259,7 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData }) {
           ))}
           <div style={{ marginRight:'auto',display:'flex',gap:5 }}>
             <button onClick={()=>setShowModal(true)} style={{ background:'none',border:`1px solid ${C.border}`,borderRadius:6,padding:'3px 9px',fontSize:11,color:C.muted,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4 }}>🔍 הגדל</button>
-            <button onClick={()=>window.print()} style={{ background:'none',border:`1px solid ${C.border}`,borderRadius:6,padding:'3px 9px',fontSize:11,color:C.muted,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4 }}>🖨️ הדפס</button>
+            <button onClick={()=>{ setShowModal(true); setTimeout(()=>window.print(),400); }} style={{ background:'none',border:`1px solid ${C.border}`,borderRadius:6,padding:'3px 9px',fontSize:11,color:C.muted,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4 }}>🖨️ הדפס</button>
           </div>
         </div>
 
@@ -506,7 +517,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
     <div style={{ borderBottom:`1px solid ${C.border}`,background:C.white }}>
       <div style={{ display:'flex',alignItems:'center',gap:6,padding:'10px 16px',direction:'rtl' }}>
         <span style={{ fontSize:13,fontWeight:700,color:C.dark,marginLeft:8 }}>📂 מסלולי השקעה</span>
-        <button onClick={()=>{setViewMode('category');setActiveCompany(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='category'?C.crimson:C.border}`,background:viewMode==='category'?C.crimson:C.white,color:viewMode==='category'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי קטגוריה</button>
+        <button onClick={()=>{setViewMode('category');setActiveCompany(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='category'?C.crimson:C.border}`,background:viewMode==='category'?C.crimson:C.white,color:viewMode==='category'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי קטגוריות רשמיות</button>
         <button onClick={()=>{setViewMode('exposure');setActiveSheet(null);setActiveCompany(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='exposure'?C.crimson:C.border}`,background:viewMode==='exposure'?C.crimson:C.white,color:viewMode==='exposure'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי חשיפות</button>
         <button onClick={()=>{setViewMode('company');setActiveSheet(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='company'?C.crimson:C.border}`,background:viewMode==='company'?C.crimson:C.white,color:viewMode==='company'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי חברה מנהלת</button>
       </div>
@@ -591,12 +602,13 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
 function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFund }) {
   const [query, setQuery]             = useState('');
   const [showDrop, setShowDrop]       = useState(false);
+  const [showProductSelector, setShowProductSelector] = useState(false);
   const [searchProduct, setSearchProduct] = useState(product);
   const wrapRef = useRef(null);
 
   // סגור dropdown בלחיצה מחוץ לקומפוננטה
   useEffect(()=>{
-    const handler = e => { if(wrapRef.current && !wrapRef.current.contains(e.target)) setShowDrop(false); };
+    const handler = e => { if(wrapRef.current && !wrapRef.current.contains(e.target)) { setShowDrop(false); setShowProductSelector(false); } };
     document.addEventListener('mousedown', handler);
     return ()=>document.removeEventListener('mousedown', handler);
   },[]);
@@ -653,21 +665,23 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
     <div ref={wrapRef} style={{ borderBottom:`1px solid ${C.border}`,background:C.white,padding:'10px 16px 12px' }}>
       <div style={{ fontSize:13,fontWeight:700,color:C.dark,marginBottom:8,direction:'rtl' }}>🔍 חיפוש והשוואת מוצרים</div>
       <div style={{ padding:'0' }}>
-        {/* בורר מוצר — בחר מאיזה מוצר לחפש */}
-        <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:8,direction:'rtl' }}>
-          {Object.entries(PRODUCT_LABELS).map(([key,{label,icon}])=>(
-            <button key={key}
-              onClick={()=>{ setSearchProduct(key); setQuery(''); setShowDrop(true); }}
-              style={{ padding:'4px 12px',borderRadius:12,border:`1.5px solid ${searchProduct===key?C.crimson:C.border}`,background:searchProduct===key?C.crimson:C.white,color:searchProduct===key?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4 }}>
-              <span>{icon}</span>{label}
-            </button>
-          ))}
-        </div>
+        {/* בורר מוצר — מוצג רק כשהשדה בפוקוס */}
+        {showProductSelector&&(
+          <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:8,direction:'rtl' }}>
+            {Object.entries(PRODUCT_LABELS).map(([key,{label,icon}])=>(
+              <button key={key}
+                onMouseDown={()=>{ setSearchProduct(key); setQuery(''); setShowDrop(true); }}
+                style={{ padding:'4px 12px',borderRadius:12,border:`1.5px solid ${searchProduct===key?C.crimson:C.border}`,background:searchProduct===key?C.crimson:C.white,color:searchProduct===key?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4 }}>
+                <span>{icon}</span>{label}
+              </button>
+            ))}
+          </div>
+        )}
         <div style={{ position:'relative',marginBottom:10,maxWidth:'60%' }}>
           <input
             value={query}
             onChange={e=>{ setQuery(e.target.value); setShowDrop(true); }}
-            onFocus={()=>{ setShowDrop(true); }}
+            onFocus={()=>{ setShowDrop(true); setShowProductSelector(true); }}
             onBlur={()=>{}}
             placeholder={`חפש ב${PRODUCT_LABELS[searchProduct]?.label||''}… (עד 10)`}
             style={{ width:'100%',padding:'8px 12px',border:`1.5px solid ${C.border}`,borderRadius:8,fontSize:12.5,fontFamily:'inherit',direction:'rtl',outline:'none',background:C.bg,boxSizing:'border-box' }}
@@ -1137,7 +1151,10 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
           </tbody>
         </table>
       </div>
-      {rest.length>0&&<button onClick={()=>setShowAll(!showAll)} style={{ background:'transparent',border:'none',color:C.crimson,fontSize:11,cursor:'pointer',fontFamily:'inherit',fontWeight:600,display:'flex',alignItems:'center',gap:4,padding:'4px 2px' }}>{showAll?'▲ הסתר':`▼ הצג עוד ${rest.length} מוצרים`}</button>}
+      <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center' }}>
+        {rest.length>0&&<button onClick={()=>setShowAll(!showAll)} style={{ background:'transparent',border:'none',color:C.crimson,fontSize:11,cursor:'pointer',fontFamily:'inherit',fontWeight:600,display:'flex',alignItems:'center',gap:4,padding:'4px 2px' }}>{showAll?'▲ הסתר':`▼ הצג עוד ${rest.length} מוצרים`}</button>}
+        <button onClick={()=>window.scrollTo({top:0,behavior:'smooth'})} style={{ background:'transparent',border:'none',color:C.muted,fontSize:10.5,cursor:'pointer',fontFamily:'inherit',fontWeight:600,padding:'4px 2px',marginRight:'auto' }}>↑ חזור לראש העמוד</button>
+      </div>
     </div>
   );
 }
