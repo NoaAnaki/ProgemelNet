@@ -484,7 +484,7 @@ function HomePage({ onSelectProduct, onSelectFund, compSelected, setCompSelected
   );
 }
 
-function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToComparison }) {
+function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToComparison, onAddToChart }) {
   const [activeSheet, setActiveSheet] = useState(null);
   const [viewMode, setViewMode]  = useState('category'); // 'category' | 'exposure' | 'company'
   const [activeCompany, setActiveCompany] = useState(null);
@@ -550,7 +550,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
                     funds={getFundsBySheet(product,sh)}
                     onSelect={(f)=>{onSelectFund(f,sh);}}
                     selFund={selFund} selCatId={null}
-                    onAddToComparison={onAddToComparison}/>
+                    onAddToComparison={onAddToComparison} onAddToChart={onAddToChart}/>
                 </div>
               ))}
             </div>
@@ -574,7 +574,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
                     funds={getFundsForCategory(funds,id)}
                     onSelect={(f,cid)=>{onSelectFund(f,cid);}}
                     selFund={selFund} selCatId={null}
-                    onAddToComparison={onAddToComparison}/>
+                    onAddToComparison={onAddToComparison} onAddToChart={onAddToChart}/>
                 </div>
               ))}
             </div>
@@ -600,7 +600,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
                 onSelectFund(f,cats.length>0?cats[0]:null);
               }}
               selFund={selFund} selCatId={null}
-              onAddToComparison={onAddToComparison}/>
+              onAddToComparison={onAddToComparison} onAddToChart={onAddToChart}/>
           )}
         </div>
       </div>
@@ -686,7 +686,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
             ))}
           </div>
         )}
-        <div style={{ position:'relative',marginBottom:10,maxWidth:'60%' }}>
+        <div style={{ position:'relative',marginBottom:10 }}>
           <input
             value={query}
             onChange={e=>{ setQuery(e.target.value); setShowDrop(true); }}
@@ -770,10 +770,18 @@ const MIX_PARAMS = [
   { key:'illiquid', label:'% לא סחיר',  color:'#7C3AED' },
 ];
 
-function MixChart({ fund, catFundIds, catLabel, histData, allFunds }) {
+function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds }) {
   const [param, setParam]           = useState('stocks');
   const [showMixModal, setShowMixModal] = useState(false);
   const [extraIds, setExtraIds]     = useState([]);
+
+  useEffect(()=>{
+    if(!externalIds?.length) return;
+    setExtraIds(prev=>{
+      const toAdd = externalIds.filter(id=>!prev.includes(id)&&id!==fund.fund_id);
+      return toAdd.length ? [...prev,...toAdd] : prev;
+    });
+  },[externalIds]);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQ, setSearchQ]       = useState('');
   const [searchProduct, setSearchProduct] = useState(null);
@@ -989,9 +997,10 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds }) {
 }
 
 // ─── Fund Detail Panel ────────────────────────────────────────────────────────
-function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, allFunds, externalCompare }) {
+function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, allFunds, externalCompare, onTabChange }) {
   if(!fund) return null;
   const [activeTab, setActiveTab] = useState('returns');
+  const handleTabChange = (id) => { setActiveTab(id); onTabChange&&onTabChange(id); };
   const cats = classifyFund(fund).map(id=>CATEGORIES[id]?.label).filter(Boolean);
   const bonds = calcBonds(fund);
   const fundWithAll = useMemo(()=>({...fund,_allFunds:allFunds}),[fund,allFunds]);
@@ -1046,7 +1055,7 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
       </div>
       <div style={{ display:'flex',borderBottom:`1px solid ${C.border}`,flexShrink:0,background:C.white }}>
         {[{id:'returns',label:'תשואות וחשיפות'},{id:'history',label:'📈 גרף תשואה מצטברת'},{id:'mix',label:'📊 גרף תמהיל'},{id:'risk',label:'⚠️ גרף סיכון'}].map(tab=>(
-          <button key={tab.id} onClick={()=>setActiveTab(tab.id)} style={{ flex:1,padding:'9px 0',border:'none',background:'none',color:activeTab===tab.id?C.crimson:C.muted,fontFamily:'inherit',fontSize:12,fontWeight:700,cursor:'pointer',borderBottom:activeTab===tab.id?`2px solid ${C.crimson}`:'2px solid transparent' }}>{tab.label}</button>
+          <button key={tab.id} onClick={()=>handleTabChange(tab.id)} style={{ flex:1,padding:'9px 0',border:'none',background:'none',color:activeTab===tab.id?C.crimson:C.muted,fontFamily:'inherit',fontSize:12,fontWeight:700,cursor:'pointer',borderBottom:activeTab===tab.id?`2px solid ${C.crimson}`:'2px solid transparent' }}>{tab.label}</button>
         ))}
       </div>
       <div style={{ flex:1,overflowY:'auto' }}>
@@ -1065,7 +1074,7 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
           </div>
         )}
         {activeTab==='history'&&<HistoricalChart fund={fundWithAll} catFundIds={catFundIds} catLabel={catLabel} histData={histData} externalCompare={externalCompare}/>}
-        {activeTab==='mix'&&<MixChart fund={fund} catFundIds={catFundIds} catLabel={catLabel} histData={histData} allFunds={allFunds}/>}
+        {activeTab==='mix'&&<MixChart fund={fund} catFundIds={catFundIds} catLabel={catLabel} histData={histData} allFunds={allFunds} externalIds={externalCompare}/>}
         {activeTab==='risk'&&(
           <div style={{ padding:'40px 20px',textAlign:'center',color:C.muted,fontSize:13 }}>
             <div style={{ fontSize:32,marginBottom:12 }}>⚠️</div>
@@ -1083,7 +1092,7 @@ function sortByKey(funds,key,dir) {
   return [...funds].sort((a,b)=>{ const av=a[key]??-Infinity,bv=b[key]??-Infinity; return dir==='desc'?bv-av:av-bv; });
 }
 
-function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddToComparison }) {
+function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddToComparison, onAddToChart }) {
   const [sortKey, setSortKey] = useState('ret_3y');
   const [sortDir, setSortDir] = useState('desc');
   const [showAll, setShowAll] = useState(false);
@@ -1105,14 +1114,19 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
       <tr onClick={()=>!isAvg&&onSelect(fund,catId)} style={{ background:isAvg?C.avgBg:isSel?'#FFF0F3':C.white,cursor:isAvg?'default':'pointer',borderBottom:`1px solid #F0EBE6` }} onMouseEnter={e=>{if(!isAvg&&!isSel)e.currentTarget.style.background='#FDF8F6';}} onMouseLeave={e=>{if(!isAvg&&!isSel)e.currentTarget.style.background=C.white;}}>
         <td style={{ ...TD,color:C.muted,textAlign:'center',fontSize:9.5,width:18,padding:'4px 3px' }}>{isAvg?'⌀':rank}</td>
         {!isAvg
-          ? <td style={{ ...TD,width:28,padding:'4px',textAlign:'center' }}>
+          ? <td style={{ ...TD,width:50,padding:'4px',textAlign:'center',whiteSpace:'nowrap' }}>
               <button title="הוסף לחיפוש והשוואת מוצרים"
                 onClick={e=>{e.stopPropagation();onAddToComparison&&onAddToComparison(fund);}}
                 style={{ background:'none',border:`1.5px solid ${C.border}`,borderRadius:5,cursor:'pointer',fontSize:14,width:22,height:22,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted,transition:'all 0.1s' }}
                 onMouseEnter={e=>{e.currentTarget.style.background=C.crimson;e.currentTarget.style.color='white';e.currentTarget.style.borderColor=C.crimson;}}
                 onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color=C.muted;e.currentTarget.style.borderColor=C.border;}}>+</button>
+              {onAddToChart&&<button title="הוסף לגרף"
+                onClick={e=>{e.stopPropagation();onAddToChart(fund);}}
+                style={{ background:'none',border:`1.5px solid ${C.border}`,borderRadius:5,cursor:'pointer',fontSize:11,width:22,height:22,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted,transition:'all 0.1s',marginRight:2 }}
+                onMouseEnter={e=>{e.currentTarget.style.background='#2563EB';e.currentTarget.style.color='white';e.currentTarget.style.borderColor='#2563EB';}}
+                onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color=C.muted;e.currentTarget.style.borderColor=C.border;}}>📈</button>}
             </td>
-          : <td style={{ ...TD,width:28 }}></td>}
+          : <td style={{ ...TD,width:50 }}></td>}
         <td style={{ ...TD,color:isSel?C.crimson:isAvg?C.dark:C.darkMid,fontWeight:isAvg?700:500 }}><div style={{ whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis' }} title={fund.name}>{fund.name}</div></td>
         <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_month),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_month'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_month)}</td>
         <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_ytd),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_ytd'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_ytd)}</td>
@@ -1178,6 +1192,8 @@ export default function App() {
   const [compSelected, setCompSelected] = useState([]); // קרנות להשוואה — state משותף
   const [addedFund, setAddedFund] = useState(null); // שם קרן שהוספה — לפידבק
   const [sentToChart, setSentToChart] = useState([]); // fund_ids שנשלחו לגרף
+  const [sentToMix, setSentToMix]     = useState([]); // fund_ids שנשלחו לגרף תמהיל
+  const [activePanelTab, setActivePanelTab] = useState('returns');
   const profitIndex = useProfitIndex();
 
   // טוען history.json אחד שמכיל הכל
@@ -1244,7 +1260,8 @@ export default function App() {
               setAddedFund={setAddedFund}/>
           ) : (
             <TrackBrowser product={product} onSelectFund={(f,cid)=>{setSelFund(f);setSelCatId(cid);}} selFund={selFund} order={order} funds={funds}
-              onAddToComparison={f=>{ setCompSelected(prev=>prev.find(s=>s.name===f.name)||prev.length>=10?prev:[...prev,f]); setAddedFund(f.name); setTimeout(()=>setAddedFund(null),2500); }}/>
+              onAddToComparison={f=>{ setCompSelected(prev=>prev.find(s=>s.name===f.name)||prev.length>=10?prev:[...prev,f]); setAddedFund(f.name); setTimeout(()=>setAddedFund(null),2500); }}
+              onAddToChart={f=>{ if(!f.fund_id) return; if(activePanelTab==='mix') setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); else setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); }}/>
           )}
           <div style={{ padding:'0 0 48px' }}/>
           <footer style={{ background:C.dark,color:'rgba(255,255,255,0.3)',textAlign:'center',padding:'13px',fontSize:11 }}>
@@ -1261,7 +1278,7 @@ export default function App() {
         )}
         {panelOpen&&(
           <div style={{ position:'fixed',top:56,left:0,width:PANEL_W,height:'calc(100vh - 56px)',overflow:'hidden',zIndex:50,boxShadow:'4px 0 20px rgba(0,0,0,0.15)' }}>
-            <FundDetail fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);}} catAvg={catAvg} catFundIds={catFundIds} catLabel={catLabel} histData={histData??{}} allFunds={allFunds} externalCompare={sentToChart}/>
+            <FundDetail fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);}} catAvg={catAvg} catFundIds={catFundIds} catLabel={catLabel} histData={histData??{}} allFunds={allFunds} externalCompare={activePanelTab==='mix'?sentToMix:sentToChart} onTabChange={setActivePanelTab}/>
           </div>
         )}
       </div>
