@@ -145,11 +145,18 @@ function ChartModal({ fund, mainSeries, avgSeries, compareSeries, allFunds, catL
 
 // ─── Historical Chart (panel) ─────────────────────────────────────────────────
 function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare }) {
-  const [range, setRange]       = useState('3y');
-  const [customFrom, setCustomFrom] = useState('');
-  const [customTo, setCustomTo]     = useState('');
+  const [range, setRange]         = useState('3y');
+  const [customFrom, setCustomFrom] = useState({ y:'', m:'' });
+  const [customTo, setCustomTo]     = useState({ y:'', m:'' });
   const [showCustom, setShowCustom] = useState(false);
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal]   = useState(false);
+
+  const YEARS = Array.from({length: new Date().getFullYear()-2009}, (_,i)=> String(2010+i));
+  const MONTHS_HE = ['01-ינואר','02-פברואר','03-מרץ','04-אפריל','05-מאי','06-יוני','07-יולי','08-אוגוסט','09-ספטמבר','10-אוקטובר','11-נובמבר','12-דצמבר'];
+
+  // YYYYMM string מהבחירה
+  const fromPeriod = customFrom.y && customFrom.m ? customFrom.y + customFrom.m.slice(0,2) : null;
+  const toPeriod   = customTo.y   && customTo.m   ? customTo.y   + customTo.m.slice(0,2)   : null;
   const [compare, setCompare]   = useState([]);
 
   // מיזג עם קרנות שנשלחו מבחוץ
@@ -169,9 +176,10 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
   const ranges = useMemo(() => availableRanges(fundPoints), [fundPoints]);
   useEffect(() => { if(ranges.length && range!=='custom' && !ranges.find(r=>r.key===range)) setRange(ranges[ranges.length-1].key); }, [ranges]);
 
-  const mainSeries = useMemo(() => computeSeries(fundPoints, range, customFrom, customTo), [fundPoints, range, customFrom, customTo]);
-  const avgSeries  = useMemo(() => computeAvgSeries(catFundIds, histData, range), [catFundIds, histData, range]);
-  const compareSeries = useMemo(() => compare.map(id=>({ id, series:computeSeries(histData[id]??[],range,customFrom,customTo) })), [compare, histData, range, customFrom, customTo]);
+  const effectiveRange = (range==='custom'&&fromPeriod) ? 'custom' : (range==='custom' ? '3y' : range);
+  const mainSeries = useMemo(() => computeSeries(fundPoints, effectiveRange, fromPeriod, toPeriod), [fundPoints, effectiveRange, fromPeriod, toPeriod]);
+  const avgSeries  = useMemo(() => computeAvgSeries(catFundIds, histData, effectiveRange), [catFundIds, histData, effectiveRange]);
+  const compareSeries = useMemo(() => compare.map(id=>({ id, series:computeSeries(histData[id]??[], effectiveRange, fromPeriod, toPeriod) })), [compare, histData, effectiveRange, fromPeriod, toPeriod]);
 
   const allFunds = fund._allFunds ?? [];
 
@@ -269,24 +277,40 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
           {ranges.map(r=>(
             <button key={r.key} onClick={()=>{ setRange(r.key); setShowCustom(false); }} style={{ padding:'3px 10px',borderRadius:12,border:`1px solid ${range===r.key&&!showCustom?C.crimson:C.border}`,background:range===r.key&&!showCustom?C.crimson:C.white,color:range===r.key&&!showCustom?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>{r.label}</button>
           ))}
-          <button onClick={()=>setShowCustom(s=>!s)} style={{ padding:'3px 10px',borderRadius:12,border:`1px solid ${showCustom?C.crimson:C.border}`,background:showCustom?C.crimson:C.white,color:showCustom?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>טווח אישי</button>
+          <button onClick={()=>{ setShowCustom(s=>!s); if(!showCustom) setRange('custom'); }} style={{ padding:'3px 10px',borderRadius:12,border:`1px solid ${showCustom?C.crimson:C.border}`,background:showCustom?C.crimson:C.white,color:showCustom?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>טווח אישי</button>
           <div style={{ marginRight:'auto',display:'flex',gap:5 }}>
             <button onClick={()=>setShowModal(true)} style={{ background:'none',border:`1px solid ${C.border}`,borderRadius:6,padding:'3px 9px',fontSize:11,color:C.muted,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4 }}>🔍 הגדל</button>
             <button onClick={()=>{ setShowModal(true); setTimeout(()=>window.print(),400); }} style={{ background:'none',border:`1px solid ${C.border}`,borderRadius:6,padding:'3px 9px',fontSize:11,color:C.muted,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4 }}>🖨️ הדפס</button>
           </div>
         </div>
         {showCustom&&(
-          <div style={{ display:'flex',gap:8,alignItems:'center',padding:'6px 14px 6px',borderBottom:`1px solid ${C.border}`,direction:'rtl',flexWrap:'wrap' }}>
-            <span style={{ fontSize:11,color:C.muted }}>מ:</span>
-            <input type="month" value={customFrom} onChange={e=>{ setCustomFrom(e.target.value); setRange('custom'); }}
-              style={{ padding:'3px 7px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:11,fontFamily:'inherit',outline:'none' }}/>
-            <span style={{ fontSize:11,color:C.muted }}>עד:</span>
-            <input type="month" value={customTo} onChange={e=>{ setCustomTo(e.target.value); setRange('custom'); }}
-              style={{ padding:'3px 7px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:11,fontFamily:'inherit',outline:'none' }}/>
-            {customFrom&&<button onClick={()=>{ setCustomFrom(''); setCustomTo(''); setRange('3y'); setShowCustom(false); }} style={{ background:'none',border:'none',color:C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit' }}>איפוס</button>}
+          <div style={{ display:'flex',gap:6,alignItems:'center',padding:'6px 14px',borderBottom:`1px solid ${C.border}`,direction:'rtl',flexWrap:'wrap',background:'#FAFAFA' }}>
+            <span style={{ fontSize:11,color:C.muted,fontWeight:600 }}>מ:</span>
+            <select value={customFrom.y} onChange={e=>{ setCustomFrom(p=>({...p,y:e.target.value})); }}
+              style={{ padding:'3px 6px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:11,fontFamily:'inherit',outline:'none',background:C.white }}>
+              <option value="">שנה</option>
+              {YEARS.map(y=><option key={y} value={y}>{y}</option>)}
+            </select>
+            <select value={customFrom.m} onChange={e=>setCustomFrom(p=>({...p,m:e.target.value}))}
+              style={{ padding:'3px 6px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:11,fontFamily:'inherit',outline:'none',background:C.white }}>
+              <option value="">חודש</option>
+              {MONTHS_HE.map(m=><option key={m} value={m}>{m.slice(3)}</option>)}
+            </select>
+            <span style={{ fontSize:11,color:C.muted,fontWeight:600 }}>עד:</span>
+            <select value={customTo.y} onChange={e=>setCustomTo(p=>({...p,y:e.target.value}))}
+              style={{ padding:'3px 6px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:11,fontFamily:'inherit',outline:'none',background:C.white }}>
+              <option value="">שנה</option>
+              {YEARS.map(y=><option key={y} value={y}>{y}</option>)}
+            </select>
+            <select value={customTo.m} onChange={e=>setCustomTo(p=>({...p,m:e.target.value}))}
+              style={{ padding:'3px 6px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:11,fontFamily:'inherit',outline:'none',background:C.white }}>
+              <option value="">חודש</option>
+              {MONTHS_HE.map(m=><option key={m} value={m}>{m.slice(3)}</option>)}
+            </select>
+            <button onClick={()=>{ setCustomFrom({y:'',m:''}); setCustomTo({y:'',m:''}); setRange('3y'); setShowCustom(false); }}
+              style={{ background:'none',border:'none',color:C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit' }}>איפוס</button>
           </div>
         )}
-
         <div style={{ padding:'8px 14px 4px',position:'relative' }}>
           <svg ref={svgRef} width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display:'block',overflow:'visible',cursor:'crosshair' }} onMouseMove={handleMM} onMouseLeave={()=>setHoverIdx(null)}>
             <line x1={PAD.l} y1={yFor(0)} x2={PAD.l+cW} y2={yFor(0)} stroke={C.border} strokeWidth="1" strokeDasharray="3 3"/>
