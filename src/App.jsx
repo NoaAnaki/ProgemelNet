@@ -155,9 +155,9 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
   const MONTHS_HE = ['01-ינואר','02-פברואר','03-מרץ','04-אפריל','05-מאי','06-יוני','07-יולי','08-אוגוסט','09-ספטמבר','10-אוקטובר','11-נובמבר','12-דצמבר'];
 
   // YYYYMM string מהבחירה
-  const fromPeriod = customFrom.y && customFrom.m ? customFrom.y + customFrom.m.slice(0,2) : null;
-  const toPeriod   = customTo.y   && customTo.m   ? customTo.y   + customTo.m.slice(0,2)   : null;
-  const rangeError = fromPeriod && toPeriod && fromPeriod >= toPeriod ? 'תאריך ה"מ" חייב להיות לפני תאריך ה"עד"' : null;
+  const fromPeriod = useMemo(()=> customFrom.y && customFrom.m ? customFrom.y + customFrom.m.slice(0,2) : null, [customFrom]);
+  const toPeriod   = useMemo(()=> customTo.y   && customTo.m   ? customTo.y   + customTo.m.slice(0,2)   : null, [customTo]);
+  const rangeError = useMemo(()=> fromPeriod && toPeriod && fromPeriod >= toPeriod ? 'תאריך ה"מ" חייב להיות לפני תאריך ה"עד"' : null, [fromPeriod, toPeriod]);
   const [compare, setCompare]   = useState([]);
 
   // מיזג עם קרנות שנשלחו מבחוץ
@@ -177,7 +177,7 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
   const ranges = useMemo(() => availableRanges(fundPoints), [fundPoints]);
   useEffect(() => { if(ranges.length && range!=='custom' && !ranges.find(r=>r.key===range)) setRange(ranges[ranges.length-1].key); }, [ranges]);
 
-  const effectiveRange = (range==='custom'&&fromPeriod&&!rangeError) ? 'custom' : (range==='custom' ? '3y' : range);
+  const effectiveRange = useMemo(()=> (range==='custom'&&fromPeriod&&!rangeError) ? 'custom' : (range==='custom' ? '3y' : range), [range, fromPeriod, rangeError]);
   const mainSeries = useMemo(() => computeSeries(fundPoints, effectiveRange, fromPeriod, toPeriod), [fundPoints, effectiveRange, fromPeriod, toPeriod]);
   const avgSeries  = useMemo(() => computeAvgSeries(catFundIds, histData, effectiveRange), [catFundIds, histData, effectiveRange]);
   const compareSeries = useMemo(() => compare.map(id=>({ id, series:computeSeries(histData[id]??[], effectiveRange, fromPeriod, toPeriod) })), [compare, histData, effectiveRange, fromPeriod, toPeriod]);
