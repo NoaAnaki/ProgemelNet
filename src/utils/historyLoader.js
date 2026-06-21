@@ -51,9 +51,9 @@ function rangeStartPeriod(latestPeriod, range) {
 export function computeSeries(points, range, customFrom, customTo) {
   if (!points?.length) return [];
   let start, slice;
-  if (range === 'custom' && customFrom && customFrom.length >= 7) {
+  if (range === 'custom' && customFrom && customFrom.length >= 6) {
     const from = customFrom.replace(/-/g,'').slice(0,6);
-    const to   = (customTo && customTo.length >= 7) ? customTo.replace(/-/g,'').slice(0,6) : points[points.length-1].period;
+    const to   = (customTo && customTo.length >= 6) ? customTo.replace(/-/g,'').slice(0,6) : points[points.length-1].period;
     slice = points.filter(p => p.period >= from && p.period <= to);
     if (!slice.length) return [];
   } else {
