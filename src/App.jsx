@@ -146,6 +146,9 @@ function ChartModal({ fund, mainSeries, avgSeries, compareSeries, allFunds, catL
 // ─── Historical Chart (panel) ─────────────────────────────────────────────────
 function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare }) {
   const [range, setRange]       = useState('3y');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo]     = useState('');
+  const [showCustom, setShowCustom] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [compare, setCompare]   = useState([]);
 
