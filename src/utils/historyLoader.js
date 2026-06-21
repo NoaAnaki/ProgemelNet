@@ -48,11 +48,20 @@ function rangeStartPeriod(latestPeriod, range) {
  * @param {string} range  'ytd' | '1y' | '3y' | '5y' | '10y'
  * @returns {Array} [{period, label, cumRet, retMonth}, ...]
  */
-export function computeSeries(points, range) {
+export function computeSeries(points, range, customFrom, customTo) {
   if (!points?.length) return [];
-  const latest = points[points.length - 1].period;
-  const start  = rangeStartPeriod(latest, range);
-  const slice  = points.filter(p => p.period >= start);
+  let start, slice;
+  if (range === 'custom' && customFrom && customFrom.length >= 7) {
+    const from = customFrom.replace(/-/g,'').slice(0,6);
+    const to   = (customTo && customTo.length >= 7) ? customTo.replace(/-/g,'').slice(0,6) : points[points.length-1].period;
+    slice = points.filter(p => p.period >= from && p.period <= to);
+    if (!slice.length) return [];
+  } else {
+    const effectiveRange = (range === 'custom') ? '3y' : range;
+    const latest = points[points.length - 1].period;
+    start  = rangeStartPeriod(latest, effectiveRange);
+    slice  = points.filter(p => p.period >= start);
+  }
   if (!slice.length) return [];
 
   let cum = 1.0;
