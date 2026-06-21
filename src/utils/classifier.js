@@ -86,7 +86,7 @@ export function classifyFund(fund) {
 
   // חשיפות
   if (s  !== null && s  >= 90) cats.push('equities');
-  if (s  !== null && s  <  10) cats.push('bonds');
+  if (s  !== null && s  <  10 && !isMoneyMarket(fund)) cats.push('bonds');
   if (f  !== null && f  >= 90) cats.push('foreign');
   if (f  !== null && f  <  10) cats.push('israel');
   if (fx !== null && fx >= 90) cats.push('forex');
