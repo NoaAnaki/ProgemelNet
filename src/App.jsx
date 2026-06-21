@@ -686,7 +686,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
             ))}
           </div>
         )}
-        <div style={{ position:'relative',marginBottom:10 }}>
+        <div style={{ position:'relative',marginBottom:10,maxWidth:'60%' }}>
           <input
             value={query}
             onChange={e=>{ setQuery(e.target.value); setShowDrop(true); }}
@@ -724,7 +724,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
           </div>
         )}
         {selected.length>0&&(
-          <div style={{ overflowX:'auto',border:`1px solid ${C.border}`,borderRadius:8 }}>
+          <div style={{ overflowX:'auto',border:`1px solid ${C.border}`,borderRadius:8,maxWidth:'60%' }}>
             <table style={{ width:'100%',borderCollapse:'collapse',tableLayout:'auto' }}>
               <thead><tr style={{ background:C.darkMid }}>
                 <th style={{ ...TH,width:5,padding:0 }}></th>
