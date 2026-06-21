@@ -164,11 +164,11 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
 
   const fundPoints = useMemo(() => fund.fund_id ? histData[fund.fund_id]??[] : [], [fund.fund_id, histData]);
   const ranges = useMemo(() => availableRanges(fundPoints), [fundPoints]);
-  useEffect(() => { if(ranges.length && !ranges.find(r=>r.key===range)) setRange(ranges[ranges.length-1].key); }, [ranges]);
+  useEffect(() => { if(ranges.length && range!=='custom' && !ranges.find(r=>r.key===range)) setRange(ranges[ranges.length-1].key); }, [ranges]);
 
-  const mainSeries = useMemo(() => computeSeries(fundPoints, range), [fundPoints, range]);
+  const mainSeries = useMemo(() => computeSeries(fundPoints, range, customFrom, customTo), [fundPoints, range, customFrom, customTo]);
   const avgSeries  = useMemo(() => computeAvgSeries(catFundIds, histData, range), [catFundIds, histData, range]);
-  const compareSeries = useMemo(() => compare.map(id=>({ id, series:computeSeries(histData[id]??[],range) })), [compare, histData, range]);
+  const compareSeries = useMemo(() => compare.map(id=>({ id, series:computeSeries(histData[id]??[],range,customFrom,customTo) })), [compare, histData, range, customFrom, customTo]);
 
   const allFunds = fund._allFunds ?? [];
 
