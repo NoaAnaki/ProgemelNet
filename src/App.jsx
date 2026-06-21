@@ -264,13 +264,25 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
         <div style={{ display:'flex',gap:4,padding:'10px 14px 8px',borderBottom:`1px solid ${C.border}`,alignItems:'center' }}>
           <span style={{ fontSize:11,color:C.muted,marginLeft:6 }}>טווח:</span>
           {ranges.map(r=>(
-            <button key={r.key} onClick={()=>setRange(r.key)} style={{ padding:'3px 10px',borderRadius:12,border:`1px solid ${range===r.key?C.crimson:C.border}`,background:range===r.key?C.crimson:C.white,color:range===r.key?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>{r.label}</button>
+            <button key={r.key} onClick={()=>{ setRange(r.key); setShowCustom(false); }} style={{ padding:'3px 10px',borderRadius:12,border:`1px solid ${range===r.key&&!showCustom?C.crimson:C.border}`,background:range===r.key&&!showCustom?C.crimson:C.white,color:range===r.key&&!showCustom?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>{r.label}</button>
           ))}
+          <button onClick={()=>setShowCustom(s=>!s)} style={{ padding:'3px 10px',borderRadius:12,border:`1px solid ${showCustom?C.crimson:C.border}`,background:showCustom?C.crimson:C.white,color:showCustom?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>טווח אישי</button>
           <div style={{ marginRight:'auto',display:'flex',gap:5 }}>
             <button onClick={()=>setShowModal(true)} style={{ background:'none',border:`1px solid ${C.border}`,borderRadius:6,padding:'3px 9px',fontSize:11,color:C.muted,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4 }}>🔍 הגדל</button>
             <button onClick={()=>{ setShowModal(true); setTimeout(()=>window.print(),400); }} style={{ background:'none',border:`1px solid ${C.border}`,borderRadius:6,padding:'3px 9px',fontSize:11,color:C.muted,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4 }}>🖨️ הדפס</button>
           </div>
         </div>
+        {showCustom&&(
+          <div style={{ display:'flex',gap:8,alignItems:'center',padding:'6px 14px 6px',borderBottom:`1px solid ${C.border}`,direction:'rtl',flexWrap:'wrap' }}>
+            <span style={{ fontSize:11,color:C.muted }}>מ:</span>
+            <input type="month" value={customFrom} onChange={e=>{ setCustomFrom(e.target.value); setRange('custom'); }}
+              style={{ padding:'3px 7px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:11,fontFamily:'inherit',outline:'none' }}/>
+            <span style={{ fontSize:11,color:C.muted }}>עד:</span>
+            <input type="month" value={customTo} onChange={e=>{ setCustomTo(e.target.value); setRange('custom'); }}
+              style={{ padding:'3px 7px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:11,fontFamily:'inherit',outline:'none' }}/>
+            {customFrom&&<button onClick={()=>{ setCustomFrom(''); setCustomTo(''); setRange('3y'); setShowCustom(false); }} style={{ background:'none',border:'none',color:C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit' }}>איפוס</button>}
+          </div>
+        )}
 
         <div style={{ padding:'8px 14px 4px',position:'relative' }}>
           <svg ref={svgRef} width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display:'block',overflow:'visible',cursor:'crosshair' }} onMouseMove={handleMM} onMouseLeave={()=>setHoverIdx(null)}>
