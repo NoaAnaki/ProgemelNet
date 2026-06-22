@@ -184,18 +184,27 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
 
   // בדיקת מוצרים בהשוואה שאין להם מספיק היסטוריה
   const shortRangeWarning = useMemo(()=>{
-    if(!compare.length || effectiveRange==='custom') return null;
+    if(!compare.length) return null;
     const RANGE_MIN = {ytd:1,'1y':12,'3y':36,'5y':60,'10y':120};
-    const minRequired = RANGE_MIN[effectiveRange] ?? 0;
     const allFundsLocal = fund._allFunds ?? [];
-    const missing = compare.filter(id=>{
-      const pts = histData[id]??[];
-      return pts.length < minRequired;
-    });
+
+    if(effectiveRange==='custom' && fromPeriod) {
+      // בדוק טווח אישי — חשב מספר חודשים נדרשים
+      const from = parseInt(fromPeriod.slice(0,4))*12 + parseInt(fromPeriod.slice(4,6));
+      const to   = toPeriod ? parseInt(toPeriod.slice(0,4))*12 + parseInt(toPeriod.slice(4,6)) : new Date().getFullYear()*12+new Date().getMonth()+1;
+      const monthsRequired = to - from;
+      const missing = compare.filter(id=>{ const pts=histData[id]??[]; return pts.filter(p=>p.period>=fromPeriod&&(!toPeriod||p.period<=toPeriod)).length < 2; });
+      if(!missing.length) return null;
+      const names = missing.map(id=>{ const f=allFundsLocal.find(x=>x.fund_id===id); return f?.name?.slice(0,20)||id; });
+      return `לחלק מהמוצרים אין נתונים בטווח הנבחר: ${names.join('، ')}`;
+    }
+
+    const minRequired = RANGE_MIN[effectiveRange] ?? 0;
+    const missing = compare.filter(id=>{ const pts=histData[id]??[]; return pts.length < minRequired; });
     if(!missing.length) return null;
     const names = missing.map(id=>{ const f=allFundsLocal.find(x=>x.fund_id===id); return f?.name?.slice(0,20)||id; });
     return `לחלק מהמוצרים אין היסטוריה מלאה לטווח זה: ${names.join('، ')}`;
-  },[compare, effectiveRange, histData, fund._allFunds]);
+  },[compare, effectiveRange, fromPeriod, toPeriod, histData, fund._allFunds]);
 
   const allFunds = fund._allFunds ?? [];
 
@@ -873,9 +882,9 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
                         const color=col.color||(typeof v==='number'?numColor(v):C.dark);
                         return <td key={col.key} style={{ ...TD,textAlign:'center',color,fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{fmt(v)}</td>;
                       })}
-                      <td style={{ ...TD,width:48,textAlign:'center',padding:'4px 4px',whiteSpace:'nowrap' }}>
+                      <td style={{ ...TD,width:52,textAlign:'center',padding:'4px 4px',whiteSpace:'nowrap' }}>
+                        <button onClick={e=>{e.stopPropagation(); if(f.fund_id){ setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund('📊 '+f.name.slice(0,28)+' התווסף למערכת הגרפים'); setTimeout(()=>setAddedFund(null),2800); }}} title="שלח למערכת הגרפים" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:11,padding:'1px 5px',height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted,marginLeft:3 }} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.crimson;e.currentTarget.style.color=C.crimson;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>📈</button>
                         <button onClick={e=>{e.stopPropagation();setSelected(p=>p.filter(s=>s.name!==f.name));}} title="הסר" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:12,width:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted }} onMouseEnter={e=>{e.currentTarget.style.borderColor='#E63946';e.currentTarget.style.color='#E63946';}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>×</button>
-                        <button onClick={e=>{e.stopPropagation(); if(f.fund_id) setSentToChart(prev=>[...new Set([...prev,f.fund_id])]);}} title="שלח לגרף בפירוט" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:11,padding:'1px 5px',height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted,marginRight:3 }} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.crimson;e.currentTarget.style.color=C.crimson;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>📈</button>
                       </td>
                     </tr>
                   );
@@ -1449,9 +1458,9 @@ export default function App() {
               setCompSelected={setCompSelected}
               setAddedFund={setAddedFund}/>
           ) : (
-            <TrackBrowser product={product} onSelectFund={(f,cid)=>{setSelFund(f);setSelCatId(cid);}} selFund={selFund} order={order} funds={funds}
+            <TrackBrowser product={product} onSelectFund={(f,cid)=>{setSelFund(f);setSelCatId(cid);setSentToChart([]);setSentToMix([]);}} selFund={selFund} order={order} funds={funds}
               onAddToComparison={f=>{ setCompSelected(prev=>prev.find(s=>s.name===f.name)||prev.length>=10?prev:[...prev,f]); setAddedFund(f.name); setTimeout(()=>setAddedFund(null),2500); }}
-              onAddToChart={f=>{ if(!f.fund_id) return; if(activePanelTab==='mix') setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); else setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund('📈 '+f.name.slice(0,25)+' נוסף לגרף'); setTimeout(()=>setAddedFund(null),2500); }}/>
+              onAddToChart={f=>{ if(!f.fund_id) return; setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund('📊 '+f.name.slice(0,28)+' התווסף למערכת הגרפים'); setTimeout(()=>setAddedFund(null),2800); }}/>
           )}
           <div style={{ padding:'0 0 48px' }}/>
           <footer style={{ background:C.dark,color:'rgba(255,255,255,0.3)',textAlign:'center',padding:'13px',fontSize:11 }}>
