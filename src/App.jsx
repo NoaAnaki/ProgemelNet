@@ -820,7 +820,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
                       <td style={{ padding:0,width:5,background:clr }}/>
                       <td style={{ ...TD,fontWeight:500,color:C.darkMid,whiteSpace:'nowrap',paddingRight:10 }}>{f.name}</td>
                       <td style={{ ...TD,textAlign:'center' }} onClick={e=>e.stopPropagation()}>
-                        <input type="number" min="0" max="100" value={weights[f.name]??''} onChange={e=>setWeights(p=>({...p,[f.name]:e.target.value}))}
+                        <input type="number" min="0" max="100" step="10" value={weights[f.name]??''} onChange={e=>setWeights(p=>({...p,[f.name]:e.target.value}))}
                           placeholder="—"
                           style={{ width:48,padding:'2px 4px',border:`1px solid ${weightError?'#DC2626':C.border}`,borderRadius:5,fontSize:11,textAlign:'center',fontFamily:'inherit',outline:'none' }}/>
                       </td>
@@ -1148,12 +1148,12 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
 
   return (
     <div style={{ width:'100%',height:'100%',background:C.white,boxShadow:'-4px 0 28px rgba(0,0,0,0.12)',overflowY:'auto',direction:'rtl',display:'flex',flexDirection:'column' }}>
-      <div style={{ background:C.darkMid,padding:'4px 13px',flexShrink:0,direction:'rtl' }}>
-        <span style={{ fontSize:9.5,color:'rgba(255,255,255,0.5)',fontWeight:600,letterSpacing:'0.03em' }}>📊 מערכת גרפים וניתוח מוצר</span>
+      <div style={{ background:C.darkMid,padding:'10px 13px 8px',flexShrink:0,direction:'rtl' }}>
+        <span style={{ fontSize:15,color:C.white,fontWeight:800,letterSpacing:'0.01em' }}>📊 מערכת גרפים וניתוח מוצר</span>
       </div>
-      <div style={{ background:C.crimson,padding:'13px 13px 11px',color:C.white,flexShrink:0 }}>
+      <div style={{ background:C.crimson,padding:'9px 13px 8px',color:C.white,flexShrink:0 }}>
         <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start' }}>
-          <h2 style={{ margin:0,fontSize:12,fontWeight:700,lineHeight:1.5,flex:1,paddingLeft:8 }}>{fund.name}</h2>
+          <h2 style={{ margin:0,fontSize:11,fontWeight:600,lineHeight:1.5,flex:1,paddingLeft:8,opacity:0.9 }}>{fund.name}</h2>
           <button onClick={onClose} style={{ background:'rgba(255,255,255,0.2)',border:'none',color:C.white,width:24,height:24,borderRadius:'50%',cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0 }}>×</button>
         </div>
         <div style={{ marginTop:6,display:'flex',gap:4,flexWrap:'wrap' }}>
