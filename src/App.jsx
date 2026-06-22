@@ -862,10 +862,10 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
             <table style={{ width:'100%',borderCollapse:'collapse',tableLayout:'auto' }}>
               <thead><tr style={{ background:C.darkMid }}>
                 <th style={{ ...TH,width:5,padding:0 }}></th>
+                <th style={{ ...TH,width:52 }}></th>
                 <th style={{ ...TH,textAlign:'right',color:'rgba(255,255,255,0.8)',paddingRight:10 }}>שם המוצר</th>
                 <th style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.7)',minWidth:60 }}>משקל %</th>
                 {COMP_COLS.map(c=><th key={c.key} style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.7)' }}>{c.label}</th>)}
-                <th style={{ ...TH,width:24 }}></th>
               </tr></thead>
               <tbody>
                 {selected.map((f,i)=>{
@@ -873,6 +873,10 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
                   return(
                     <tr key={f.name} onClick={()=>onSelectFund&&onSelectFund(f)} style={{ background:C.white,borderBottom:`1px solid ${C.border}`,cursor:'pointer' }} onMouseEnter={e=>e.currentTarget.style.background='#FDF8F6'} onMouseLeave={e=>e.currentTarget.style.background=C.white}>
                       <td style={{ padding:0,width:5,background:clr }}/>
+                      <td style={{ ...TD,width:52,textAlign:'center',padding:'4px 4px',whiteSpace:'nowrap' }} onClick={e=>e.stopPropagation()}>
+                        <button onClick={e=>{e.stopPropagation(); if(f.fund_id){ setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund('📊 '+f.name.slice(0,28)+' התווסף למערכת הגרפים'); setTimeout(()=>setAddedFund(null),2800); }}} title="שלח למערכת הגרפים" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:11,padding:'1px 5px',height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted,marginLeft:3 }} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.crimson;e.currentTarget.style.color=C.crimson;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>📈</button>
+                        <button onClick={e=>{e.stopPropagation();setSelected(p=>p.filter(s=>s.name!==f.name));}} title="הסר" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:12,width:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted }} onMouseEnter={e=>{e.currentTarget.style.borderColor='#E63946';e.currentTarget.style.color='#E63946';}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>×</button>
+                      </td>
                       <td style={{ ...TD,fontWeight:500,color:C.darkMid,whiteSpace:'nowrap',paddingRight:10 }}>{f.name}</td>
                       <td style={{ ...TD,textAlign:'center' }} onClick={e=>e.stopPropagation()}>
                         <input type="number" min="0" max="100" step="10" value={weights[f.name]??''} onChange={e=>setWeights(p=>({...p,[f.name]:e.target.value}))}
@@ -885,16 +889,13 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
                         const color=col.color||(typeof v==='number'?numColor(v):C.dark);
                         return <td key={col.key} style={{ ...TD,textAlign:'center',color,fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{fmt(v)}</td>;
                       })}
-                      <td style={{ ...TD,width:52,textAlign:'center',padding:'4px 4px',whiteSpace:'nowrap' }}>
-                        <button onClick={e=>{e.stopPropagation(); if(f.fund_id){ setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund('📊 '+f.name.slice(0,28)+' התווסף למערכת הגרפים'); setTimeout(()=>setAddedFund(null),2800); }}} title="שלח למערכת הגרפים" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:11,padding:'1px 5px',height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted,marginLeft:3 }} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.crimson;e.currentTarget.style.color=C.crimson;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>📈</button>
-                        <button onClick={e=>{e.stopPropagation();setSelected(p=>p.filter(s=>s.name!==f.name));}} title="הסר" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:12,width:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted }} onMouseEnter={e=>{e.currentTarget.style.borderColor='#E63946';e.currentTarget.style.color='#E63946';}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>×</button>
-                      </td>
                     </tr>
                   );
                 })}
                 {weightedAvg&&(
                   <tr style={{ background:C.avgBg,borderTop:`2px solid ${C.border}` }}>
                     <td style={{ padding:0,width:5 }}/>
+                    <td style={{ ...TD,width:52 }}/>
                     <td style={{ ...TD,fontWeight:700,color:C.dark,paddingRight:10 }}>ממוצע {totalWeight>0?`(משוקלל ${totalWeight.toFixed(0)}%)`:'(שווה משקל)'}</td>
                     <td style={{ ...TD,textAlign:'center',fontSize:10,color:C.muted }}>{totalWeight>0?totalWeight.toFixed(0)+'%':'—'}</td>
                     {COMP_COLS.map(col=>{
@@ -903,7 +904,6 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
                       const color=col.color||(typeof v==='number'?numColor(v):C.dark);
                       return <td key={col.key} style={{ ...TD,textAlign:'center',color,fontWeight:700,fontVariantNumeric:'tabular-nums' }}>{fmt(v)}</td>;
                     })}
-                    <td/>
                   </tr>
                 )}
               </tbody>
@@ -1301,7 +1301,7 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
                 onMouseEnter={e=>{e.currentTarget.style.background=C.crimson;e.currentTarget.style.color='white';e.currentTarget.style.borderColor=C.crimson;}}
                 onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color=C.muted;e.currentTarget.style.borderColor=C.border;}}>+</button>
               {onAddToChart&&<button title="הוסף לגרף"
-                onClick={e=>{e.stopPropagation();onAddToChart(fund);}}
+                onClick={e=>{e.stopPropagation();onAddToChart(fund,catId);}}
                 style={{ background:'none',border:`1.5px solid ${C.border}`,borderRadius:5,cursor:'pointer',fontSize:11,width:22,height:22,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted,transition:'all 0.1s',marginRight:2 }}
                 onMouseEnter={e=>{e.currentTarget.style.background='#2563EB';e.currentTarget.style.color='white';e.currentTarget.style.borderColor='#2563EB';}}
                 onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color=C.muted;e.currentTarget.style.borderColor=C.border;}}>📈</button>}
@@ -1443,8 +1443,8 @@ export default function App() {
           ) : (
             <TrackBrowser product={product} onSelectFund={(f,cid)=>{setSelFund(f);setSelCatId(cid);setSentToChart([]);setSentToMix([]);}} selFund={selFund} order={order} funds={funds}
               onAddToComparison={f=>{ setCompSelected(prev=>prev.find(s=>s.name===f.name)||prev.length>=10?prev:[...prev,f]); setAddedFund(f.name); setTimeout(()=>setAddedFund(null),2500); }}
-              onAddToChart={f=>{ if(!f.fund_id) return;
-                if(!selFund){ setSelFund(f); setSelCatId(null); setSentToChart([]); setSentToMix([]); setAddedFund('📊 נפתחה מערכת הגרפים עבור '+f.name.slice(0,24)); setTimeout(()=>setAddedFund(null),2800); }
+              onAddToChart={(f,cid)=>{ if(!f.fund_id) return;
+                if(!selFund){ setSelFund(f); setSelCatId(cid??null); setSentToChart([]); setSentToMix([]); setAddedFund('📊 נפתחה מערכת הגרפים עבור '+f.name.slice(0,24)); setTimeout(()=>setAddedFund(null),2800); }
                 else { setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund('📊 '+f.name.slice(0,28)+' התווסף למערכת הגרפים'); setTimeout(()=>setAddedFund(null),2800); }
               }}/>
           )}
