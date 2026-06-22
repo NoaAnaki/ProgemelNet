@@ -561,6 +561,13 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
   const [viewMode, setViewMode]  = useState('category'); // 'category' | 'exposure' | 'company'
   const [activeCompany, setActiveCompany] = useState(null);
 
+  // איפוס מצב כשמחליפים מוצר
+  useEffect(()=>{
+    setViewMode('category');
+    setActiveCompany(null);
+    setActiveSheet(null);
+  },[product]);
+
   const sheets = useMemo(()=>getSheets(product),[product]);
   const sheetFunds = useMemo(()=>activeSheet?getFundsBySheet(product,activeSheet):[],[product,activeSheet]);
 
