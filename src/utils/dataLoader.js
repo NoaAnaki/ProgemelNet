@@ -893,7 +893,7 @@ function buildCurrentData(history) {
     result[product][sheet].push({
       fund_id,
       source,
-      name:      last.name,
+      name:      (last.name||'').replace(/&amp;/g,'&'),
       sheet,
       stocks:    last.stocks   ?? null,
       foreign:   last.foreign  ?? null,
