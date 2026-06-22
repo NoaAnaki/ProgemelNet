@@ -3,7 +3,6 @@ import { CATEGORIES, getFundsForCategory, classifyFund } from "./utils/classifie
 import { PRODUCT_LABELS, getAllFunds, calcAverages, getSheets, getFundsBySheet, loadData, getHistory } from "./utils/dataLoader";
 import { computeSeries, computeAvgSeries, availableRanges, fmtPeriod } from "./utils/historyLoader";
 
-
 const C = {
   crimson:'#8B1A3A', crimsonLt:'#B02248', crimsonPale:'#FFF0F3',
   dark:'#1A1A1A', darkMid:'#2C2C2C', mid:'#3D3D3D', muted:'#6B6B6B',
