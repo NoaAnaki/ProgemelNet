@@ -468,20 +468,35 @@ const COMPANY_PATTERNS = [
   { name:'אנליסט',      patterns:['אנליסט'] },
   { name:'אלפא מור',    patterns:['אלפא מור'] },
   { name:'איילון',      patterns:['איילון'] },
+  { name:'פסגות',       patterns:['פסגות'] },
   { name:'הכשרה',       patterns:['הכשרה'] },
   { name:'אי.די.אי.',   patterns:['אי.די.','איי. די.','איי.די.'] },
 ];
 
-function getCompanyFunds(funds, companyPatterns) {
-  return funds.filter(f => companyPatterns.some(p => {
-    // אם ה-pattern מסתיים ברווח/מקף — השתמש ב-includes
-    // אחרת — בדוק גם שהתו אחרי ה-pattern אינו אות/ספרה (למנוע "כלל" ב"כללי")
-    if(p.endsWith(' ')||p.endsWith('-')) return f.name.includes(p);
-    const idx = f.name.indexOf(p);
+// מחלץ את שם החברה המנהלת בפועל — אחרי "מנוהל באמצעות" אם קיים
+function getActualManager(name) {
+  const match = name.match(/מנוהל(?:\s+ע["']?י|\s+באמצעות)\s+(.+?)(?:\s+(?:ניהול|בע|בע"מ|שקי|תיקי)|\s+-\s|$)/);
+  return match ? match[1].trim() : null;
+}
+
+function matchesCompany(fundName, companyPatterns) {
+  // אם זה מוצר "מנוהל באמצעות X" — בדוק רק את X
+  const manager = getActualManager(fundName);
+  if (manager) {
+    return companyPatterns.some(p => manager.includes(p.trim()));
+  }
+  // אחרת — בדוק את שם הקרן כרגיל עם word boundary לכלל
+  return companyPatterns.some(p => {
+    if(p.endsWith(' ')||p.endsWith('-')) return fundName.includes(p);
+    const idx = fundName.indexOf(p);
     if(idx === -1) return false;
-    const after = f.name[idx + p.length];
+    const after = fundName[idx + p.length];
     return !after || /[\s\-\(]/.test(after);
-  }));
+  });
+}
+
+function getCompanyFunds(funds, companyPatterns) {
+  return funds.filter(f => matchesCompany(f.name, companyPatterns));
 }
 
 // ─── Track Browser ────────────────────────────────────────────────────────────
@@ -562,7 +577,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
     const co = COMPANY_PATTERNS.find(c=>c.name===activeCompany);
     if(!co) return [];
     return sheets.flatMap(sh=>getFundsBySheet(product,sh)).filter(f=>
-      co.patterns.some(p=>{ if(p.endsWith(' ')||p.endsWith('-')) return f.name.includes(p); const idx=f.name.indexOf(p); if(idx===-1) return false; const after=f.name[idx+p.length]; return !after||/[\s\-\(]/.test(after); })
+      matchesCompany(f.name, co.patterns)
     );
   },[activeCompany,product,sheets]);
 
