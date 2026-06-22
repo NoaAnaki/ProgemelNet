@@ -182,6 +182,21 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
   const avgSeries  = useMemo(() => computeAvgSeries(catFundIds, histData, effectiveRange), [catFundIds, histData, effectiveRange]);
   const compareSeries = useMemo(() => compare.map(id=>({ id, series:computeSeries(histData[id]??[], effectiveRange, fromPeriod, toPeriod) })), [compare, histData, effectiveRange, fromPeriod, toPeriod]);
 
+  // בדיקת מוצרים בהשוואה שאין להם מספיק היסטוריה
+  const shortRangeWarning = useMemo(()=>{
+    if(!compare.length || effectiveRange==='custom') return null;
+    const RANGE_MIN = {ytd:1,'1y':12,'3y':36,'5y':60,'10y':120};
+    const minRequired = RANGE_MIN[effectiveRange] ?? 0;
+    const allFundsLocal = fund._allFunds ?? [];
+    const missing = compare.filter(id=>{
+      const pts = histData[id]??[];
+      return pts.length < minRequired;
+    });
+    if(!missing.length) return null;
+    const names = missing.map(id=>{ const f=allFundsLocal.find(x=>x.fund_id===id); return f?.name?.slice(0,20)||id; });
+    return `לחלק מהמוצרים אין היסטוריה מלאה לטווח זה: ${names.join('، ')}`;
+  },[compare, effectiveRange, histData, fund._allFunds]);
+
   const allFunds = fund._allFunds ?? [];
 
   // בורר מוצר לחיפוש השוואה (ברירת מחדל = מוצר הקרן הנוכחית)
@@ -288,6 +303,11 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
           <div style={{ display:'flex',alignItems:'center',gap:8,padding:'6px 14px',background:'#FEF2F2',borderBottom:`1px solid #FECACA`,direction:'rtl' }}>
             <span style={{ color:'#DC2626',fontSize:11,fontWeight:600 }}>⚠️ {rangeError}</span>
             <button onClick={()=>setCustomTo({y:'',m:''})} style={{ background:'none',border:`1px solid #DC2626`,borderRadius:6,color:'#DC2626',fontSize:10.5,padding:'1px 7px',cursor:'pointer',fontFamily:'inherit' }}>תקן</button>
+          </div>
+        )}
+        {shortRangeWarning&&(
+          <div style={{ padding:'4px 14px',background:'#FEF3C7',borderBottom:`1px solid #FCD34D`,fontSize:11,color:'#92400E',direction:'rtl' }}>
+            ⚠️ {shortRangeWarning}
           </div>
         )}
         {showCustom&&(
@@ -773,12 +793,13 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
       <div style={{ padding:'0' }}>
         {/* בורר מוצר — מוצג רק כשהשדה בפוקוס */}
         {showProductSelector&&(
-          <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:8,direction:'rtl' }}>
+          <div style={{ display:'flex',flexWrap:'wrap',gap:4,marginBottom:6,direction:'rtl',padding:'4px 0',borderBottom:`1px dashed ${C.border}` }}>
+            <span style={{ fontSize:10,color:C.muted,alignSelf:'center',marginLeft:4 }}>חפש ב:</span>
             {Object.entries(PRODUCT_LABELS).map(([key,{label,icon}])=>(
               <button key={key}
                 onMouseDown={()=>{ setSearchProduct(key); setQuery(''); setShowDrop(true); }}
-                style={{ padding:'4px 12px',borderRadius:12,border:`1.5px solid ${searchProduct===key?C.crimson:C.border}`,background:searchProduct===key?C.crimson:C.white,color:searchProduct===key?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4 }}>
-                <span>{icon}</span>{label}
+                style={{ padding:'2px 8px',borderRadius:10,border:`1px solid ${searchProduct===key?C.crimson:C.border}`,background:searchProduct===key?C.crimsonPale:C.bg,color:searchProduct===key?C.crimson:C.muted,fontSize:10,fontWeight:searchProduct===key?700:400,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:3 }}>
+                <span style={{ fontSize:11 }}>{icon}</span>{label}
               </button>
             ))}
           </div>
@@ -853,8 +874,8 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
                         return <td key={col.key} style={{ ...TD,textAlign:'center',color,fontWeight:600,fontVariantNumeric:'tabular-nums' }}>{fmt(v)}</td>;
                       })}
                       <td style={{ ...TD,width:48,textAlign:'center',padding:'4px 4px',whiteSpace:'nowrap' }}>
-                        <button onClick={e=>{e.stopPropagation(); if(f.fund_id) setSentToChart(prev=>[...new Set([...prev,f.fund_id])]);}} title="שלח לגרף בפירוט" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:11,padding:'1px 5px',height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted,marginLeft:3 }} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.crimson;e.currentTarget.style.color=C.crimson;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>📈</button>
                         <button onClick={e=>{e.stopPropagation();setSelected(p=>p.filter(s=>s.name!==f.name));}} title="הסר" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:12,width:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted }} onMouseEnter={e=>{e.currentTarget.style.borderColor='#E63946';e.currentTarget.style.color='#E63946';}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>×</button>
+                        <button onClick={e=>{e.stopPropagation(); if(f.fund_id) setSentToChart(prev=>[...new Set([...prev,f.fund_id])]);}} title="שלח לגרף בפירוט" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:11,padding:'1px 5px',height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted,marginRight:3 }} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.crimson;e.currentTarget.style.color=C.crimson;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>📈</button>
                       </td>
                     </tr>
                   );
@@ -1183,7 +1204,7 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
         </div>
       </div>
       <div style={{ display:'flex',borderBottom:`1px solid ${C.border}`,flexShrink:0,background:C.white }}>
-        {[{id:'returns',label:'תשואות וחשיפות'},{id:'history',label:'📈 גרף תשואה מצטברת'},{id:'mix',label:'📊 גרף תמהיל'},{id:'risk',label:'⚠️ גרף סיכון'}].map(tab=>(
+        {[{id:'history',label:'📈 גרף תשואה מצטברת'},{id:'mix',label:'📊 גרף תמהיל'},{id:'risk',label:'⚠️ גרף סיכון'}].map(tab=>(
           <button key={tab.id} onClick={()=>handleTabChange(tab.id)} style={{ flex:1,padding:'9px 0',border:'none',background:'none',color:activeTab===tab.id?C.crimson:C.muted,fontFamily:'inherit',fontSize:12,fontWeight:700,cursor:'pointer',borderBottom:activeTab===tab.id?`2px solid ${C.crimson}`:'2px solid transparent' }}>{tab.label}</button>
         ))}
       </div>
@@ -1300,6 +1321,7 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
         <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_1y),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_1y'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_1y)}</td>
         <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_3y),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_3y'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_3y)}</td>
         <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_5y),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_5y'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_5y)}</td>
+        <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_10y),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_10y'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_10y)}</td>
         <td style={{ ...TD,textAlign:'center',color:'#2563EB',fontWeight:600 }}>{fund.stocks!=null?fund.stocks.toFixed(1)+'%':'—'}</td>
         <td style={{ ...TD,textAlign:'center',color:'#7C3AED',fontWeight:600 }}>{fund.foreign!=null?fund.foreign.toFixed(1)+'%':'—'}</td>
         <td style={{ ...TD,textAlign:'center',color:'#059669',fontWeight:600 }}>{fund.forex!=null?fund.forex.toFixed(1)+'%':'—'}</td>
@@ -1328,6 +1350,7 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
             <SortTh col={{ key:'ret_1y',    label:'% שנה',      tip:'תשואה שנתית' }}/>
             <SortTh col={{ key:'ret_3y',    label:'% 3 שנים',   tip:'תשואה מצטברת 36 חודשים' }}/>
             <SortTh col={{ key:'ret_5y',    label:'% 5 שנים',   tip:'תשואה מצטברת 60 חודשים' }}/>
+            <SortTh col={{ key:'ret_10y',   label:'% 10 שנים',  tip:'תשואה מצטברת 120 חודשים' }}/>
             <SortTh col={{ key:'stocks',   label:'% מניות',    tip:'חשיפה למניות',     color:'#93C5FD' }}/>
             <SortTh col={{ key:'foreign',  label:'% חו"ל',     tip:'חשיפה לחו"ל',      color:'#C4B5FD' }}/>
             <SortTh col={{ key:'forex',    label:'% מט"ח',     tip:'חשיפה למט"ח',      color:'#6EE7B7' }}/>
@@ -1415,7 +1438,7 @@ export default function App() {
       <div style={{ display:'flex',minHeight:'calc(100vh - 56px)' }}>
         <div style={{ flex:1,minWidth:0,display:'flex',flexDirection:'column' }}>
           <div style={{ padding:'10px 16px 9px',background:C.white,borderBottom:`1px solid ${C.border}` }}>
-            <ProductSelector selected={product} onChange={k=>{setProduct(k);setSelFund(null);setSelCatId(null);}}/>
+            <ProductSelector selected={product} onChange={k=>{setProduct(k);setSelFund(null);setSelCatId(null);setSentToChart([]);setSentToMix([]);}}/>
           </div>
           <ComparisonSearch allFunds={allFunds} product={product||'השתלמות'} selected={compSelected} setSelected={setCompSelected} onSelectFund={(f)=>{setSelFund(f);setSelCatId(null);}} setSentToChart={setSentToChart}/>
           {product===null ? (
@@ -1428,7 +1451,7 @@ export default function App() {
           ) : (
             <TrackBrowser product={product} onSelectFund={(f,cid)=>{setSelFund(f);setSelCatId(cid);}} selFund={selFund} order={order} funds={funds}
               onAddToComparison={f=>{ setCompSelected(prev=>prev.find(s=>s.name===f.name)||prev.length>=10?prev:[...prev,f]); setAddedFund(f.name); setTimeout(()=>setAddedFund(null),2500); }}
-              onAddToChart={f=>{ if(!f.fund_id) return; if(activePanelTab==='mix') setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); else setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); }}/>
+              onAddToChart={f=>{ if(!f.fund_id) return; if(activePanelTab==='mix') setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); else setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund('📈 '+f.name.slice(0,25)+' נוסף לגרף'); setTimeout(()=>setAddedFund(null),2500); }}/>
           )}
           <div style={{ padding:'0 0 48px' }}/>
           <footer style={{ background:C.dark,color:'rgba(255,255,255,0.3)',textAlign:'center',padding:'13px',fontSize:11 }}>
