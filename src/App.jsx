@@ -370,7 +370,10 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
 
         <div style={{ padding:'0 14px 10px',borderTop:`1px solid ${C.border}` }}>
           {!showSearch ? (
-            <button onClick={()=>setShowSearch(true)} style={{ background:'none',border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:11,padding:'4px 10px',cursor:'pointer',fontFamily:'inherit',marginTop:8 }}>+ השוואה למוצר נוסף</button>
+            <div style={{ display:'flex',gap:8,alignItems:'center',marginTop:8 }}>
+              <button onClick={()=>setShowSearch(true)} style={{ background:'none',border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:11,padding:'4px 10px',cursor:'pointer',fontFamily:'inherit' }}>+ השוואה למוצר נוסף</button>
+              {compare.length>0&&<button onClick={()=>setCompare([])} style={{ background:'none',border:`1px solid ${C.border}`,borderRadius:8,color:C.muted,fontSize:11,padding:'4px 10px',cursor:'pointer',fontFamily:'inherit' }}>איפוס השוואה</button>}
+            </div>
           ) : (
             <div ref={fdSearchRef} style={{ marginTop:8 }}>
               {/* בורר מוצר */}
@@ -455,7 +458,7 @@ const COMPANY_PATTERNS = [
   { name:'הפניקס',      patterns:['הפניקס','אקסלנס'] },
   { name:'מיטב',        patterns:['מיטב'] },
   { name:'הראל',        patterns:['הראל'] },
-  { name:'כלל',         patterns:['כלל'] },
+  { name:'כלל',         patterns:['כלל ','כלל-','כלל ביטוח','כלל פנסיה'] },
   { name:'מנורה',       patterns:['מנורה'] },
   { name:'מגדל',        patterns:['מגדל'] },
   { name:'אלטשולר שחם', patterns:['אלטשולר'] },
@@ -470,7 +473,15 @@ const COMPANY_PATTERNS = [
 ];
 
 function getCompanyFunds(funds, companyPatterns) {
-  return funds.filter(f => companyPatterns.some(p => f.name.includes(p)));
+  return funds.filter(f => companyPatterns.some(p => {
+    // אם ה-pattern מסתיים ברווח/מקף — השתמש ב-includes
+    // אחרת — בדוק גם שהתו אחרי ה-pattern אינו אות/ספרה (למנוע "כלל" ב"כללי")
+    if(p.endsWith(' ')||p.endsWith('-')) return f.name.includes(p);
+    const idx = f.name.indexOf(p);
+    if(idx === -1) return false;
+    const after = f.name[idx + p.length];
+    return !after || /[\s\-\(]/.test(after);
+  }));
 }
 
 // ─── Track Browser ────────────────────────────────────────────────────────────
@@ -551,7 +562,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
     const co = COMPANY_PATTERNS.find(c=>c.name===activeCompany);
     if(!co) return [];
     return sheets.flatMap(sh=>getFundsBySheet(product,sh)).filter(f=>
-      co.patterns.some(p=>f.name.includes(p))
+      co.patterns.some(p=>{ if(p.endsWith(' ')||p.endsWith('-')) return f.name.includes(p); const idx=f.name.indexOf(p); if(idx===-1) return false; const after=f.name[idx+p.length]; return !after||/[\s\-\(]/.test(after); })
     );
   },[activeCompany,product,sheets]);
 
@@ -659,7 +670,24 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
   const [showDrop, setShowDrop]       = useState(false);
   const [showProductSelector, setShowProductSelector] = useState(false);
   const [searchProduct, setSearchProduct] = useState(product);
+  const [weights, setWeights]         = useState({}); // fund.name → משקל (0-100)
   const wrapRef = useRef(null);
+
+  // חישוב ממוצע משוקלל
+  const totalWeight = selected.reduce((s,f)=>s+(parseFloat(weights[f.name])||0),0);
+  const weightError = selected.length>0 && totalWeight>0 && Math.abs(totalWeight-100)>0.01;
+  const weightedAvg = useMemo(()=>{
+    if(!selected.length) return null;
+    const hasWeights = selected.some(f=>parseFloat(weights[f.name])>0);
+    const result = {};
+    COMP_COLS.forEach(col=>{
+      const vals = selected.map(f=>({ v:f[col.key], w: hasWeights ? (parseFloat(weights[f.name])||0) : 1 })).filter(x=>x.v!=null);
+      if(!vals.length){ result[col.key]=null; return; }
+      const totalW = vals.reduce((s,x)=>s+x.w,0);
+      result[col.key] = totalW>0 ? vals.reduce((s,x)=>s+x.v*x.w,0)/totalW : null;
+    });
+    return result;
+  },[selected, weights]);
 
   // סגור dropdown בלחיצה מחוץ לקומפוננטה
   useEffect(()=>{
@@ -739,8 +767,12 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
             onFocus={()=>{ setShowDrop(true); setShowProductSelector(true); }}
             onBlur={()=>{}}
             placeholder={`חפש ב${PRODUCT_LABELS[searchProduct]?.label||''}… (עד 10)`}
-            style={{ width:'100%',padding:'8px 12px',border:`1.5px solid ${C.border}`,borderRadius:8,fontSize:12.5,fontFamily:'inherit',direction:'rtl',outline:'none',background:C.bg,boxSizing:'border-box' }}
+            style={{ width:'100%',padding:'8px 12px 8px 32px',border:`1.5px solid ${C.border}`,borderRadius:8,fontSize:12.5,fontFamily:'inherit',direction:'rtl',outline:'none',background:C.bg,boxSizing:'border-box' }}
           />
+          {(showDrop||query)&&(
+            <button onMouseDown={()=>{ setQuery(''); setShowDrop(false); setShowProductSelector(false); }}
+              style={{ position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:C.muted,fontSize:16,lineHeight:1,padding:0,zIndex:10 }}>×</button>
+          )}
           {showDrop && results.length>0 && (
             <div style={{ position:'absolute',top:'calc(100% + 4px)',right:0,left:0,zIndex:500,background:C.white,border:`1px solid ${C.border}`,borderRadius:8,maxHeight:220,overflowY:'auto',boxShadow:'0 8px 24px rgba(0,0,0,0.12)' }}>
               {results.map(f=>(
@@ -775,6 +807,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
               <thead><tr style={{ background:C.darkMid }}>
                 <th style={{ ...TH,width:5,padding:0 }}></th>
                 <th style={{ ...TH,textAlign:'right',color:'rgba(255,255,255,0.8)',paddingRight:10 }}>שם המוצר</th>
+                <th style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.7)',minWidth:60 }}>משקל %</th>
                 {COMP_COLS.map(c=><th key={c.key} style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.7)' }}>{c.label}</th>)}
                 <th style={{ ...TH,width:24 }}></th>
               </tr></thead>
@@ -785,6 +818,11 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
                     <tr key={f.name} onClick={()=>onSelectFund&&onSelectFund(f)} style={{ background:C.white,borderBottom:`1px solid ${C.border}`,cursor:'pointer' }} onMouseEnter={e=>e.currentTarget.style.background='#FDF8F6'} onMouseLeave={e=>e.currentTarget.style.background=C.white}>
                       <td style={{ padding:0,width:5,background:clr }}/>
                       <td style={{ ...TD,fontWeight:500,color:C.darkMid,whiteSpace:'nowrap',paddingRight:10 }}>{f.name}</td>
+                      <td style={{ ...TD,textAlign:'center' }} onClick={e=>e.stopPropagation()}>
+                        <input type="number" min="0" max="100" value={weights[f.name]??''} onChange={e=>setWeights(p=>({...p,[f.name]:e.target.value}))}
+                          placeholder="—"
+                          style={{ width:48,padding:'2px 4px',border:`1px solid ${weightError?'#DC2626':C.border}`,borderRadius:5,fontSize:11,textAlign:'center',fontFamily:'inherit',outline:'none' }}/>
+                      </td>
                       {COMP_COLS.map(col=>{
                         const v=f[col.key];
                         const fmt=col.fmt||pctFmt;
@@ -798,8 +836,27 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
                     </tr>
                   );
                 })}
+                {weightedAvg&&(
+                  <tr style={{ background:C.avgBg,borderTop:`2px solid ${C.border}` }}>
+                    <td style={{ padding:0,width:5 }}/>
+                    <td style={{ ...TD,fontWeight:700,color:C.dark,paddingRight:10 }}>ממוצע {totalWeight>0?`(משוקלל ${totalWeight.toFixed(0)}%)`:'(שווה משקל)'}</td>
+                    <td style={{ ...TD,textAlign:'center',fontSize:10,color:C.muted }}>{totalWeight>0?totalWeight.toFixed(0)+'%':'—'}</td>
+                    {COMP_COLS.map(col=>{
+                      const v=weightedAvg[col.key];
+                      const fmt=col.fmt||pctFmt;
+                      const color=col.color||(typeof v==='number'?numColor(v):C.dark);
+                      return <td key={col.key} style={{ ...TD,textAlign:'center',color,fontWeight:700,fontVariantNumeric:'tabular-nums' }}>{fmt(v)}</td>;
+                    })}
+                    <td/>
+                  </tr>
+                )}
               </tbody>
             </table>
+            {weightError&&(
+              <div style={{ background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:'0 0 8px 8px',padding:'6px 12px',fontSize:11,color:'#DC2626',fontWeight:600,direction:'rtl' }}>
+                ⚠️ סכום המשקולות הוא {totalWeight.toFixed(1)}% — חייב להיות 100% לממוצע משוקלל
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1098,6 +1155,9 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
         <div style={{ marginTop:6,display:'flex',gap:4,flexWrap:'wrap' }}>
           {cats.slice(0,3).map(c=><span key={c} style={{ background:'rgba(255,255,255,0.2)',borderRadius:8,padding:'1px 7px',fontSize:9,fontWeight:600 }}>{c}</span>)}
         </div>
+      </div>
+      <div style={{ background:C.bg,padding:'5px 13px 4px',flexShrink:0,borderBottom:`1px solid ${C.border}`,direction:'rtl' }}>
+        <span style={{ fontSize:10,color:C.muted,fontWeight:600 }}>📊 מערכת גרפים וניתוח מוצר</span>
       </div>
       <div style={{ display:'flex',borderBottom:`1px solid ${C.border}`,flexShrink:0,background:C.white }}>
         {[{id:'returns',label:'תשואות וחשיפות'},{id:'history',label:'📈 גרף תשואה מצטברת'},{id:'mix',label:'📊 גרף תמהיל'},{id:'risk',label:'⚠️ גרף סיכון'}].map(tab=>(
