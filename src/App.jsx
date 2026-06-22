@@ -97,6 +97,9 @@ function ChartModal({ fund, mainSeries, avgSeries, compareSeries, allFunds, catL
           {ranges.map(r=>(
             <button key={r.key} onClick={()=>setRange(r.key)} style={{ padding:'4px 14px',borderRadius:12,border:`1px solid ${range===r.key?C.crimson:C.border}`,background:range===r.key?C.crimson:C.white,color:range===r.key?C.white:C.mid,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>{r.label}</button>
           ))}
+          {range==='custom'&&(
+            <span style={{ padding:'4px 14px',borderRadius:12,border:`1px solid ${C.crimson}`,background:C.crimson,color:C.white,fontSize:12,fontWeight:600 }}>טווח אישי</span>
+          )}
         </div>
         <div style={{ padding:'14px 18px 10px' }}>
           <svg width="100%" viewBox={`0 0 ${MW} ${MH}`} style={{ display:'block',overflow:'visible' }}>
@@ -1155,7 +1158,7 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
 // ─── Fund Detail Panel ────────────────────────────────────────────────────────
 function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, allFunds, externalCompare, onTabChange }) {
   if(!fund) return null;
-  const [activeTab, setActiveTab] = useState('returns');
+  const [activeTab, setActiveTab] = useState('history');
   const handleTabChange = (id) => { setActiveTab(id); onTabChange&&onTabChange(id); };
   const cats = classifyFund(fund).map(id=>CATEGORIES[id]?.label).filter(Boolean);
   const bonds = calcBonds(fund);
@@ -1218,26 +1221,6 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
         ))}
       </div>
       <div style={{ flex:1,overflowY:'auto' }}>
-        {activeTab==='returns'&&(
-          <div style={{ padding:'11px 13px' }}>
-            {fund.profit_index!=null&&<div style={{ background:'linear-gradient(135deg,#FFF0F3,#FFE4EA)',border:`1px solid #F8C8D0`,borderRadius:9,padding:'8px 12px',marginBottom:11,display:'flex',alignItems:'center',justifyContent:'space-between' }}><div><div style={{ fontSize:13,color:C.crimson,fontWeight:700 }}>מדד פרוגמלנט</div><div style={{ fontSize:11,color:C.muted }}>שירות ואיכות ניהול</div></div><span style={{ fontSize:30,fontWeight:900,color:C.crimson }}>{fund.profit_index.toFixed(1)}</span></div>}
-            <div style={{ marginBottom:11 }}>
-              <div style={{ fontSize:11.5,fontWeight:700,color:C.dark,marginBottom:5 }}>תשואות{catAvg&&<span style={{ fontSize:9.5,color:C.muted,fontWeight:400,marginRight:5 }}>| עיגול = ממוצע קטגוריה</span>}</div>
-              <div style={{ background:C.bg,borderRadius:8,padding:'9px 7px' }}><ReturnBars/></div>
-            </div>
-
-
-            <div style={{ background:'linear-gradient(135deg,#F8F5FF,#EEF2FF)',border:'1px solid #C4B5FD',borderRadius:9,padding:'12px 14px',margin:'8px 14px 12px',direction:'rtl' }}>
-              <div style={{ display:'flex',alignItems:'center',gap:6,marginBottom:8 }}><span style={{ fontSize:14 }}>🤖</span><span style={{ fontSize:11.5,fontWeight:700,color:'#4C1D95' }}>ניתוח AI</span><span style={{ fontSize:9.5,color:'#7C3AED',background:'#EDE9FE',borderRadius:7,padding:'1px 6px' }}>בדיקה</span></div>
-              <p style={{ margin:'0 0 8px',fontSize:11,color:'#3D3D3D',lineHeight:1.8 }}>בתקופה שנבדקה (בין השנים 2016 ל־2026), המוצר השיג תשואה שנתית ממוצעת של כ־6.2%, מול ממוצע קטגוריאלי של כ־7.1%. המבנה הייחודי שלו, שכבת בסיס אג"חית צרה יחסית לצד גג מניות ומט"ח רחב – גבה לעיתים מחיר של תנודתיות מוגברת. תמהיל דומה* אליו רשם בשיא המשברים העולמיים (2000 ו-2008) ירידות שהגיעו לאזור ה־15%–20%, ואופיינו בזמן התאוששות שנמשך בשיא עד 3 שנים.</p>
-              <p style={{ margin:'0 0 8px',fontSize:11,color:'#3D3D3D',lineHeight:1.8 }}>הגוף המנהל: ההיסטוריה של הגוף המנהל מלמדת על גוף השקעות עם DNA יציב, שלא נבהל מזעזועים, וגם לא רודף אחרי טרנדים. ההתאמה המשמעותית ביותר במסלול נרשמה בשנים 2021–2023, כשהוגדלה משמעותית החשיפה לחו"ל ולמט"ח. המהלך הזה תרם לביצועים בטווח הקצר, ואף שהשארתו לאורך זמן הגדילה את התנודתיות, הוא מעיד על גוף שמאמין באסטרטגיה לטווח ארוך. העקביות הזו, לצד פתרונות אשראי אטרקטיביים יחסית כנגד הקופה, וצוות השקעות חזק, תמך בדירוג הגבוה בסקר שביעות רצון פנימי.</p>
-              <p style={{ margin:'0 0 6px',fontSize:11,fontWeight:700,color:'#4C1D95' }}>מבט אל תוך המוצר</p>
-              <p style={{ margin:'0 0 8px',fontSize:11,color:'#3D3D3D',lineHeight:1.8 }}>תמהיל הנכסים של המוצר בנוי מ"שכבות" השקעה. רכיב האג"ח והנכסים הלא-סחירים (כ־58% ביחד): השכבה צפויה להעניק לתיק את היציבות וההכנסה השוטפת. משקל אגרות החוב הקלאסיות נמוך יחסית לענף ועומד על כ־44% בלבד (לעומת כ־56% בממוצע בקטגוריה), מול שכבה עבה יחסית של השקעות לא סחירות (כ־14% לעומת 11% בענף).</p>
-              <p style={{ margin:'0 0 8px',fontSize:11,color:'#3D3D3D',lineHeight:1.8 }}>• שכבת המניות הגלובלית (כ־42%): עם חשיפה של 42% למניות בחו"ל – גבוהה משמעותית מהממוצע בקטגוריה שעומד על כ־30% – התיק מעניק משקל גבוה למנועי הצמיחה הגלובליים.<br/>• מעטפת שכבת המט"ח (כ־35%): החשיפה למט"ח קרובה לחשיפה למניות חו"ל, כך שרוב החשיפה לחו"ל נותרת ללא גידור מטבעי. ברגעי משבר עשוי להפוך לשכבת הגנה — "ריצה אל הדולר".<br/>• שכבת הצמיחה הישראלית (כ־22%): מנוע תשואות משני, עם חשיפה מקומית של 22% לעומת כ־33% בממוצע בענף.</p>
-              <p style={{ margin:0,fontSize:10,color:'#7C3AED',fontStyle:'italic' }}>**ניתן לקבל בדיקת התאמה אישית למוצר או הצעה לחלופות, באמצעות מתכנן פיננסי מאושר ע"י פרוגמלנט</p>
-            </div>
-          </div>
-        )}
         {activeTab==='history'&&<div><HistoricalChart fund={fundWithAll} catFundIds={catFundIds} catLabel={catLabel} histData={histData} externalCompare={externalCompare}/>
 
       <div style={{ background:'linear-gradient(135deg,#F8F5FF,#EEF2FF)',border:'1px solid #C4B5FD',borderRadius:9,padding:'12px 14px',margin:'8px 14px 12px',direction:'rtl' }}>
@@ -1392,7 +1375,7 @@ export default function App() {
   const [addedFund, setAddedFund] = useState(null); // שם קרן שהוספה — לפידבק
   const [sentToChart, setSentToChart] = useState([]); // fund_ids שנשלחו לגרף
   const [sentToMix, setSentToMix]     = useState([]); // fund_ids שנשלחו לגרף תמהיל
-  const [activePanelTab, setActivePanelTab] = useState('returns');
+  const [activePanelTab, setActivePanelTab] = useState('history');
   const profitIndex = useProfitIndex();
 
   // טוען history.json אחד שמכיל הכל
@@ -1460,7 +1443,10 @@ export default function App() {
           ) : (
             <TrackBrowser product={product} onSelectFund={(f,cid)=>{setSelFund(f);setSelCatId(cid);setSentToChart([]);setSentToMix([]);}} selFund={selFund} order={order} funds={funds}
               onAddToComparison={f=>{ setCompSelected(prev=>prev.find(s=>s.name===f.name)||prev.length>=10?prev:[...prev,f]); setAddedFund(f.name); setTimeout(()=>setAddedFund(null),2500); }}
-              onAddToChart={f=>{ if(!f.fund_id) return; setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund('📊 '+f.name.slice(0,28)+' התווסף למערכת הגרפים'); setTimeout(()=>setAddedFund(null),2800); }}/>
+              onAddToChart={f=>{ if(!f.fund_id) return;
+                if(!selFund){ setSelFund(f); setSelCatId(null); setSentToChart([]); setSentToMix([]); setAddedFund('📊 נפתחה מערכת הגרפים עבור '+f.name.slice(0,24)); setTimeout(()=>setAddedFund(null),2800); }
+                else { setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund('📊 '+f.name.slice(0,28)+' התווסף למערכת הגרפים'); setTimeout(()=>setAddedFund(null),2800); }
+              }}/>
           )}
           <div style={{ padding:'0 0 48px' }}/>
           <footer style={{ background:C.dark,color:'rgba(255,255,255,0.3)',textAlign:'center',padding:'13px',fontSize:11 }}>
@@ -1477,7 +1463,7 @@ export default function App() {
         )}
         {panelOpen&&(
           <div style={{ position:'fixed',top:56,left:0,width:PANEL_W,height:'calc(100vh - 56px)',overflow:'hidden',zIndex:50,boxShadow:'4px 0 20px rgba(0,0,0,0.15)' }}>
-            <FundDetail fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);}} catAvg={catAvg} catFundIds={catFundIds} catLabel={catLabel} histData={histData??{}} allFunds={allFunds} externalCompare={activePanelTab==='mix'?sentToMix:sentToChart} onTabChange={setActivePanelTab}/>
+            <FundDetail key={selFund?.fund_id} fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);}} catAvg={catAvg} catFundIds={catFundIds} catLabel={catLabel} histData={histData??{}} allFunds={allFunds} externalCompare={activePanelTab==='mix'?sentToMix:sentToChart} onTabChange={setActivePanelTab}/>
           </div>
         )}
       </div>
