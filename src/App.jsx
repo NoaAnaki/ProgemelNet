@@ -1472,7 +1472,7 @@ export default function App() {
         {addedFund&&(
           <div style={{ position:'fixed',bottom:24,right:'50%',transform:'translateX(50%)',background:C.dark,color:C.white,borderRadius:10,padding:'10px 18px',fontSize:12.5,fontWeight:600,zIndex:9999,boxShadow:'0 4px 16px rgba(0,0,0,0.25)',direction:'rtl',display:'flex',alignItems:'center',gap:8,animation:'fadeIn 0.2s ease' }}>
             <span style={{ color:'#86EFAC',fontSize:16 }}>✓</span>
-            <span><b style={{ color:'#FFD6DE' }}>{addedFund.slice(0,30)}{addedFund.length>30?'…':''}</b> התווסף לטבלת השוואת מוצרים</span>
+            <span>{addedFund.startsWith('📊') ? addedFund : <><b style={{ color:'#FFD6DE' }}>{addedFund.slice(0,30)}{addedFund.length>30?'…':''}</b> התווסף לטבלת השוואת מוצרים</>}</span>
           </div>
         )}
         {panelOpen&&(
