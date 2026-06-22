@@ -665,6 +665,22 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
 }
 
 // ─── Comparison Search ────────────────────────────────────────────────────────
+const COMP_COLS = [
+  { key:'ret_month', get label(){ return getLatestMonthName(); } },
+  { key:'ret_ytd',   label:'YTD' },
+  { key:'ret_1y',    label:'שנה' },
+  { key:'ret_3y',    label:'3 שנים' },
+  { key:'ret_5y',    label:'5 שנים' },
+  { key:'ret_10y',   label:'10 שנים' },
+  { key:'stocks',    label:'% מניות',   fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#2563EB' },
+  { key:'foreign',   label:'% חו"ל',    fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#7C3AED' },
+  { key:'forex',     label:'% מט"ח',    fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#059669' },
+  { key:'illiquid',  label:'% לא סחיר', fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#9CA3AF' },
+  { key:'sharpe',    label:'מדד שארפ',  fmt: v=>v!=null?v.toFixed(2):'—', color:'#1A1A1A' },
+  { key:'profit_index', label:'מדד פרוגמלנט', fmt: v=>v!=null?v.toFixed(1):'—', color:'#8B1A3A' },
+];
+
+
 function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFund, setSentToChart }) {
   const [query, setQuery]             = useState('');
   const [showDrop, setShowDrop]       = useState(false);
@@ -728,21 +744,6 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
     setQuery('');
     setShowDrop(false);
   };
-
-  const COMP_COLS = [
-    { key:'ret_month', label:getLatestMonthName() },
-    { key:'ret_ytd',   label:'YTD' },
-    { key:'ret_1y',    label:'שנה' },
-    { key:'ret_3y',    label:'3 שנים' },
-    { key:'ret_5y',    label:'5 שנים' },
-    { key:'ret_10y',   label:'10 שנים' },
-    { key:'stocks',    label:'% מניות',   fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#2563EB' },
-    { key:'foreign',   label:'% חו"ל',    fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#7C3AED' },
-    { key:'forex',     label:'% מט"ח',    fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#059669' },
-    { key:'illiquid',  label:'% לא סחיר', fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#9CA3AF' },
-    { key:'sharpe',    label:'מדד שארפ',  fmt: v=>v!=null?v.toFixed(2):'—', color:C.dark },
-    { key:'profit_index', label:'מדד פרוגמלנט', fmt: v=>v!=null?v.toFixed(1):'—', color:C.crimson },
-  ];
 
   return (
     <div ref={wrapRef} style={{ borderBottom:`1px solid ${C.border}`,background:C.white,padding:'10px 16px 12px' }}>
@@ -1147,6 +1148,9 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
 
   return (
     <div style={{ width:'100%',height:'100%',background:C.white,boxShadow:'-4px 0 28px rgba(0,0,0,0.12)',overflowY:'auto',direction:'rtl',display:'flex',flexDirection:'column' }}>
+      <div style={{ background:C.darkMid,padding:'4px 13px',flexShrink:0,direction:'rtl' }}>
+        <span style={{ fontSize:9.5,color:'rgba(255,255,255,0.5)',fontWeight:600,letterSpacing:'0.03em' }}>📊 מערכת גרפים וניתוח מוצר</span>
+      </div>
       <div style={{ background:C.crimson,padding:'13px 13px 11px',color:C.white,flexShrink:0 }}>
         <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start' }}>
           <h2 style={{ margin:0,fontSize:12,fontWeight:700,lineHeight:1.5,flex:1,paddingLeft:8 }}>{fund.name}</h2>
@@ -1155,9 +1159,6 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
         <div style={{ marginTop:6,display:'flex',gap:4,flexWrap:'wrap' }}>
           {cats.slice(0,3).map(c=><span key={c} style={{ background:'rgba(255,255,255,0.2)',borderRadius:8,padding:'1px 7px',fontSize:9,fontWeight:600 }}>{c}</span>)}
         </div>
-      </div>
-      <div style={{ background:C.bg,padding:'5px 13px 4px',flexShrink:0,borderBottom:`1px solid ${C.border}`,direction:'rtl' }}>
-        <span style={{ fontSize:10,color:C.muted,fontWeight:600 }}>📊 מערכת גרפים וניתוח מוצר</span>
       </div>
       <div style={{ display:'flex',borderBottom:`1px solid ${C.border}`,flexShrink:0,background:C.white }}>
         {[{id:'returns',label:'תשואות וחשיפות'},{id:'history',label:'📈 גרף תשואה מצטברת'},{id:'mix',label:'📊 גרף תמהיל'},{id:'risk',label:'⚠️ גרף סיכון'}].map(tab=>(
