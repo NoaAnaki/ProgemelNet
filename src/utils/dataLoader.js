@@ -925,7 +925,14 @@ export function getFundsBySheet(productKey, sheetName) {
 
 export function getSheets(productKey) {
   if (!currentData) return [];
-  return Object.keys(currentData[productKey] ?? {});
+  const sheets = Object.keys(currentData[productKey] ?? {});
+  // מיון: "כללי" (או "מקיפה-כללי") תמיד ראשון
+  return sheets.sort((a,b)=>{
+    const aGen = a.includes('כללי') ? 0 : 1;
+    const bGen = b.includes('כללי') ? 0 : 1;
+    if(aGen !== bGen) return aGen - bGen;
+    return 0; // שאר הסדר נשמר
+  });
 }
 
 export function getHistory(fund_id) {
