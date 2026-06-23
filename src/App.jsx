@@ -603,7 +603,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
     setPensionType('מקיפה');
   },[product]);
 
-  const sheets = useMemo(()=>getSheets(product),[product]);
+  const sheets = useMemo(()=>getSheets(product),[product, funds]);
   // בפנסיה — סנן לפי מקיפה/כללית. בשאר המוצרים — כל הגיליונות
   const visibleSheets = useMemo(()=>{
     if(product!=='פנסיה') return sheets;
