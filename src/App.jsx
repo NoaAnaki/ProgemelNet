@@ -593,14 +593,23 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
   const [viewMode, setViewMode]  = useState('category'); // 'category' | 'exposure' | 'company'
   const [activeCompany, setActiveCompany] = useState(null);
 
+  const [pensionType, setPensionType] = useState('מקיפה'); // 'מקיפה' | 'כללית' — רק לפנסיה
+
   // איפוס מצב כשמחליפים מוצר
   useEffect(()=>{
     setViewMode('category');
     setActiveCompany(null);
     setActiveSheet(null);
+    setPensionType('מקיפה');
   },[product]);
 
   const sheets = useMemo(()=>getSheets(product),[product]);
+  // בפנסיה — סנן לפי מקיפה/כללית. בשאר המוצרים — כל הגיליונות
+  const visibleSheets = useMemo(()=>{
+    if(product!=='פנסיה') return sheets;
+    if(pensionType==='מקיפה') return sheets.filter(sh=>sh.startsWith('מקיפה')||sh.startsWith('מובילות'));
+    return sheets.filter(sh=>sh.startsWith('כללית'));
+  },[sheets, product, pensionType]);
   const sheetFunds = useMemo(()=>activeSheet?getFundsBySheet(product,activeSheet):[],[product,activeSheet]);
 
   // חברות שקיימות במוצר הנוכחי
@@ -636,17 +645,23 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
   return (
     <div style={{ borderBottom:`1px solid ${C.border}`,background:C.white }}>
       <div style={{ display:'flex',alignItems:'center',gap:6,padding:'10px 16px',direction:'rtl' }}>
-        <span style={{ fontSize:13,fontWeight:700,color:C.dark,marginLeft:8 }}>📂 מסלולי השקעה</span>
-        <button onClick={()=>{setViewMode('category');setActiveCompany(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='category'?C.crimson:C.border}`,background:viewMode==='category'?C.crimson:C.white,color:viewMode==='category'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי קטגוריות רשמיות</button>
-        <button onClick={()=>{setViewMode('exposure');setActiveSheet(null);setActiveCompany(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='exposure'?C.crimson:C.border}`,background:viewMode==='exposure'?C.crimson:C.white,color:viewMode==='exposure'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי חשיפות</button>
-        <button onClick={()=>{setViewMode('company');setActiveSheet(null);}} style={{ padding:'4px 14px',borderRadius:12,border:`1.5px solid ${viewMode==='company'?C.crimson:C.border}`,background:viewMode==='company'?C.crimson:C.white,color:viewMode==='company'?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>לפי חברה מנהלת</button>
+        <span style={{ fontSize:14,fontWeight:800,color:C.dark,marginLeft:10 }}>📂 הצג מסלולים:</span>
+        <button onClick={()=>{setViewMode('category');setActiveCompany(null);}} style={{ padding:'7px 18px',borderRadius:9,border:`2px solid ${viewMode==='category'?C.crimson:C.border}`,background:viewMode==='category'?C.crimson:C.white,color:viewMode==='category'?C.white:C.dark,fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:viewMode==='category'?'0 2px 8px rgba(139,26,58,0.2)':'none' }}>לפי קטגוריות רשמיות</button>
+        <button onClick={()=>{setViewMode('exposure');setActiveSheet(null);setActiveCompany(null);}} style={{ padding:'7px 18px',borderRadius:9,border:`2px solid ${viewMode==='exposure'?C.crimson:C.border}`,background:viewMode==='exposure'?C.crimson:C.white,color:viewMode==='exposure'?C.white:C.dark,fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:viewMode==='exposure'?'0 2px 8px rgba(139,26,58,0.2)':'none' }}>לפי חשיפות</button>
+        <button onClick={()=>{setViewMode('company');setActiveSheet(null);}} style={{ padding:'7px 18px',borderRadius:9,border:`2px solid ${viewMode==='company'?C.crimson:C.border}`,background:viewMode==='company'?C.crimson:C.white,color:viewMode==='company'?C.white:C.dark,fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:viewMode==='company'?'0 2px 8px rgba(139,26,58,0.2)':'none' }}>לפי חברה מנהלת</button>
       </div>
       <div style={{ padding:'0 14px 14px',maxWidth:'60%' }}>
 
           {/* ── לפי קטגוריה: לחצנים + גלילה לטבלה ── */}
           {viewMode==='category'&&(<>
+            {product==='פנסיה'&&(
+              <div style={{ display:'flex',gap:8,marginBottom:12,direction:'rtl' }}>
+                <button onClick={()=>{setPensionType('מקיפה');setActiveSheet(null);}} style={{ padding:'6px 18px',borderRadius:9,border:`2px solid ${pensionType==='מקיפה'?C.crimson:C.border}`,background:pensionType==='מקיפה'?C.crimson:C.white,color:pensionType==='מקיפה'?C.white:C.dark,fontSize:12.5,fontWeight:700,cursor:'pointer',fontFamily:'inherit' }}>פנסיה מקיפה</button>
+                <button onClick={()=>{setPensionType('כללית');setActiveSheet(null);}} style={{ padding:'6px 18px',borderRadius:9,border:`2px solid ${pensionType==='כללית'?C.crimson:C.border}`,background:pensionType==='כללית'?C.crimson:C.white,color:pensionType==='כללית'?C.white:C.dark,fontSize:12.5,fontWeight:700,cursor:'pointer',fontFamily:'inherit' }}>פנסיה משלימה / כללית</button>
+              </div>
+            )}
             <div style={{ display:'flex',flexWrap:'wrap',gap:5,marginBottom:12 }}>
-              {sheets.map(sh=>(
+              {visibleSheets.map(sh=>(
                 <button key={sh}
                   onClick={()=>{ setActiveSheet(sh); setTimeout(()=>{ const el=document.getElementById(`cat-table-${product}-${sh}`); if(el){ const y=el.getBoundingClientRect().top+window.scrollY-70; window.scrollTo({top:y,behavior:'smooth'}); } },80); }}
                   style={{ padding:'4px 11px',borderRadius:14,border:`1.5px solid ${activeSheet===sh?C.crimson:C.border}`,background:activeSheet===sh?C.crimson:C.white,color:activeSheet===sh?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'all 0.12s' }}>
@@ -655,7 +670,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
               ))}
             </div>
             <div style={{ display:'flex',flexDirection:'column',gap:12 }}>
-              {sheets.map(sh=>(
+              {visibleSheets.map(sh=>(
                 <div key={sh} id={`cat-table-${product}-${sh}`}>
                   <FundTable catId={sh} catLabel={sh}
                     funds={getFundsBySheet(product,sh)}
