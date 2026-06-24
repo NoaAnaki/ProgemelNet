@@ -63,6 +63,25 @@ function useProfitIndex() {
   return map;
 }
 
+// ─── Responsive width hook ─────────────────────────────────────────────────────
+function useScreenWidth() {
+  const [w, setW] = useState(typeof window!=='undefined'?window.innerWidth:1400);
+  useEffect(()=>{
+    const handler = ()=>setW(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return ()=>window.removeEventListener('resize', handler);
+  },[]);
+  return w;
+}
+
+// רוחב אזור הטבלאות לפי גודל המסך — שומר על ~60% במסכים רחבים, מתרחב בצרים
+function tablesMaxWidth(screenW) {
+  if(screenW >= 1600) return '60%';
+  if(screenW >= 1280) return '72%';
+  if(screenW >= 1024) return '85%';
+  return '100%';
+}
+
 // ─── Tooltip ─────────────────────────────────────────────────────────────────
 function Tooltip({ text }) {
   const [show, setShow] = useState(false);
@@ -589,6 +608,8 @@ function HomePage({ onSelectProduct, onSelectFund, compSelected, setCompSelected
 }
 
 function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToComparison, onAddToChart }) {
+  const screenW = useScreenWidth();
+  const tablesW = tablesMaxWidth(screenW);
   const [activeSheet, setActiveSheet] = useState(null);
   const [viewMode, setViewMode]  = useState('category'); // 'category' | 'exposure' | 'company'
   const [activeCompany, setActiveCompany] = useState(null);
@@ -650,7 +671,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
         <button onClick={()=>{setViewMode('exposure');setActiveSheet(null);setActiveCompany(null);}} style={{ padding:'7px 18px',borderRadius:9,border:`2px solid ${viewMode==='exposure'?C.crimson:C.border}`,background:viewMode==='exposure'?C.crimson:C.white,color:viewMode==='exposure'?C.white:C.dark,fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:viewMode==='exposure'?'0 2px 8px rgba(139,26,58,0.2)':'none' }}>לפי חשיפות</button>
         <button onClick={()=>{setViewMode('company');setActiveSheet(null);}} style={{ padding:'7px 18px',borderRadius:9,border:`2px solid ${viewMode==='company'?C.crimson:C.border}`,background:viewMode==='company'?C.crimson:C.white,color:viewMode==='company'?C.white:C.dark,fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:viewMode==='company'?'0 2px 8px rgba(139,26,58,0.2)':'none' }}>לפי חברה מנהלת</button>
       </div>
-      <div style={{ padding:'0 14px 14px',maxWidth:'60%' }}>
+      <div style={{ padding:'0 14px 14px',maxWidth:tablesW }}>
 
           {/* ── לפי קטגוריה: לחצנים + גלילה לטבלה ── */}
           {viewMode==='category'&&(<>
@@ -751,6 +772,8 @@ const COMP_COLS = [
 
 
 function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFund, setSentToChart }) {
+  const screenW = useScreenWidth();
+  const tablesW = tablesMaxWidth(screenW);
   const [query, setQuery]             = useState('');
   const [showDrop, setShowDrop]       = useState(false);
   const [showProductSelector, setShowProductSelector] = useState(false);
@@ -831,7 +854,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
             ))}
           </div>
         )}
-        <div style={{ position:'relative',marginBottom:10,maxWidth:'60%' }}>
+        <div style={{ position:'relative',marginBottom:10,maxWidth:`min(${tablesW}, 600px)` }}>
           <input
             value={query}
             onChange={e=>{ setQuery(e.target.value); setShowDrop(true); }}
@@ -873,7 +896,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
           </div>
         )}
         {selected.length>0&&(
-          <div style={{ overflowX:'auto',border:`1px solid ${C.border}`,borderRadius:8,maxWidth:'60%' }}>
+          <div style={{ overflowX:'auto',border:`1px solid ${C.border}`,borderRadius:8,maxWidth:tablesW }}>
             <table style={{ width:'100%',borderCollapse:'collapse',tableLayout:'auto' }}>
               <thead><tr style={{ background:C.darkMid }}>
                 <th style={{ ...TH,width:5,padding:0 }}></th>
