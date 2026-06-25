@@ -608,9 +608,11 @@ function HomePage({ onSelectProduct, onSelectFund, compSelected, setCompSelected
 }
 
 function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToComparison, onAddToChart }) {
-  // כשהפאנל סגור — רוחב מלא (הטבלה מנצלת את כל המקום, מציגה הכל ללא חיתוך)
-  // כשהפאנל פתוח — האזור כבר מצומצם ל-70% ע"י margin, אז הטבלה 100% מהאזור + גלילה אופקית
-  const tablesW = '100%';
+  // כשהפאנל סגור: לפחות 60% מהמסך, אך אם הטבלה רחבה מ-60% — תתרחב עד הרוחב המינימלי שלה (ללא חיתוך)
+  // כשהפאנל פתוח: האזור מצומצם ע"י margin, הטבלה 100% מהאזור + גלילה אופקית בתוכה
+  const containerStyle = selFund
+    ? { maxWidth:'100%' }
+    : { width:'fit-content', minWidth:'60%', maxWidth:'100%' };
   const [activeSheet, setActiveSheet] = useState(null);
   const [viewMode, setViewMode]  = useState('category'); // 'category' | 'exposure' | 'company'
   const [activeCompany, setActiveCompany] = useState(null);
@@ -672,7 +674,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
         <button onClick={()=>{setViewMode('exposure');setActiveSheet(null);setActiveCompany(null);}} style={{ padding:'7px 18px',borderRadius:9,border:`2px solid ${viewMode==='exposure'?C.crimson:C.border}`,background:viewMode==='exposure'?C.crimson:C.white,color:viewMode==='exposure'?C.white:C.dark,fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:viewMode==='exposure'?'0 2px 8px rgba(139,26,58,0.2)':'none' }}>לפי חשיפות</button>
         <button onClick={()=>{setViewMode('company');setActiveSheet(null);}} style={{ padding:'7px 18px',borderRadius:9,border:`2px solid ${viewMode==='company'?C.crimson:C.border}`,background:viewMode==='company'?C.crimson:C.white,color:viewMode==='company'?C.white:C.dark,fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:viewMode==='company'?'0 2px 8px rgba(139,26,58,0.2)':'none' }}>לפי חברה מנהלת</button>
       </div>
-      <div style={{ padding:'0 14px 14px',maxWidth:tablesW }}>
+      <div style={{ padding:'0 14px 14px',...containerStyle }}>
 
           {/* ── לפי קטגוריה: לחצנים + גלילה לטבלה ── */}
           {viewMode==='category'&&(<>
