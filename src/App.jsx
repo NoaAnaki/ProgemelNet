@@ -610,9 +610,11 @@ function HomePage({ onSelectProduct, onSelectFund, compSelected, setCompSelected
 function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToComparison, onAddToChart }) {
   // כשהפאנל סגור: לפחות 60% מהמסך, אך אם הטבלה רחבה מ-60% — תתרחב עד הרוחב המינימלי שלה (ללא חיתוך)
   // כשהפאנל פתוח: האזור מצומצם ע"י margin, הטבלה 100% מהאזור + גלילה אופקית בתוכה
+  // פאנל סגור: 60% מהמסך, אך מתרחב אם טבלה צריכה יותר (min-content). פאנל פתוח: מלא + גלילה
   const containerStyle = selFund
     ? { maxWidth:'100%' }
-    : { width:'fit-content', minWidth:'60%', maxWidth:'100%' };
+    : { width:'60%', minWidth:'min-content', maxWidth:'100%' };
+  const panelOpen = selFund!==null;
   const [activeSheet, setActiveSheet] = useState(null);
   const [viewMode, setViewMode]  = useState('category'); // 'category' | 'exposure' | 'company'
   const [activeCompany, setActiveCompany] = useState(null);
@@ -699,7 +701,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
                   <FundTable catId={sh} catLabel={sh}
                     funds={getFundsBySheet(product,sh)}
                     onSelect={(f)=>{onSelectFund(f,sh);}}
-                    selFund={selFund} selCatId={null}
+                    selFund={selFund} selCatId={null} panelOpen={panelOpen}
                     onAddToComparison={onAddToComparison} onAddToChart={onAddToChart}/>
                 </div>
               ))}
@@ -723,7 +725,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
                   <FundTable catId={id}
                     funds={getFundsForCategory(funds,id)}
                     onSelect={(f,cid)=>{onSelectFund(f,cid);}}
-                    selFund={selFund} selCatId={null}
+                    selFund={selFund} selCatId={null} panelOpen={panelOpen}
                     onAddToComparison={onAddToComparison} onAddToChart={onAddToChart}/>
                 </div>
               ))}
@@ -749,7 +751,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
                 const cats=order?classifyFund(f).filter(c=>order.includes(c)&&funds&&getFundsForCategory(funds,c).length>0):[];
                 onSelectFund(f,cats.length>0?cats[0]:null);
               }}
-              selFund={selFund} selCatId={null}
+              selFund={selFund} selCatId={null} panelOpen={panelOpen}
               onAddToComparison={onAddToComparison} onAddToChart={onAddToChart}/>
           )}
         </div>
@@ -1312,7 +1314,7 @@ function sortByKey(funds,key,dir) {
   return [...funds].sort((a,b)=>{ const av=a[key]??-Infinity,bv=b[key]??-Infinity; return dir==='desc'?bv-av:av-bv; });
 }
 
-function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddToComparison, onAddToChart }) {
+function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddToComparison, onAddToChart, panelOpen }) {
   const [sortKey, setSortKey] = useState('ret_3y');
   const [sortDir, setSortDir] = useState('desc');
   const [showAll, setShowAll] = useState(false);
@@ -1371,7 +1373,7 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
         <span style={{ fontSize:10,color:'rgba(255,255,255,0.4)' }}>{cat?.desc}</span>
         <span style={{ marginRight:'auto',fontSize:10,color:'rgba(255,255,255,0.3)' }}>{funds.length} מוצרים</span>
       </div>
-      <div style={{ overflowX:'auto',WebkitOverflowScrolling:'touch',border:`1px solid ${C.border}`,borderTop:'none',borderRadius:'0 0 8px 8px' }}>
+      <div style={{ overflowX: panelOpen?'auto':'visible',WebkitOverflowScrolling:'touch',border:`1px solid ${C.border}`,borderTop:'none',borderRadius:'0 0 8px 8px' }}>
         <table style={{ width:'100%',minWidth:760,borderCollapse:'collapse',tableLayout:'auto' }}>
           <thead><tr style={{ background:'#2A2A2A' }}>
             <th style={{ ...TH,width:18,color:'rgba(255,255,255,0.4)',padding:'5px 3px' }}>#</th>
