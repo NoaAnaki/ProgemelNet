@@ -610,11 +610,12 @@ function HomePage({ onSelectProduct, onSelectFund, compSelected, setCompSelected
 function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToComparison, onAddToChart }) {
   // כשהפאנל סגור: לפחות 60% מהמסך, אך אם הטבלה רחבה מ-60% — תתרחב עד הרוחב המינימלי שלה (ללא חיתוך)
   // כשהפאנל פתוח: האזור מצומצם ע"י margin, הטבלה 100% מהאזור + גלילה אופקית בתוכה
-  // פאנל סגור: 60% מהמסך, אך מתרחב אם טבלה צריכה יותר (min-content). פאנל פתוח: מלא + גלילה
-  const containerStyle = selFund
-    ? { maxWidth:'100%' }
-    : { width:'60%', minWidth:'min-content', maxWidth:'100%' };
+  // פאנל סגור: 60% מהמסך, אך מתרחב אם הטבלה רחבה מ-60% (min-content) — בלי חיתוך
+  // פאנל פתוח: 60% מהאזור המצומצם; אם צר מדי — גלילה אופקית (ללא קפיצה/התרחבות)
   const panelOpen = selFund!==null;
+  const containerStyle = panelOpen
+    ? { width:'60%', maxWidth:'100%' }
+    : { width:'60%', minWidth:'min-content', maxWidth:'100%' };
   const [activeSheet, setActiveSheet] = useState(null);
   const [viewMode, setViewMode]  = useState('category'); // 'category' | 'exposure' | 'company'
   const [activeCompany, setActiveCompany] = useState(null);
