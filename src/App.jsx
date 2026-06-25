@@ -608,8 +608,9 @@ function HomePage({ onSelectProduct, onSelectFund, compSelected, setCompSelected
 }
 
 function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToComparison, onAddToChart }) {
-  const screenW = useScreenWidth();
-  const tablesW = tablesMaxWidth(screenW);
+  // כשהפאנל סגור — רוחב מלא (הטבלה מנצלת את כל המקום, מציגה הכל ללא חיתוך)
+  // כשהפאנל פתוח — האזור כבר מצומצם ל-70% ע"י margin, אז הטבלה 100% מהאזור + גלילה אופקית
+  const tablesW = '100%';
   const [activeSheet, setActiveSheet] = useState(null);
   const [viewMode, setViewMode]  = useState('category'); // 'category' | 'exposure' | 'company'
   const [activeCompany, setActiveCompany] = useState(null);
@@ -772,8 +773,7 @@ const COMP_COLS = [
 
 
 function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFund, setSentToChart }) {
-  const screenW = useScreenWidth();
-  const tablesW = tablesMaxWidth(screenW);
+  const tablesW = '100%';
   const [query, setQuery]             = useState('');
   const [showDrop, setShowDrop]       = useState(false);
   const [showProductSelector, setShowProductSelector] = useState(false);
@@ -897,7 +897,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
         )}
         {selected.length>0&&(
           <div style={{ overflowX:'auto',border:`1px solid ${C.border}`,borderRadius:8,maxWidth:tablesW }}>
-            <table style={{ width:'100%',borderCollapse:'collapse',tableLayout:'auto' }}>
+            <table style={{ width:'100%',minWidth:820,borderCollapse:'collapse',tableLayout:'auto' }}>
               <thead><tr style={{ background:C.darkMid }}>
                 <th style={{ ...TH,width:5,padding:0 }}></th>
                 <th style={{ ...TH,width:52 }}></th>
@@ -1369,8 +1369,8 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
         <span style={{ fontSize:10,color:'rgba(255,255,255,0.4)' }}>{cat?.desc}</span>
         <span style={{ marginRight:'auto',fontSize:10,color:'rgba(255,255,255,0.3)' }}>{funds.length} מוצרים</span>
       </div>
-      <div style={{ overflowX:'auto',border:`1px solid ${C.border}`,borderTop:'none',borderRadius:'0 0 8px 8px' }}>
-        <table style={{ width:'100%',borderCollapse:'collapse',tableLayout:'auto' }}>
+      <div style={{ overflowX:'auto',WebkitOverflowScrolling:'touch',border:`1px solid ${C.border}`,borderTop:'none',borderRadius:'0 0 8px 8px' }}>
+        <table style={{ width:'100%',minWidth:760,borderCollapse:'collapse',tableLayout:'auto' }}>
           <thead><tr style={{ background:'#2A2A2A' }}>
             <th style={{ ...TH,width:18,color:'rgba(255,255,255,0.4)',padding:'5px 3px' }}>#</th>
             <th style={{ ...TH,width:28,padding:'4px' }}></th>
@@ -1466,7 +1466,7 @@ export default function App() {
       </nav>
 
       <div style={{ display:'flex',minHeight:'calc(100vh - 56px)' }}>
-        <div style={{ flex:1,minWidth:0,display:'flex',flexDirection:'column' }}>
+        <div style={{ flex:1,minWidth:0,display:'flex',flexDirection:'column',marginLeft:panelOpen?PANEL_W:0,transition:'margin-left 0.2s ease' }}>
           <div style={{ padding:'10px 16px 9px',background:C.white,borderBottom:`1px solid ${C.border}` }}>
             <ProductSelector selected={product} onChange={k=>{setProduct(k);setSelFund(null);setSelCatId(null);setSentToChart([]);setSentToMix([]);}}/>
           </div>
