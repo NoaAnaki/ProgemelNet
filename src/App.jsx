@@ -32,8 +32,6 @@ const calcBonds = fund => Math.max(0, Math.round((100-(fund.stocks??0)-(fund.ill
 // שם חודש גלובלי — מתמלא פעם אחת כשהנתונים נטענים
 let _latestMonthName = 'חודש';
 function getLatestMonthName() { return _latestMonthName; }
-let _latestUpdateLabel = '';
-function getLatestUpdateLabel() { return _latestUpdateLabel; }
 
 const SORT_COLS = [
   { key:'ret_month', label:getLatestMonthName(), tip:'תשואה בחודש האחרון' },
@@ -63,25 +61,6 @@ function useProfitIndex() {
     }).catch(()=>{});
   },[]);
   return map;
-}
-
-// ─── Responsive width hook ─────────────────────────────────────────────────────
-function useScreenWidth() {
-  const [w, setW] = useState(typeof window!=='undefined'?window.innerWidth:1400);
-  useEffect(()=>{
-    const handler = ()=>setW(window.innerWidth);
-    window.addEventListener('resize', handler);
-    return ()=>window.removeEventListener('resize', handler);
-  },[]);
-  return w;
-}
-
-// רוחב אזור הטבלאות לפי גודל המסך — שומר על ~60% במסכים רחבים, מתרחב בצרים
-function tablesMaxWidth(screenW) {
-  if(screenW >= 1600) return '60%';
-  if(screenW >= 1280) return '72%';
-  if(screenW >= 1024) return '85%';
-  return '100%';
 }
 
 // ─── Tooltip ─────────────────────────────────────────────────────────────────
@@ -124,8 +103,6 @@ function ChartModal({ fund, mainSeries, avgSeries, compareSeries, allFunds, catL
         </div>
         <div style={{ padding:'14px 18px 10px' }}>
           <svg width="100%" viewBox={`0 0 ${MW} ${MH}`} style={{ display:'block',overflow:'visible' }}>
-            <text x={MPAD.l+mcW/2} y={MH/2} textAnchor="middle" fontSize="32" fontWeight="800" fill={C.crimson} opacity="0.07" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none',userSelect:'none' }}>Progemel-net</text>
-            {getLatestUpdateLabel()&&<text x={MPAD.l+mcW} y={10} textAnchor="end" fontSize="9" fill={C.muted} opacity="0.6" fontFamily="Assistant,Heebo,sans-serif">מעודכן ל{getLatestUpdateLabel()}</text>}
             <line x1={MPAD.l} y1={myFor(0)} x2={MPAD.l+mcW} y2={myFor(0)} stroke={C.border} strokeWidth="1" strokeDasharray="3 3"/>
             {myTicks.map(t=>(
               <g key={t.v}>
@@ -375,8 +352,6 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
         )}
         <div style={{ padding:'8px 14px 4px',position:'relative' }}>
           <svg ref={svgRef} width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display:'block',overflow:'visible',cursor:'crosshair' }} onMouseMove={handleMM} onMouseLeave={()=>setHoverIdx(null)}>
-            <text x={W/2} y={H/2} textAnchor="middle" fontSize="24" fontWeight="800" fill={C.crimson} opacity="0.07" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none',userSelect:'none' }}>Progemel-net</text>
-            {getLatestUpdateLabel()&&<text x={W-4} y={10} textAnchor="end" fontSize="8" fill={C.muted} opacity="0.6" fontFamily="Assistant,Heebo,sans-serif">מעודכן ל{getLatestUpdateLabel()}</text>}
             <line x1={PAD.l} y1={yFor(0)} x2={PAD.l+cW} y2={yFor(0)} stroke={C.border} strokeWidth="1" strokeDasharray="3 3"/>
             {yTicks.map(t=>(
               <g key={t.v}>
@@ -478,7 +453,6 @@ function UpdatedLabel() {
         const latest = periods.sort().reverse()[0];
         const y=+latest.slice(0,4), mo=+latest.slice(4,6);
         _latestMonthName = HE_MONTHS[mo] || 'חודש';
-        _latestUpdateLabel = `${HE_MONTHS[mo]} ${y}`;
         setLabel(`מעודכן לִ${HE_MONTHS[mo]} ${y}`);
       }
     }).catch(()=>{});
@@ -615,11 +589,9 @@ function HomePage({ onSelectProduct, onSelectFund, compSelected, setCompSelected
 }
 
 function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToComparison, onAddToChart }) {
-  // כשהפאנל סגור: לפחות 60% מהמסך, אך אם הטבלה רחבה מ-60% — תתרחב עד הרוחב המינימלי שלה (ללא חיתוך)
-  // כשהפאנל פתוח: האזור מצומצם ע"י margin, הטבלה 100% מהאזור + גלילה אופקית בתוכה
-  // פאנל סגור: 60vw מהמסך, אך מתרחב אם הטבלה רחבה מכך (min-content) — בלי חיתוך
-  // פאנל פתוח: נשאר 60vw (אותו רוחב מוחלט) — בלי קפיצה; אם צר מדי הטבלה גוללת אופקית
   const panelOpen = selFund!==null;
+  // פאנל סגור: 60vw מהמסך, אך מתרחב אם הטבלה רחבה מכך (min-content) — בלי חיתוך
+  // פאנל פתוח: נשאר 60vw (אותו רוחב, בלי קפיצה); אם צר מדי הטבלה גוללת אופקית
   const containerStyle = panelOpen
     ? { width:'60vw', maxWidth:'100%' }
     : { width:'60vw', minWidth:'min-content', maxWidth:'100%' };
@@ -709,8 +681,8 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
                   <FundTable catId={sh} catLabel={sh}
                     funds={getFundsBySheet(product,sh)}
                     onSelect={(f)=>{onSelectFund(f,sh);}}
-                    selFund={selFund} selCatId={null} panelOpen={panelOpen}
-                    onAddToComparison={onAddToComparison} onAddToChart={onAddToChart}/>
+                    selFund={selFund} selCatId={null}
+                    onAddToComparison={onAddToComparison} onAddToChart={onAddToChart} panelOpen={panelOpen}/>
                 </div>
               ))}
             </div>
@@ -733,8 +705,8 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
                   <FundTable catId={id}
                     funds={getFundsForCategory(funds,id)}
                     onSelect={(f,cid)=>{onSelectFund(f,cid);}}
-                    selFund={selFund} selCatId={null} panelOpen={panelOpen}
-                    onAddToComparison={onAddToComparison} onAddToChart={onAddToChart}/>
+                    selFund={selFund} selCatId={null}
+                    onAddToComparison={onAddToComparison} onAddToChart={onAddToChart} panelOpen={panelOpen}/>
                 </div>
               ))}
             </div>
@@ -759,8 +731,8 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
                 const cats=order?classifyFund(f).filter(c=>order.includes(c)&&funds&&getFundsForCategory(funds,c).length>0):[];
                 onSelectFund(f,cats.length>0?cats[0]:null);
               }}
-              selFund={selFund} selCatId={null} panelOpen={panelOpen}
-              onAddToComparison={onAddToComparison} onAddToChart={onAddToChart}/>
+              selFund={selFund} selCatId={null}
+              onAddToComparison={onAddToComparison} onAddToChart={onAddToChart} panelOpen={panelOpen}/>
           )}
         </div>
       </div>
@@ -784,8 +756,10 @@ const COMP_COLS = [
 ];
 
 
-function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFund, setSentToChart, setSentToMix, setAddedFund }) {
-  const tablesW = '100%';
+function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFund, setSentToChart, panelOpen }) {
+  const compContainerStyle = panelOpen
+    ? { width:'60vw', maxWidth:'100%' }
+    : { width:'60vw', minWidth:'min-content', maxWidth:'100%' };
   const [query, setQuery]             = useState('');
   const [showDrop, setShowDrop]       = useState(false);
   const [showProductSelector, setShowProductSelector] = useState(false);
@@ -866,7 +840,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
             ))}
           </div>
         )}
-        <div style={{ position:'relative',marginBottom:10,maxWidth:`min(${tablesW}, 600px)` }}>
+        <div style={{ position:'relative',marginBottom:10,maxWidth:`min(60vw, 600px)` }}>
           <input
             value={query}
             onChange={e=>{ setQuery(e.target.value); setShowDrop(true); }}
@@ -908,7 +882,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
           </div>
         )}
         {selected.length>0&&(
-          <div style={{ overflowX:'auto',border:`1px solid ${C.border}`,borderRadius:8,maxWidth:tablesW }}>
+          <div style={{ overflowX: panelOpen?'auto':'visible',WebkitOverflowScrolling:'touch',border:`1px solid ${C.border}`,borderRadius:8,...compContainerStyle }}>
             <table style={{ width:'100%',minWidth:820,borderCollapse:'collapse',tableLayout:'auto' }}>
               <thead><tr style={{ background:C.darkMid }}>
                 <th style={{ ...TH,width:5,padding:0 }}></th>
@@ -945,9 +919,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
                 {weightedAvg&&(
                   <tr style={{ background:C.avgBg,borderTop:`2px solid ${C.border}` }}>
                     <td style={{ padding:0,width:5 }}/>
-                    <td style={{ ...TD,width:52,textAlign:'center' }}>
-                      <button onClick={()=>{ const ids=selected.filter(f=>f.fund_id).map(f=>f.fund_id); if(!ids.length) return; setSentToChart(prev=>[...new Set([...prev,...ids])]); setSentToMix&&setSentToMix(prev=>[...new Set([...prev,...ids])]); setAddedFund&&setAddedFund('📊 כל המוצרים נשלחו למערכת הגרפים'); setTimeout(()=>setAddedFund&&setAddedFund(null),2800); }} title="הצג גרף תשואה של כל המוצרים" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:11,padding:'1px 5px',height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.crimson }} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.crimson;e.currentTarget.style.background='#FFF0F3';}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.background='none';}}>📈</button>
-                    </td>
+                    <td style={{ ...TD,width:52 }}/>
                     <td style={{ ...TD,fontWeight:700,color:C.dark,paddingRight:10 }}>ממוצע {totalWeight>0?`(משוקלל ${totalWeight.toFixed(0)}%)`:'(שווה משקל)'}</td>
                     <td style={{ ...TD,textAlign:'center',fontSize:10,color:C.muted }}>{totalWeight>0?totalWeight.toFixed(0)+'%':'—'}</td>
                     {COMP_COLS.map(col=>{
@@ -1378,16 +1350,10 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
 
   return (
     <div id={`sec-${catId}`} style={{ marginBottom:14,scrollMarginTop:104 }}>
-      <div style={{ background:C.darkMid,borderRadius:'8px 8px 0 0',padding:'6px 10px 5px' }}>
-        <div style={{ display:'flex',alignItems:'center',gap:8 }}>
-          <span style={{ fontSize:11.5,fontWeight:800,color:C.white }}>{cat?.label}</span>
-          <span style={{ fontSize:10,color:'rgba(255,255,255,0.4)' }}>{cat?.desc}</span>
-          <span style={{ marginRight:'auto',fontSize:10,color:'rgba(255,255,255,0.3)' }}>{funds.length} מוצרים</span>
-        </div>
-        <div style={{ display:'flex',alignItems:'center',gap:8,marginTop:2 }}>
-          <span style={{ fontSize:9,color:'rgba(255,255,255,0.45)' }}>על בסיס תשואה מצטברת לפני דמי ניהול</span>
-          <span style={{ marginRight:'auto',fontSize:9,color:'rgba(255,255,255,0.4)',fontWeight:600,letterSpacing:'0.02em' }}>progemel-net.vercel.app</span>
-        </div>
+      <div style={{ display:'flex',alignItems:'center',gap:8,padding:'6px 10px',background:C.darkMid,borderRadius:'8px 8px 0 0' }}>
+        <span style={{ fontSize:11.5,fontWeight:800,color:C.white }}>{cat?.label}</span>
+        <span style={{ fontSize:10,color:'rgba(255,255,255,0.4)' }}>{cat?.desc}</span>
+        <span style={{ marginRight:'auto',fontSize:10,color:'rgba(255,255,255,0.3)' }}>{funds.length} מוצרים</span>
       </div>
       <div style={{ overflowX: panelOpen?'auto':'visible',WebkitOverflowScrolling:'touch',border:`1px solid ${C.border}`,borderTop:'none',borderRadius:'0 0 8px 8px' }}>
         <table style={{ width:'100%',minWidth:760,borderCollapse:'collapse',tableLayout:'auto' }}>
@@ -1490,7 +1456,7 @@ export default function App() {
           <div style={{ padding:'10px 16px 9px',background:C.white,borderBottom:`1px solid ${C.border}` }}>
             <ProductSelector selected={product} onChange={k=>{setProduct(k);setSelFund(null);setSelCatId(null);setSentToChart([]);setSentToMix([]);}}/>
           </div>
-          <ComparisonSearch allFunds={allFunds} product={product||'השתלמות'} selected={compSelected} setSelected={setCompSelected} onSelectFund={(f)=>{setSelFund(f);setSelCatId(null);}} setSentToChart={setSentToChart} setSentToMix={setSentToMix} setAddedFund={setAddedFund}/>
+          <ComparisonSearch allFunds={allFunds} product={product||'השתלמות'} selected={compSelected} setSelected={setCompSelected} onSelectFund={(f)=>{setSelFund(f);setSelCatId(null);}} setSentToChart={setSentToChart} panelOpen={panelOpen}/>
           {product===null ? (
             <HomePage
               onSelectProduct={(k)=>{setProduct(k);setSelFund(null);setSelCatId(null);}}
