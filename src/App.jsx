@@ -1301,9 +1301,14 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
   const [sortDir, setSortDir] = useState('desc');
   const [showAll, setShowAll] = useState(false);
   const cat = CATEGORIES[catId] || { label: catLabel||catId, desc:'' };
-  const sorted = useMemo(()=>sortByKey(funds,sortKey,sortDir),[funds,sortKey,sortDir]);
-  const top12 = sorted.slice(0,12), rest = sorted.slice(12);
-  const avg = useMemo(()=>calcAverages(sorted),[sorted]);
+  // המיון הראשוני (3 שנים) קובע מי 12 הראשונים. אחר כך מיון משתמש פועל רק עליהם —
+  // כך שהמיון משנה רק את הסדר ולא מחליף את המוצרים המוצגים
+  const initialSorted = useMemo(()=>sortByKey(funds,'ret_3y','desc'),[funds]);
+  const initialTop12 = useMemo(()=>initialSorted.slice(0,12),[initialSorted]);
+  const initialRest  = useMemo(()=>initialSorted.slice(12),[initialSorted]);
+  const top12 = useMemo(()=>sortByKey(initialTop12,sortKey,sortDir),[initialTop12,sortKey,sortDir]);
+  const rest  = useMemo(()=>sortByKey(initialRest,sortKey,sortDir),[initialRest,sortKey,sortDir]);
+  const avg = useMemo(()=>calcAverages(initialSorted),[initialSorted]);
 
   function SortTh({col}) {
     const active=sortKey===col.key;
