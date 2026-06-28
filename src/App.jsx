@@ -106,7 +106,7 @@ function ChartModal({ fund, mainSeries, avgSeries, compareSeries, allFunds, catL
         <div style={{ padding:'14px 18px 10px' }}>
           <svg width="100%" viewBox={`0 0 ${MW} ${MH}`} style={{ display:'block',overflow:'visible' }}>
             <text x={MPAD.l+mcW/2} y={MH/2} textAnchor="middle" fontSize="34" fontWeight="800" fill={C.crimson} opacity="0.07" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none',userSelect:'none' }}>Progemel-net</text>
-            {getLatestUpdateLabel()&&<text x={MPAD.l+mcW} y={11} textAnchor="end" fontSize="9.5" fill={C.muted} opacity="0.65" fontFamily="Assistant,Heebo,sans-serif">מעודכן ל{getLatestUpdateLabel()}</text>}
+            {getLatestUpdateLabel()&&<text x={MPAD.l+mcW} y={12} textAnchor="end" fontSize="10.5" fill={C.muted} opacity="0.85" fontWeight="600" fontFamily="Assistant,Heebo,sans-serif">מעודכן ל{getLatestUpdateLabel()}</text>}
             <line x1={MPAD.l} y1={myFor(0)} x2={MPAD.l+mcW} y2={myFor(0)} stroke={C.border} strokeWidth="1" strokeDasharray="3 3"/>
             {myTicks.map(t=>(
               <g key={t.v}>
@@ -357,7 +357,7 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
         <div style={{ padding:'8px 14px 4px',position:'relative' }}>
           <svg ref={svgRef} width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display:'block',overflow:'visible',cursor:'crosshair' }} onMouseMove={handleMM} onMouseLeave={()=>setHoverIdx(null)}>
             <text x={W/2} y={H/2} textAnchor="middle" fontSize="24" fontWeight="800" fill={C.crimson} opacity="0.07" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none',userSelect:'none' }}>Progemel-net</text>
-            {getLatestUpdateLabel()&&<text x={W-4} y={10} textAnchor="end" fontSize="8" fill={C.muted} opacity="0.6" fontFamily="Assistant,Heebo,sans-serif">מעודכן ל{getLatestUpdateLabel()}</text>}
+            {getLatestUpdateLabel()&&<text x={W-4} y={11} textAnchor="end" fontSize="9" fill={C.muted} opacity="0.85" fontWeight="600" fontFamily="Assistant,Heebo,sans-serif">מעודכן ל{getLatestUpdateLabel()}</text>}
             <line x1={PAD.l} y1={yFor(0)} x2={PAD.l+cW} y2={yFor(0)} stroke={C.border} strokeWidth="1" strokeDasharray="3 3"/>
             {yTicks.map(t=>(
               <g key={t.v}>
@@ -763,7 +763,7 @@ const COMP_COLS = [
 ];
 
 
-function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFund, setSentToChart, setSentToMix, setAddedFund, panelOpen, histData, setSelFund, setVirtualWeightedAvg }) {
+function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFund, setSentToChart, setSentToMix, setAddedFund, panelOpen, histData, setSelFund, setVirtualWeightedAvg, onAddToChart }) {
   const compContainerStyle = panelOpen
     ? { width:'60vw', maxWidth:'100%' }
     : { width:'60vw', minWidth:'min-content', maxWidth:'100%' };
@@ -905,11 +905,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
                     <tr key={f.name} onClick={()=>onSelectFund&&onSelectFund(f)} style={{ background:C.white,borderBottom:`1px solid ${C.border}`,cursor:'pointer' }} onMouseEnter={e=>e.currentTarget.style.background='#FDF8F6'} onMouseLeave={e=>e.currentTarget.style.background=C.white}>
                       <td style={{ padding:0,width:5,background:clr }}/>
                       <td style={{ ...TD,width:52,textAlign:'center',padding:'4px 4px',whiteSpace:'nowrap' }} onClick={e=>e.stopPropagation()}>
-                        <button onClick={e=>{e.stopPropagation(); if(f.fund_id){
-                          if(!panelOpen){ setVirtualWeightedAvg&&setVirtualWeightedAvg(null); setSelFund&&setSelFund(f); setAddedFund&&setAddedFund('📊 נפתחה מערכת הגרפים עבור '+f.name.slice(0,24)); }
-                          else { setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund&&setAddedFund('📊 '+f.name.slice(0,28)+' התווסף למערכת הגרפים'); }
-                          setTimeout(()=>setAddedFund&&setAddedFund(null),2800);
-                        }}} title="שלח למערכת הגרפים" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:11,padding:'1px 5px',height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted,marginLeft:3 }} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.crimson;e.currentTarget.style.color=C.crimson;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>📈</button>
+                        <button onClick={e=>{e.stopPropagation(); onAddToChart&&onAddToChart(f,null);}} title="הוסף לגרף" style={{ background:'none',border:`1.5px solid ${C.border}`,borderRadius:5,cursor:'pointer',fontSize:11,width:22,height:22,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted,transition:'all 0.1s',marginRight:2 }} onMouseEnter={e=>{e.currentTarget.style.background='#2563EB';e.currentTarget.style.color='white';e.currentTarget.style.borderColor='#2563EB';}} onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color=C.muted;e.currentTarget.style.borderColor=C.border;}}>📈</button>
                         <button onClick={e=>{e.stopPropagation();setSelected(p=>p.filter(s=>s.name!==f.name));}} title="הסר" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:12,width:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted }} onMouseEnter={e=>{e.currentTarget.style.borderColor='#E63946';e.currentTarget.style.color='#E63946';}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>×</button>
                       </td>
                       <td style={{ ...TD,fontWeight:500,color:C.darkMid,whiteSpace:'nowrap',paddingRight:10 }}>{f.name}</td>
@@ -939,7 +935,6 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
                         validFunds.forEach(f=>{ wMap[f.fund_id] = hasUserWeights ? (parseFloat(weights[f.name])||0) : 1; });
                         const totalW = Object.values(wMap).reduce((s,w)=>s+w,0);
                         if(!totalW) return;
-                        // חישוב היסטוריית ממוצע משוקלל: לכל תקופה — ממוצע משוקלל של ret של הקרנות שיש להן נתון
                         const allPeriods = new Set();
                         validFunds.forEach(f=>histData[f.fund_id].forEach(p=>allPeriods.add(p.period)));
                         const sortedPeriods = [...allPeriods].sort();
@@ -953,9 +948,11 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
                         }).filter(Boolean);
                         if(!avgPoints.length) return;
                         const avgName = 'ממוצע משוקלל (' + validFunds.length + ' מוצרים)';
-                        setVirtualWeightedAvg&&setVirtualWeightedAvg({ points:avgPoints, name:avgName });
                         const virtualFund = { fund_id:'__weighted_avg__', name:avgName, product };
+                        setVirtualWeightedAvg&&setVirtualWeightedAvg({ points:avgPoints, name:avgName });
                         setSelFund&&setSelFund(virtualFund);
+                        setSentToChart&&setSentToChart([]);
+                        setSentToMix&&setSentToMix([]);
                         setAddedFund&&setAddedFund('📊 גרף ממוצע משוקלל נפתח');
                         setTimeout(()=>setAddedFund&&setAddedFund(null),2800);
                       }} title="הצג גרף ממוצע משוקלל" style={{ background:'none',border:`1.5px solid ${C.crimson}`,borderRadius:5,cursor:'pointer',fontSize:13,width:24,height:22,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.crimson,fontWeight:700 }} onMouseEnter={e=>{e.currentTarget.style.background=C.crimson;e.currentTarget.style.color='white';}} onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color=C.crimson;}}>📈</button>
@@ -1247,7 +1244,7 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
       <div style={{ position:'relative' }}>
         <svg width="100%" viewBox={`0 0 ${W} ${H+4}`} style={{ display:'block',overflow:'visible' }}>
           <text x={W/2} y={(H+4)/2} textAnchor="middle" fontSize="24" fontWeight="800" fill={C.crimson} opacity="0.07" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none',userSelect:'none' }}>Progemel-net</text>
-          {getLatestUpdateLabel()&&<text x={W-4} y={10} textAnchor="end" fontSize="8" fill={C.muted} opacity="0.6" fontFamily="Assistant,Heebo,sans-serif">מעודכן ל{getLatestUpdateLabel()}</text>}
+          {getLatestUpdateLabel()&&<text x={W-4} y={11} textAnchor="end" fontSize="9" fill={C.muted} opacity="0.85" fontWeight="600" fontFamily="Assistant,Heebo,sans-serif">מעודכן ל{getLatestUpdateLabel()}</text>}
           <line x1={PAD} y1={zeroY} x2={W-PAD} y2={zeroY} stroke={C.border} strokeWidth="1"/>
           {periods.map((p,i)=>{
             const val=fund[p.key], barH=Math.max(2,Math.abs(val)/maxAbs*((H-16)/2-4));
@@ -1510,7 +1507,11 @@ export default function App() {
           <div style={{ padding:'10px 16px 9px',background:C.white,borderBottom:`1px solid ${C.border}` }}>
             <ProductSelector selected={product} onChange={k=>{setProduct(k);setSelFund(null);setSelCatId(null);setSentToChart([]);setSentToMix([]);}}/>
           </div>
-          <ComparisonSearch allFunds={allFunds} product={product||'השתלמות'} selected={compSelected} setSelected={setCompSelected} onSelectFund={(f)=>{setSelFund(f);setSelCatId(null);setSentToChart([]);setSentToMix([]);}} setSentToChart={setSentToChart} setSentToMix={setSentToMix} setAddedFund={setAddedFund} panelOpen={panelOpen} histData={histData} setSelFund={setSelFund} setVirtualWeightedAvg={setVirtualWeightedAvg}/>
+          <ComparisonSearch allFunds={allFunds} product={product||'השתלמות'} selected={compSelected} setSelected={setCompSelected} onSelectFund={(f)=>{setSelFund(f);setSelCatId(null);setSentToChart([]);setSentToMix([]);}} setSentToChart={setSentToChart} setSentToMix={setSentToMix} setAddedFund={setAddedFund} panelOpen={panelOpen} histData={histData} setSelFund={setSelFund} setVirtualWeightedAvg={setVirtualWeightedAvg}
+            onAddToChart={(f,cid)=>{ if(!f.fund_id) return;
+              if(!selFund){ setVirtualWeightedAvg(null); setSelFund(f); setSelCatId(cid??null); setSentToChart([]); setSentToMix([]); setAddedFund('📊 נפתחה מערכת הגרפים עבור '+f.name.slice(0,24)); setTimeout(()=>setAddedFund(null),2800); }
+              else { setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund('📊 '+f.name.slice(0,28)+' התווסף למערכת הגרפים'); setTimeout(()=>setAddedFund(null),2800); }
+            }}/>
           {product===null ? (
             <HomePage
               onSelectProduct={(k)=>{setProduct(k);setSelFund(null);setSelCatId(null);}}
