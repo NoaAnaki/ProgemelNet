@@ -1308,7 +1308,12 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
   function SortTh({col}) {
     const active=sortKey===col.key;
     const baseColor = col.color || 'rgba(255,255,255,0.8)';
-    return <th onClick={()=>{ if(sortKey===col.key) setSortDir(d=>d==='desc'?'asc':'desc'); else{setSortKey(col.key);setSortDir('desc');} }} style={{ ...TH,textAlign:'center',cursor:'pointer',userSelect:'none',color:active?'#FFD6DE':baseColor,background:active?'rgba(255,255,255,0.08)':'transparent',minWidth:50 }}><span style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:2 }}><Tooltip text={col.tip}/>{col.label}{active&&<span style={{ fontSize:8 }}>{sortDir==='desc'?'↓':'↑'}</span>}</span></th>;
+    const handleSort = e => {
+      e.stopPropagation();
+      if(sortKey===col.key) setSortDir(d=>d==='desc'?'asc':'desc');
+      else { setSortKey(col.key); setSortDir('desc'); }
+    };
+    return <th onClick={handleSort} style={{ ...TH,textAlign:'center',cursor:'pointer',userSelect:'none',color:active?'#FFD6DE':baseColor,background:active?'rgba(255,255,255,0.08)':'transparent',minWidth:50 }}><span style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:2,pointerEvents:'none' }}><Tooltip text={col.tip}/>{col.label}{active&&<span style={{ fontSize:8 }}>{sortDir==='desc'?'↓':'↑'}</span>}</span></th>;
   }
 
   function Row({fund,rank}) {
