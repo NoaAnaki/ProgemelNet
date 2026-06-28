@@ -763,7 +763,7 @@ const COMP_COLS = [
 ];
 
 
-function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFund, setSentToChart, setSentToMix, setAddedFund, panelOpen }) {
+function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFund, setSentToChart, setSentToMix, setAddedFund, panelOpen, histData, setSelFund, setVirtualWeightedAvg }) {
   const compContainerStyle = panelOpen
     ? { width:'60vw', maxWidth:'100%' }
     : { width:'60vw', minWidth:'min-content', maxWidth:'100%' };
@@ -905,7 +905,11 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
                     <tr key={f.name} onClick={()=>onSelectFund&&onSelectFund(f)} style={{ background:C.white,borderBottom:`1px solid ${C.border}`,cursor:'pointer' }} onMouseEnter={e=>e.currentTarget.style.background='#FDF8F6'} onMouseLeave={e=>e.currentTarget.style.background=C.white}>
                       <td style={{ padding:0,width:5,background:clr }}/>
                       <td style={{ ...TD,width:52,textAlign:'center',padding:'4px 4px',whiteSpace:'nowrap' }} onClick={e=>e.stopPropagation()}>
-                        <button onClick={e=>{e.stopPropagation(); if(f.fund_id){ setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund('📊 '+f.name.slice(0,28)+' התווסף למערכת הגרפים'); setTimeout(()=>setAddedFund(null),2800); }}} title="שלח למערכת הגרפים" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:11,padding:'1px 5px',height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted,marginLeft:3 }} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.crimson;e.currentTarget.style.color=C.crimson;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>📈</button>
+                        <button onClick={e=>{e.stopPropagation(); if(f.fund_id){
+                          if(!panelOpen){ setVirtualWeightedAvg&&setVirtualWeightedAvg(null); setSelFund&&setSelFund(f); setAddedFund&&setAddedFund('📊 נפתחה מערכת הגרפים עבור '+f.name.slice(0,24)); }
+                          else { setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund&&setAddedFund('📊 '+f.name.slice(0,28)+' התווסף למערכת הגרפים'); }
+                          setTimeout(()=>setAddedFund&&setAddedFund(null),2800);
+                        }}} title="שלח למערכת הגרפים" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:11,padding:'1px 5px',height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted,marginLeft:3 }} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.crimson;e.currentTarget.style.color=C.crimson;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>📈</button>
                         <button onClick={e=>{e.stopPropagation();setSelected(p=>p.filter(s=>s.name!==f.name));}} title="הסר" style={{ background:'none',border:'1px solid '+C.border,borderRadius:4,cursor:'pointer',fontSize:12,width:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted }} onMouseEnter={e=>{e.currentTarget.style.borderColor='#E63946';e.currentTarget.style.color='#E63946';}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.muted;}}>×</button>
                       </td>
                       <td style={{ ...TD,fontWeight:500,color:C.darkMid,whiteSpace:'nowrap',paddingRight:10 }}>{f.name}</td>
@@ -927,9 +931,36 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
                   <tr style={{ background:C.avgBg,borderTop:`2px solid ${C.border}` }}>
                     <td style={{ padding:0,width:5 }}/>
                     <td style={{ ...TD,width:52,textAlign:'center',padding:'4px 4px',whiteSpace:'nowrap' }}>
-                      <button onClick={()=>{ const ids=selected.filter(f=>f.fund_id).map(f=>f.fund_id); if(!ids.length) return; setSentToChart&&setSentToChart(prev=>[...new Set([...prev,...ids])]); setSentToMix&&setSentToMix(prev=>[...new Set([...prev,...ids])]); setAddedFund&&setAddedFund('📊 כל המוצרים נוספו למערכת הגרפים'); setTimeout(()=>setAddedFund&&setAddedFund(null),2800); }} title="הצג גרף תשואה של כל המוצרים" style={{ background:'none',border:`1.5px solid ${C.crimson}`,borderRadius:5,cursor:'pointer',fontSize:13,width:24,height:22,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.crimson,fontWeight:700 }} onMouseEnter={e=>{e.currentTarget.style.background=C.crimson;e.currentTarget.style.color='white';}} onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color=C.crimson;}}>📈</button>
+                      <button onClick={()=>{
+                        const validFunds = selected.filter(f=>f.fund_id && histData?.[f.fund_id]?.length);
+                        if(!validFunds.length) return;
+                        const hasUserWeights = validFunds.some(f=>parseFloat(weights[f.name])>0);
+                        const wMap = {};
+                        validFunds.forEach(f=>{ wMap[f.fund_id] = hasUserWeights ? (parseFloat(weights[f.name])||0) : 1; });
+                        const totalW = Object.values(wMap).reduce((s,w)=>s+w,0);
+                        if(!totalW) return;
+                        // חישוב היסטוריית ממוצע משוקלל: לכל תקופה — ממוצע משוקלל של ret של הקרנות שיש להן נתון
+                        const allPeriods = new Set();
+                        validFunds.forEach(f=>histData[f.fund_id].forEach(p=>allPeriods.add(p.period)));
+                        const sortedPeriods = [...allPeriods].sort();
+                        const avgPoints = sortedPeriods.map(period=>{
+                          let wSum=0, retSum=0;
+                          validFunds.forEach(f=>{
+                            const pt = histData[f.fund_id].find(p=>p.period===period);
+                            if(pt && pt.ret!=null){ retSum += pt.ret * wMap[f.fund_id]; wSum += wMap[f.fund_id]; }
+                          });
+                          return wSum>0 ? { period, ret: retSum/wSum } : null;
+                        }).filter(Boolean);
+                        if(!avgPoints.length) return;
+                        const avgName = 'ממוצע משוקלל (' + validFunds.length + ' מוצרים)';
+                        setVirtualWeightedAvg&&setVirtualWeightedAvg({ points:avgPoints, name:avgName });
+                        const virtualFund = { fund_id:'__weighted_avg__', name:avgName, product };
+                        setSelFund&&setSelFund(virtualFund);
+                        setAddedFund&&setAddedFund('📊 גרף ממוצע משוקלל נפתח');
+                        setTimeout(()=>setAddedFund&&setAddedFund(null),2800);
+                      }} title="הצג גרף ממוצע משוקלל" style={{ background:'none',border:`1.5px solid ${C.crimson}`,borderRadius:5,cursor:'pointer',fontSize:13,width:24,height:22,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.crimson,fontWeight:700 }} onMouseEnter={e=>{e.currentTarget.style.background=C.crimson;e.currentTarget.style.color='white';}} onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color=C.crimson;}}>📈</button>
                     </td>
-                    <td style={{ ...TD,fontWeight:700,color:C.dark,paddingRight:10 }}>ממוצע {totalWeight>0?`(משוקלל ${totalWeight.toFixed(0)}%)`:'(שווה משקל)'}</td>
+                    <td style={{ ...TD,fontWeight:700,color:C.dark,paddingRight:10 }}>ממוצע משוקלל {totalWeight>0?`(${totalWeight.toFixed(0)}%)`:''}</td>
                     <td style={{ ...TD,textAlign:'center',fontSize:10,color:C.muted }}>{totalWeight>0?totalWeight.toFixed(0)+'%':'—'}</td>
                     {COMP_COLS.map(col=>{
                       const v=weightedAvg[col.key];
@@ -1420,6 +1451,7 @@ export default function App() {
   const [compSelected, setCompSelected] = useState([]); // קרנות להשוואה — state משותף
   const [addedFund, setAddedFund] = useState(null); // שם קרן שהוספה — לפידבק
   const [sentToChart, setSentToChart] = useState([]); // fund_ids שנשלחו לגרף
+  const [virtualWeightedAvg, setVirtualWeightedAvg] = useState(null); // {points:[{period,ret}], name, fund_id:'__weighted_avg__'}
   const [sentToMix, setSentToMix]     = useState([]); // fund_ids שנשלחו לגרף תמהיל
   const [activePanelTab, setActivePanelTab] = useState('history');
   const profitIndex = useProfitIndex();
@@ -1478,7 +1510,7 @@ export default function App() {
           <div style={{ padding:'10px 16px 9px',background:C.white,borderBottom:`1px solid ${C.border}` }}>
             <ProductSelector selected={product} onChange={k=>{setProduct(k);setSelFund(null);setSelCatId(null);setSentToChart([]);setSentToMix([]);}}/>
           </div>
-          <ComparisonSearch allFunds={allFunds} product={product||'השתלמות'} selected={compSelected} setSelected={setCompSelected} onSelectFund={(f)=>{setSelFund(f);setSelCatId(null);}} setSentToChart={setSentToChart} setSentToMix={setSentToMix} setAddedFund={setAddedFund} panelOpen={panelOpen}/>
+          <ComparisonSearch allFunds={allFunds} product={product||'השתלמות'} selected={compSelected} setSelected={setCompSelected} onSelectFund={(f)=>{setSelFund(f);setSelCatId(null);setSentToChart([]);setSentToMix([]);}} setSentToChart={setSentToChart} setSentToMix={setSentToMix} setAddedFund={setAddedFund} panelOpen={panelOpen} histData={histData} setSelFund={setSelFund} setVirtualWeightedAvg={setVirtualWeightedAvg}/>
           {product===null ? (
             <HomePage
               onSelectProduct={(k)=>{setProduct(k);setSelFund(null);setSelCatId(null);}}
@@ -1509,7 +1541,7 @@ export default function App() {
         )}
         {panelOpen&&(
           <div style={{ position:'fixed',top:56,left:0,width:PANEL_W,height:'calc(100vh - 56px)',overflow:'hidden',zIndex:50,boxShadow:'4px 0 20px rgba(0,0,0,0.15)' }}>
-            <FundDetail key={selFund?.fund_id} fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);}} catAvg={catAvg} catFundIds={catFundIds} catLabel={catLabel} histData={histData??{}} allFunds={allFunds} externalCompare={activePanelTab==='mix'?sentToMix:sentToChart} onTabChange={setActivePanelTab}/>
+            <FundDetail key={selFund?.fund_id} fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);setVirtualWeightedAvg(null);}} catAvg={catAvg} catFundIds={catFundIds} catLabel={catLabel} histData={virtualWeightedAvg?{...histData,__weighted_avg__:virtualWeightedAvg.points}:(histData??{})} allFunds={virtualWeightedAvg?[...allFunds,{fund_id:'__weighted_avg__',name:virtualWeightedAvg.name}]:allFunds} externalCompare={activePanelTab==='mix'?sentToMix:sentToChart} onTabChange={setActivePanelTab}/>
           </div>
         )}
       </div>
