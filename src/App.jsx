@@ -190,7 +190,7 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
 
   const effectiveRange = useMemo(()=> (range==='custom'&&fromPeriod&&!rangeError) ? 'custom' : (range==='custom' ? '3y' : range), [range, fromPeriod, rangeError]);
   const mainSeries = useMemo(() => computeSeries(fundPoints, effectiveRange, fromPeriod, toPeriod), [fundPoints, effectiveRange, fromPeriod, toPeriod]);
-  const avgSeries  = useMemo(() => computeAvgSeries(catFundIds, histData, effectiveRange), [catFundIds, histData, effectiveRange]);
+  const avgSeries  = useMemo(() => computeAvgSeries(catFundIds, histData, effectiveRange, fromPeriod, toPeriod), [catFundIds, histData, effectiveRange, fromPeriod, toPeriod]);
   const compareSeries = useMemo(() => compare.map(id=>({ id, series:computeSeries(histData[id]??[], effectiveRange, fromPeriod, toPeriod) })), [compare, histData, effectiveRange, fromPeriod, toPeriod]);
 
   // בדיקת מוצרים בהשוואה שאין להם מספיק היסטוריה
