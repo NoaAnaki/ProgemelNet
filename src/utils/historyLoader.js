@@ -88,7 +88,7 @@ export function computeSeries(points, range, customFrom, customTo) {
  * value at the final period equals the average of each fund's cumulative
  * return over the range — the same quantity the table column reports.
  */
-export function computeAvgSeries(fundIds, histData, range) {
+export function computeAvgSeries(fundIds, histData, range, customFrom, customTo) {
   const allSeries = fundIds.map(id => histData[id]).filter(Boolean);
   if (!allSeries.length) return [];
 
@@ -101,7 +101,17 @@ export function computeAvgSeries(fundIds, histData, range) {
     }
   }
   if (!latest) return [];
-  const start = rangeStartPeriod(latest, range);
+
+  // בטווח אישי: התחל מ-customFrom ועצור ב-customTo (כמו computeSeries),
+  // כך שהקרן הראשית והממוצע מתחילים מאותה נקודת ייחוס
+  let start, endBound = null;
+  if (range === 'custom' && customFrom && customFrom.length >= 6) {
+    start = customFrom.replace(/-/g,'').slice(0,6);
+    endBound = (customTo && customTo.length >= 6) ? customTo.replace(/-/g,'').slice(0,6) : latest;
+  } else {
+    const effRange = (range === 'custom') ? '3y' : range;
+    start = rangeStartPeriod(latest, effRange);
+  }
 
   // The earliest period that actually appears across the selected funds,
   // bounded by the requested range start. Funds that begin *after* this
@@ -112,9 +122,10 @@ export function computeAvgSeries(fundIds, histData, range) {
   //
   // We define the range baseline as the earliest period >= start that the
   // longest-running funds share, then keep only funds present at that baseline.
+  const inRange = p => p.period >= start && (endBound === null || p.period <= endBound);
   let baseline = null;
   for (const s of allSeries) {
-    const slice = s.filter(p => p.period >= start);
+    const slice = s.filter(inRange);
     if (!slice.length) continue;
     const firstP = slice[0].period;
     if (baseline === null || firstP < baseline) baseline = firstP;
@@ -136,7 +147,7 @@ export function computeAvgSeries(fundIds, histData, range) {
   // cover the full range) are included.
   const perFund = [];
   for (const s of allSeries) {
-    const slice = s.filter(p => p.period >= start);
+    const slice = s.filter(inRange);
     if (slice.length < 2) continue;
     if (slice[0].period > baselineGrace) continue;   // newer than the range — skip
     let cum = 1.0;
