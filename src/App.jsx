@@ -102,6 +102,10 @@ function ChartModal({ fund, mainSeries, avgSeries, compareSeries, allFunds, catL
           {range==='custom'&&(
             <span style={{ padding:'4px 14px',borderRadius:12,border:`1px solid ${C.crimson}`,background:C.crimson,color:C.white,fontSize:12,fontWeight:600 }}>טווח אישי</span>
           )}
+          {range==='custom'&&mainSeries.length>0&&(()=>{
+            const cum=mainSeries[mainSeries.length-1].cumRet;
+            return <span style={{ marginRight:'auto',display:'inline-flex',alignItems:'center',gap:5,background:C.crimson,color:C.white,borderRadius:8,padding:'4px 14px',fontSize:13,fontWeight:700 }}>תשואה מצטברת בתקופה: {cum>0?'+':''}{cum.toFixed(2)}%</span>;
+          })()}
         </div>
         <div style={{ padding:'14px 18px 10px' }}>
           <svg width="100%" viewBox={`0 0 ${MW} ${MH}`} style={{ display:'block',overflow:'visible' }}>
@@ -352,6 +356,10 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
             </select>
             <button onClick={()=>{ setCustomFrom({y:'',m:''}); setCustomTo({y:'',m:''}); setRange('3y'); setShowCustom(false); }}
               style={{ background:'none',border:'none',color:C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit' }}>איפוס</button>
+            {effectiveRange==='custom'&&mainSeries.length>0&&(()=>{
+              const cum=mainSeries[mainSeries.length-1].cumRet;
+              return <span style={{ marginRight:'auto',display:'inline-flex',alignItems:'center',gap:5,background:C.crimson,color:C.white,borderRadius:7,padding:'3px 11px',fontSize:12,fontWeight:700 }}>תשואה מצטברת בתקופה: {cum>0?'+':''}{cum.toFixed(2)}%</span>;
+            })()}
           </div>
         )}
         <div style={{ padding:'8px 14px 4px',position:'relative' }}>
