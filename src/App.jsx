@@ -1050,24 +1050,47 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
     return result;
   },[catFundIds, histData]);
 
-  // כל הקרנות שמשווים: הנוכחית + extras + ממוצע קטגוריה
+  // ── סדרות היסטוריות: לכל קרן, רשימת {period, val} עבור הפרמטר הנבחר ──
+  // בונה מ-histData[id] את כל הנקודות שיש בהן חשיפה לפרמטר
+  const buildHistSeries = (fundId, key) => {
+    const points = histData[fundId] || [];
+    return points
+      .filter(p => p[key] != null)
+      .map(p => ({ period: p.period, val: p[key] }));
+  };
+
+  // ממוצע קטגוריה היסטורי: לכל תקופה — ממוצע הפרמטר על כל קרנות הקטגוריה
+  const buildCatAvgSeries = (key) => {
+    if(!catFundIds?.length) return [];
+    const byPeriod = {};
+    catFundIds.forEach(id => {
+      (histData[id]||[]).forEach(p => {
+        if(p[key]!=null){
+          if(!byPeriod[p.period]) byPeriod[p.period]={sum:0,n:0};
+          byPeriod[p.period].sum += p[key];
+          byPeriod[p.period].n   += 1;
+        }
+      });
+    });
+    return Object.keys(byPeriod).sort().map(period=>({
+      period, val: byPeriod[period].sum/byPeriod[period].n
+    }));
+  };
+
+  // כל הקווים: הקרן הראשית + extras + ממוצע קטגוריה — כל אחד עם סדרת נקודות
   const allEntries = useMemo(()=>{
-    const getVal = (f, key) => {
-      // ערך מה-fund object ישירות (נוכחי)
-      return f[key] ?? null;
-    };
     const rows = [
       { id:'main', name:fund.name, color:COLORS[0], isAvg:false,
-        vals: Object.fromEntries(MIX_PARAMS.map(p=>[p.key, getVal(fund, p.key)])) },
+        series: buildHistSeries(fund.fund_id, param) },
       ...extraFunds.map((f,i)=>({
         id:f.fund_id, name:f.name, color:COLORS[(i+1)%COLORS.length], isAvg:false,
-        vals: Object.fromEntries(MIX_PARAMS.map(p=>[p.key, getVal(f, p.key)]))
+        series: buildHistSeries(f.fund_id, param)
       })),
       { id:'avg', name:`ממוצע קטגוריה '${catLabel||''}'`, color:'#2563EB', isAvg:true,
-        vals: catAvgData },
+        series: buildCatAvgSeries(param) },
     ];
-    return rows;
-  },[fund, extraFunds, catAvgData, catLabel]);
+    return rows.filter(r => r.series.length > 0);
+  },[fund, extraFunds, param, catFundIds, histData, catLabel]);
 
   // חיפוש
   const searchFunds = useMemo(()=>{
@@ -1084,13 +1107,52 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
     return pool.filter(f=>words.every(w=>f.name.includes(w))).slice(0,10);
   },[searchQ, searchFunds, fund.fund_id, extraIds]);
 
-  // מקסימום לפרמטר הנוכחי
-  const maxVal = useMemo(()=>Math.max(1,...allEntries.map(e=>e.vals[param]??0)),[allEntries, param]);
+  // ── גיאומטריה של גרף קווי היסטורי ──
+  // כל התקופות הייחודיות מכל הסדרות, ממוינות
+  const allPeriods = useMemo(()=>{
+    const s = new Set();
+    allEntries.forEach(e=>e.series.forEach(pt=>s.add(pt.period)));
+    return [...s].sort();
+  },[allEntries]);
 
-  // גרף אנכי — רוחב בר קבוע, גובה לפי ערך
-  const barW = 56, gap = 16;
-  const chartH = 160, PT = 24, PB = 10;
-  const svgW = allEntries.length * (barW + gap) + gap;
+  // מקסימום ערך (לצורך קנה מידה אנכי)
+  const maxVal = useMemo(()=>{
+    let m = 0;
+    allEntries.forEach(e=>e.series.forEach(pt=>{ if(pt.val>m) m=pt.val; }));
+    return Math.max(10, Math.ceil(m/10)*10);
+  },[allEntries]);
+
+  const chartH = 190, PT = 18, PB = 30, PL = 38, PR = 14;
+  const svgW = 620, svgH = chartH + PT + PB;
+  const plotW = svgW - PL - PR;
+
+  // ממפה period ל-X, value ל-Y
+  const xFor = (period) => {
+    if(allPeriods.length<=1) return PL + plotW/2;
+    const idx = allPeriods.indexOf(period);
+    return PL + (idx/(allPeriods.length-1))*plotW;
+  };
+  const yFor = (val) => PT + chartH - (val/maxVal)*chartH;
+
+  // בונה path string מסדרת נקודות
+  const pathFor = (series) => {
+    if(!series.length) return '';
+    return series.map((pt,i)=>`${i===0?'M':'L'}${xFor(pt.period).toFixed(1)},${yFor(pt.val).toFixed(1)}`).join(' ');
+  };
+
+  // תוויות ציר X (שנים) — קח כל תקופה שמסתיימת ב-01 (ינואר) או הראשונה/אחרונה
+  const xLabels = useMemo(()=>{
+    const labels = [];
+    let lastYear = '';
+    allPeriods.forEach((p,i)=>{
+      const year = p.slice(0,4);
+      if(year!==lastYear || i===allPeriods.length-1){
+        labels.push({ period:p, label:year });
+        lastYear = year;
+      }
+    });
+    return labels;
+  },[allPeriods]);
 
   return (
     <div style={{ direction:'rtl' }}>
@@ -1098,22 +1160,39 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
         <div onClick={()=>setShowMixModal(false)} style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.65)',zIndex:10000,display:'flex',alignItems:'center',justifyContent:'center' }}>
           <div onClick={e=>e.stopPropagation()} style={{ background:C.white,borderRadius:14,width:'min(94vw,600px)',boxShadow:'0 24px 64px rgba(0,0,0,0.4)',overflow:'hidden',direction:'rtl' }}>
             <div style={{ background:C.crimson,padding:'11px 16px',display:'flex',alignItems:'center',justifyContent:'space-between' }}>
-              <span style={{ color:C.white,fontSize:13,fontWeight:700 }}>גרף תמהיל — {MIX_PARAMS.find(p=>p.key===param)?.label}</span>
+              <span style={{ color:C.white,fontSize:13,fontWeight:700 }}>התפתחות תמהיל היסטורית — {MIX_PARAMS.find(p=>p.key===param)?.label}</span>
               <button onClick={()=>setShowMixModal(false)} style={{ background:'rgba(255,255,255,0.2)',border:'none',color:C.white,width:28,height:28,borderRadius:'50%',cursor:'pointer',fontSize:18,display:'flex',alignItems:'center',justifyContent:'center' }}>×</button>
             </div>
-            <div style={{ padding:'16px',display:'flex',justifyContent:'center' }}>
-              <svg width={svgW*1.5} height={(chartH+PT+PB)*1.5} viewBox={`0 0 ${svgW} ${chartH+PT+PB}`} style={{ maxWidth:'100%' }}>
-                <line x1={0} y1={PT+chartH} x2={svgW} y2={PT+chartH} stroke={C.border} strokeWidth="1"/>
-                {allEntries.map((entry,ei)=>{
-                  const val=entry.vals[param];
-                  const bH=val!=null?Math.max(3,(val/maxVal)*chartH):0;
-                  const x=gap+ei*(barW+gap), y=PT+chartH-bH;
-                  return <g key={entry.id}>
-                    <rect x={x} y={y} width={barW} height={bH} rx="3" fill={entry.color} opacity={entry.isAvg?0.55:0.85}/>
-                    {val!=null&&<text x={x+barW/2} y={y-3} textAnchor="middle" fontSize="8.5" fontWeight="700" fill={entry.color}>{val.toFixed(1)}%</text>}
+            <div style={{ padding:'16px' }}>
+              {allPeriods.length===0 ? (
+                <div style={{ padding:'40px',textAlign:'center',color:C.muted }}>אין נתוני תמהיל היסטוריים</div>
+              ) : (
+              <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ display:'block',overflow:'visible' }}>
+                <text x={svgW/2} y={svgH/2} textAnchor="middle" fontSize="32" fontWeight="800" fill={C.crimson} opacity="0.07" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none',userSelect:'none' }}>Progemel-net</text>
+                {getLatestUpdateLabel()&&<text x={svgW-PR} y={12} textAnchor="end" fontSize="10.5" fill={C.muted} opacity="0.85" fontWeight="600" fontFamily="Assistant,Heebo,sans-serif">מעודכן ל{getLatestUpdateLabel()}</text>}
+                {[0,0.25,0.5,0.75,1].map(f=>{
+                  const val=maxVal*(1-f), y=PT+chartH*f;
+                  return <g key={f}>
+                    <line x1={PL} y1={y} x2={svgW-PR} y2={y} stroke={C.border} strokeWidth="0.5" strokeDasharray="2 3" opacity="0.6"/>
+                    <text x={PL-5} y={y+3} textAnchor="end" fontSize="9" fill={C.muted}>{val.toFixed(0)}%</text>
+                  </g>;
+                })}
+                {xLabels.map(l=>(
+                  <text key={l.period} x={xFor(l.period)} y={PT+chartH+16} textAnchor="middle" fontSize="9" fill={C.muted}>{l.label}</text>
+                ))}
+                {allEntries.map(entry=>(
+                  <path key={entry.id} d={pathFor(entry.series)} fill="none" stroke={entry.color} strokeWidth={entry.isAvg?2:2.6} strokeDasharray={entry.isAvg?'5 3':'none'} opacity={entry.isAvg?0.75:0.95} strokeLinejoin="round" strokeLinecap="round"/>
+                ))}
+                {allEntries.map(entry=>{
+                  const last=entry.series[entry.series.length-1];
+                  if(!last) return null;
+                  return <g key={'end-'+entry.id}>
+                    <circle cx={xFor(last.period)} cy={yFor(last.val)} r="3" fill={entry.color}/>
+                    <text x={xFor(last.period)-5} y={yFor(last.val)-5} textAnchor="end" fontSize="10" fontWeight="700" fill={entry.color}>{last.val.toFixed(1)}%</text>
                   </g>;
                 })}
               </svg>
+              )}
             </div>
             <div style={{ padding:'8px 16px 14px',display:'flex',gap:10,flexWrap:'wrap',borderTop:`1px solid ${C.border}` }}>
               {allEntries.map(e=>(
@@ -1141,30 +1220,48 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
         </div>
       </div>
 
-      {/* גרף bars אנכי */}
+      {/* גרף קווי היסטורי — התפתחות התמהיל לאורך זמן */}
       <div style={{ padding:'10px 14px 6px' }}>
-        <svg width={svgW} height={chartH+PT+PB} viewBox={`0 0 ${svgW} ${chartH+PT+PB}`} style={{ display:'block', maxWidth:'100%' }}>
-          {/* קו בסיס */}
-          <line x1={0} y1={PT+chartH} x2={svgW} y2={PT+chartH} stroke={C.border} strokeWidth="1"/>
-          {allEntries.map((entry, ei)=>{
-            const val = entry.vals[param];
-            const bH = val!=null ? Math.max(3,(val/maxVal)*chartH) : 0;
-            const x = gap + ei*(barW+gap);
-            const y = PT + chartH - bH;
-            return (
-              <g key={entry.id}>
-                {/* בר */}
-                <rect x={x} y={y} width={barW} height={bH} rx="3"
-                  fill={entry.color} opacity={entry.isAvg?0.55:0.85}/>
-                {/* ערך מעל הבר */}
-                {val!=null&&(
-                  <text x={x+barW/2} y={y-3} textAnchor="middle" fontSize="8.5" fontWeight="700"
-                    fill={entry.color}>{val.toFixed(1)}%</text>
-                )}
-              </g>
-            );
+        {allPeriods.length===0 ? (
+          <div style={{ padding:'30px 14px',textAlign:'center',color:C.muted,fontSize:12 }}>
+            אין נתוני תמהיל היסטוריים למוצר זה
+          </div>
+        ) : (
+        <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ display:'block',overflow:'visible' }}>
+          {/* כתב מים */}
+          <text x={svgW/2} y={svgH/2} textAnchor="middle" fontSize="24" fontWeight="800" fill={C.crimson} opacity="0.07" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none',userSelect:'none' }}>Progemel-net</text>
+          {getLatestUpdateLabel()&&<text x={svgW-PR} y={11} textAnchor="end" fontSize="9" fill={C.muted} opacity="0.85" fontWeight="600" fontFamily="Assistant,Heebo,sans-serif">מעודכן ל{getLatestUpdateLabel()}</text>}
+          {/* קווי רשת אופקיים + תוויות ציר Y */}
+          {[0,0.25,0.5,0.75,1].map(f=>{
+            const val=maxVal*(1-f), y=PT+chartH*f;
+            return <g key={f}>
+              <line x1={PL} y1={y} x2={svgW-PR} y2={y} stroke={C.border} strokeWidth="0.5" strokeDasharray="2 3" opacity="0.6"/>
+              <text x={PL-5} y={y+3} textAnchor="end" fontSize="8.5" fill={C.muted}>{val.toFixed(0)}%</text>
+            </g>;
+          })}
+          {/* תוויות ציר X (שנים) */}
+          {xLabels.map(l=>(
+            <text key={l.period} x={xFor(l.period)} y={PT+chartH+14} textAnchor="middle" fontSize="8.5" fill={C.muted}>{l.label}</text>
+          ))}
+          {/* הקווים */}
+          {allEntries.map(entry=>(
+            <path key={entry.id} d={pathFor(entry.series)} fill="none"
+              stroke={entry.color} strokeWidth={entry.isAvg?1.8:2.2}
+              strokeDasharray={entry.isAvg?'5 3':'none'}
+              opacity={entry.isAvg?0.75:0.95}
+              strokeLinejoin="round" strokeLinecap="round"/>
+          ))}
+          {/* נקודה אחרונה + ערך לכל קו */}
+          {allEntries.map(entry=>{
+            const last=entry.series[entry.series.length-1];
+            if(!last) return null;
+            return <g key={'end-'+entry.id}>
+              <circle cx={xFor(last.period)} cy={yFor(last.val)} r="2.5" fill={entry.color}/>
+              <text x={xFor(last.period)-4} y={yFor(last.val)-4} textAnchor="end" fontSize="8.5" fontWeight="700" fill={entry.color}>{last.val.toFixed(1)}%</text>
+            </g>;
           })}
         </svg>
+        )}
       </div>
 
       {/* מקרא */}
