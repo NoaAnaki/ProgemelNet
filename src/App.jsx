@@ -86,7 +86,7 @@ function ChartModal({ fund, mainSeries, avgSeries, compareSeries, allFunds, catL
   const myTicks = [0,0.25,0.5,0.75,1].map(f=>({ v:Math.round((minV+(maxV-minV)*f)*10)/10, y:myFor(minV+(maxV-minV)*f) }));
 
   return (
-    <div onClick={onClose} style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.65)',zIndex:10000,display:'flex',alignItems:'center',justifyContent:'center' }}>
+    <div onClick={onClose} className="pgn-print-overlay" style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.65)',zIndex:10000,display:'flex',alignItems:'center',justifyContent:'center' }}>
       <div onClick={e=>e.stopPropagation()} className="pgn-print-area" style={{ background:C.white,borderRadius:14,width:'min(94vw, 860px)',boxShadow:'0 24px 64px rgba(0,0,0,0.4)',overflow:'hidden',direction:'rtl' }}>
         <div style={{ background:C.crimson,padding:'11px 16px',display:'flex',alignItems:'center',justifyContent:'space-between' }}>
           <div style={{ display:'flex',gap:8,alignItems:'center' }}>
@@ -767,7 +767,6 @@ const COMP_COLS = [
   { key:'forex',     label:'% מט"ח',    fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#059669' },
   { key:'illiquid',  label:'% לא סחיר', fmt: v=>v!=null?v.toFixed(1)+'%':'—', color:'#9CA3AF' },
   { key:'sharpe',    label:'מדד שארפ',  fmt: v=>v!=null?v.toFixed(2):'—', color:'#1A1A1A' },
-  { key:'alpha',     label:'אלפא',      fmt: v=>v!=null?v.toFixed(2):'—', color:'#B45309' },
   { key:'profit_index', label:'מדד פרוגמלנט', fmt: v=>v!=null?v.toFixed(1):'—', color:'#8B1A3A' },
 ];
 
@@ -1201,7 +1200,7 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
   return (
     <div style={{ direction:'rtl' }}>
       {showMixModal&&(
-        <div onClick={()=>setShowMixModal(false)} style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.65)',zIndex:10000,display:'flex',alignItems:'center',justifyContent:'center' }}>
+        <div onClick={()=>setShowMixModal(false)} className="pgn-print-overlay" style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.65)',zIndex:10000,display:'flex',alignItems:'center',justifyContent:'center' }}>
           <div onClick={e=>e.stopPropagation()} className="pgn-print-area" style={{ background:C.white,borderRadius:14,width:'min(94vw, 860px)',boxShadow:'0 24px 64px rgba(0,0,0,0.4)',overflow:'hidden',direction:'rtl' }}>
             <div style={{ background:C.crimson,padding:'11px 16px',display:'flex',alignItems:'center',justifyContent:'space-between' }}>
               <span style={{ color:C.white,fontSize:13,fontWeight:700 }}>התפתחות תמהיל היסטורית — {MIX_PARAMS.find(p=>p.key===param)?.label}</span>
@@ -1600,7 +1599,7 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
         <td style={{ ...TD,textAlign:'center',color:'#059669',fontWeight:600 }}>{fund.forex!=null?fund.forex.toFixed(1)+'%':'—'}</td>
         <td style={{ ...TD,textAlign:'center',color:'#9CA3AF',fontWeight:600 }}>{fund.illiquid!=null?fund.illiquid.toFixed(1)+'%':'—'}</td>
         <td style={{ ...TD,textAlign:'center',color:C.dark,fontWeight:600 }}>{fund.sharpe!=null?fund.sharpe.toFixed(2):'—'}</td>
-        <td style={{ ...TD,textAlign:'center',color:'#B45309',fontWeight:600 }}>{fund.alpha!=null?fund.alpha.toFixed(2):'—'}</td>
+        {isPension&&<td style={{ ...TD,textAlign:'center',color:'#B45309',fontWeight:600 }}>{fund.alpha!=null?fund.alpha.toFixed(2):'—'}</td>}
         {isPension&&<td style={{ ...TD,textAlign:'center',color:'#047857',fontWeight:600 }}>{fund.actuarial_balance!=null?fund.actuarial_balance.toFixed(2):'—'}</td>}
         <td style={{ ...TD,textAlign:'center',color:C.crimson,fontWeight:700 }}>{fund.profit_index!=null?fund.profit_index.toFixed(1):'—'}</td>
       </tr>
@@ -1637,7 +1636,7 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
             <SortTh col={{ key:'forex',    label:'% מט"ח',     tip:'חשיפה למט"ח',      color:'#6EE7B7' }}/>
             <SortTh col={{ key:'illiquid', label:'% לא סחיר',  tip:'חשיפה ללא סחיר',   color:'#D1D5DB' }}/>
             <SortTh col={{ key:'sharpe',   label:'מדד שארפ',   tip:'מדד שארפ',          color:'#FCA5A5' }}/>
-            <SortTh col={{ key:'alpha',    label:'אלפא',       tip:'אלפא שנתי — ביצוע עודף מול הסיכון', color:'#FCD34D' }}/>
+            {isPension&&<SortTh col={{ key:'alpha',    label:'אלפא',       tip:'אלפא שנתי — ביצוע עודף מול הסיכון', color:'#FCD34D' }}/>}
             {isPension&&<SortTh col={{ key:'actuarial_balance', label:'איזון אקטוארי', tip:'עודף/גירעון אקטוארי', color:'#A7F3D0' }}/>}
             <th style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.5)' }}>מדד פרוגמלנט</th>
           </tr></thead>
@@ -1712,16 +1711,22 @@ export default function App() {
         @media print {
           body * { visibility: hidden !important; }
           .pgn-print-area, .pgn-print-area * { visibility: visible !important; }
+          /* ה-overlay ההורה — הפוך לרקע לבן פשוט */
+          .pgn-print-overlay {
+            position: absolute !important; inset: 0 !important;
+            background: #fff !important; display: block !important;
+            padding: 0 !important; z-index: auto !important;
+          }
           .pgn-print-area {
-            position: fixed !important; inset: 0 !important;
-            width: 100% !important; height: auto !important;
-            margin: 0 !important; padding: 20px !important;
+            position: absolute !important; top: 0 !important; left: 0 !important; right: 0 !important;
+            width: 100% !important; max-width: 100% !important; height: auto !important;
+            margin: 0 !important; padding: 16px !important;
             background: #fff !important; box-shadow: none !important;
-            z-index: 999999 !important; overflow: visible !important;
-            display: block !important;
+            border-radius: 0 !important;
+            overflow: visible !important; display: block !important;
           }
           .pgn-no-print { display: none !important; }
-          @page { margin: 1cm; }
+          @page { margin: 1cm; size: landscape; }
         }
       `}</style>
 
