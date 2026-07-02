@@ -907,6 +907,11 @@ function buildCurrentData(history) {
       ret_3y:    last.ret_3y   ?? null,
       ret_5y:    last.ret_5y   ?? null,
       ret_10y:   last.ret_10y  ?? null,
+      alpha:             last.alpha             ?? null,
+      actuarial_balance: last.actuarial_balance ?? null,
+      mgmt_fee_avg:      last.mgmt_fee_avg      ?? null,
+      track_assets:      last.track_assets      ?? null,
+      product,
     });
   }
   return result;
@@ -942,7 +947,8 @@ export function getHistory(fund_id) {
 
 export function calcAverages(funds) {
   const keys = ['ret_month','ret_ytd','ret_1y','ret_3y','ret_5y','ret_10y',
-                 'stocks','foreign','forex','illiquid','fees','sharpe'];
+                 'stocks','foreign','forex','illiquid','fees','sharpe',
+                 'alpha','actuarial_balance'];
   const result = { name: 'ממוצע', isAverage: true };
   keys.forEach(k => {
     const vals = funds.map(f => f[k]).filter(v => v != null);
