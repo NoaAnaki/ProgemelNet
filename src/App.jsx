@@ -840,7 +840,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
 
   return (
     <div ref={wrapRef} style={{ borderBottom:`1px solid ${C.border}`,background:C.white,padding:'10px 16px 12px' }}>
-      <div style={{ fontSize:13,fontWeight:700,color:C.dark,marginBottom:8,direction:'rtl' }}>🔍 חיפוש והשוואת מוצרים</div>
+      <div style={{ fontSize:13,fontWeight:700,color:C.dark,marginBottom:8,direction:'rtl' }}>🔍 חיפוש והוספת מוצרים להשוואה</div>
       <div style={{ padding:'0' }}>
         {/* בורר מוצר — מוצג רק כשהשדה בפוקוס */}
         {showProductSelector&&(
@@ -1428,6 +1428,32 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
 }
 
 // ─── Fund Detail Panel ────────────────────────────────────────────────────────
+// ── בלוק ניתוח AI (זהה לכל המוצרים) ──
+function AIAnalysisBlock() {
+  const P = { margin:'0 0 8px',fontSize:11,color:'#3D3D3D',lineHeight:1.8 };
+  const H = { margin:'10px 0 6px',fontSize:11.5,fontWeight:700,color:'#4C1D95' };
+  return (
+    <div style={{ background:'linear-gradient(135deg,#F8F5FF,#EEF2FF)',border:'1px solid #C4B5FD',borderRadius:9,padding:'12px 14px',margin:'8px 14px 12px',direction:'rtl' }}>
+      <div style={{ display:'flex',alignItems:'center',gap:6,marginBottom:8 }}><span style={{ fontSize:14 }}>🤖</span><span style={{ fontSize:11.5,fontWeight:700,color:'#4C1D95' }}>ניתוח AI</span><span style={{ fontSize:9.5,color:'#7C3AED',background:'#EDE9FE',borderRadius:7,padding:'1px 6px' }}>בדיקה</span></div>
+      <p style={P}>הנתונים מראים כי המנוע המרכזי למיקומה הנוכחי של הקופה במקום ה-3 מתוך 12 קרנות בקטגוריה בשנה האחרונה, לעומת מקום ה-6 בטווח של 5 שנים, נובע משינוי מבני מובהק ברמת החשיפה לנכסים בחו"ל ובמט"ח. המערכת מזהה כי הגדלת הרכיב הלא סחיר בתיק העלתה את יציבות התשואה בהשוואה לממוצע הקטגוריה. נתון זה נתמך במדד FUND_ALPHA חיובי העומד על 0.4%, המהווה אות אנליטי נוסף לצד גורמי החשיפה הכלליים. בנוסף, רכיב המאזן האקטוארי של הקופה מציג דלתא חיובית של 0.15%+, התורמת באופן ישיר ועקבי לתשואת העמיתים במסלול זה.</p>
+      <p style={P}>מנגד, הסימולציה מציגה כי המנגנון המבני הכרוך בהגברת הנכסים הלא סחירים מייצר עלות מובנית של הפחתת הנזילות הכוללת של התיק, דבר העלול לעכב התאמות טקטיות מהירות במקרה של תהפוכות חדות בשווקים הציבוריים.</p>
+      <p style={P}>ממצאי המערכת מצביעים על אפשרות כי דינמיקת קיבולת הניהול של הגוף המנהל נמצאת בשלב יציב, כאשר גיוסי הכספים האחרונים אינם משפיעים לרעה על יכולת פיזור הנכסים. המשמעות המוסדית היא כי הקופה שומרת על יתרון לגודל מבלי לפגוע ביעילות ההשקעות בנכסים סחירים בארץ ובחו"ל.</p>
+      <p style={H}>📊 שכבת סימולציית סיכון ותשואה</p>
+      <p style={P}>📈 ביצועי הקופה בפועל (על בסיס נתוני העבר הרשמיים):<br/>תשואה ממוצעת ל-3 שנים: 7.2% ברמת המוצר<br/>תשואה ממוצעת ל-5 שנים: 6.8% ברמת המוצר<br/>תשואה ממוצעת ל-10 שנים: 6.1% ברמת המוצר</p>
+      <p style={P}>📉 סימולציית סיכון היפותטית (אם תמהיל הנכסים הנוכחי היה נשאר קבוע מאז 1995):<br/>תדירות שנים שליליות: אחת ל-6 שנים קלנדריות בממוצע.<br/>תרחיש שנתי שלילי טיפוסי (ירידה סבירה): 4.5%-.<br/>הנפילה ההיסטורית המקסימלית (Max Drawdown במשברים): 14.2%-.<br/>טווח זמן סביר לחזרה לקרן (התאוששות טיפוסית מהפסד): 14 חודשים.</p>
+      <p style={{ margin:'0 0 8px',fontSize:10,color:'#6B7280',lineHeight:1.7 }}>ℹ️ הנתונים בחלקו השני של הבלוק מבוססים על סימולציה היסטורית של תמהיל הנכסים הנוכחי החל משנת 1995, ונועדו להמחיש את פרופיל הסיכון של החשיפות הקיימות בלבד. תשואות העבר הרשמיות מוצגות בחלק הראשון ואינן מבטיחות תשואה בעתיד.</p>
+      <p style={H}>⚖️ חשיפות, סיכונים וכלים לקבלת החלטה</p>
+      <p style={P}>נכון לדיווח החודשי האחרון, הנתונים מראים כי מנהל הקופה שומר על חשיפה יציבה לרכיב המניות בארץ ובחו"ל בהשוואה לחודש הקודם, תוך שמירה על דלתא חיובית קלה בחשיפה למט"ח לעומת ממוצע המתחרים.</p>
+      <p style={P}>בהשוואה מול מוצרים חלופיים בקטגוריה, מוצרים כגון "בטא יציב כללי" או "גמא איזון כללי" מחזיקים ביעדי חשיפה בסיסיים דומים מאוד ברמת המאקרו, אך מנהליהם בחרו במיקום מאוזן וקרוב יותר לממוצע הקטגוריה בציר הטקטי של נכסים סחירים מול נכסים לא סחירים, וזאת במטרה לשמור על גמישות נזילות גבוהה יותר בתוך התיק.</p>
+      <p style={P}>אם תרצה להבין כיצד הממצאים האלה משתלבים עם שאר החסכונות שלך ולהתאים את תמהיל המוצרים היעיל ביותר עבורך, עומדות בפניך שתי אפשרויות: לקבל נתונים ישירות מנציגי הגופים המנוהלים, או להיעזר במתכנן פיננסי חיצוני שמכיר ומשקלל את כלל המוצרים בשוק.</p>
+      <p style={P}>💡 חשוב לדעת: שתי האפשרויות פועלות בסביבת עלות דומה, המגולמת ישירות מתוך דמי הניהול השוטפים של המוצרים (הנעים בטווח טיפוסי של 0.7%-0.9%), ללא צורך בתשלום חיצוני ישיר.</p>
+      <p style={{ margin:'0 0 8px',fontSize:11,fontWeight:600 }}>📍 <a href="https://www.profit-fs.com/agents/" target="_blank" rel="noopener noreferrer" style={{ color:'#7C3AED',textDecoration:'underline' }}>לרשימת המתכננים הפיננסיים המוסמכים באתר פרוגמלנט</a></p>
+      <p style={{ margin:0,fontSize:10,color:'#6B7280',fontStyle:'italic',lineHeight:1.7 }}>ℹ️ הניתוח המוצג מבוסס על חלוקת החשיפות המרכזיות (רמת המאקרו) כפי שדווחו על ידי מנהלי המוצרים לרשות שוק ההון בדיווח החודשי האחרון. הניתוח מתמקד במנועי התשואה הגדולים ואינו משקף בהכרח השפעות נקודתיות של תמהיל נכסים פנימי בתוך התיק (רמת המיקרו), ניירות ערך ספציפיים או גורמים שאינם נכללים בדיווח הציבורי.</p>
+    </div>
+  );
+}
+
+
 function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, allFunds, externalCompare, onTabChange }) {
   if(!fund) return null;
   const [activeTab, setActiveTab] = useState('history');
@@ -1497,26 +1523,10 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
       <div style={{ flex:1,overflowY:'auto' }}>
         {activeTab==='history'&&<div><HistoricalChart fund={fundWithAll} catFundIds={catFundIds} catLabel={catLabel} histData={histData} externalCompare={externalCompare}/>
 
-      <div style={{ background:'linear-gradient(135deg,#F8F5FF,#EEF2FF)',border:'1px solid #C4B5FD',borderRadius:9,padding:'12px 14px',margin:'8px 14px 12px',direction:'rtl' }}>
-        <div style={{ display:'flex',alignItems:'center',gap:6,marginBottom:8 }}><span style={{ fontSize:14 }}>🤖</span><span style={{ fontSize:11.5,fontWeight:700,color:'#4C1D95' }}>ניתוח AI</span><span style={{ fontSize:9.5,color:'#7C3AED',background:'#EDE9FE',borderRadius:7,padding:'1px 6px' }}>בדיקה</span></div>
-        <p style={{ margin:'0 0 8px',fontSize:11,color:'#3D3D3D',lineHeight:1.8 }}>בתקופה שנבדקה (בין השנים 2016 ל־2026), המוצר השיג תשואה שנתית ממוצעת של כ־6.2%, מול ממוצע קטגוריאלי של כ־7.1%. המבנה הייחודי שלו, שכבת בסיס אג"חית צרה יחסית לצד גג מניות ומט"ח רחב – גבה לעיתים מחיר של תנודתיות מוגברת. תמהיל דומה* אליו רשם בשיא המשברים העולמיים (2000 ו-2008) ירידות שהגיעו לאזור ה־15%–20%, ואופיינו בזמן התאוששות שנמשך בשיא עד 3 שנים.</p>
-        <p style={{ margin:'0 0 8px',fontSize:11,color:'#3D3D3D',lineHeight:1.8 }}>הגוף המנהל: ההיסטוריה של הגוף המנהל מלמדת על גוף השקעות עם DNA יציב, שלא נבהל מזעזועים, וגם לא רודף אחרי טרנדים. ההתאמה המשמעותית ביותר במסלול נרשמה בשנים 2021–2023, כשהוגדלה משמעותית החשיפה לחו"ל ולמט"ח. המהלך הזה תרם לביצועים בטווח הקצר, ואף שהשארתו לאורך זמן הגדילה את התנודתיות, הוא מעיד על גוף שמאמין באסטרטגיה לטווח ארוך. העקביות הזו, לצד פתרונות אשראי אטרקטיביים יחסית כנגד הקופה, וצוות השקעות חזק, תמך בדירוג הגבוה בסקר שביעות רצון פנימי.</p>
-        <p style={{ margin:'0 0 6px',fontSize:11,fontWeight:700,color:'#4C1D95' }}>מבט אל תוך המוצר</p>
-        <p style={{ margin:'0 0 8px',fontSize:11,color:'#3D3D3D',lineHeight:1.8 }}>תמהיל הנכסים של המוצר בנוי מ"שכבות" השקעה. רכיב האג"ח והנכסים הלא-סחירים (כ־58% ביחד): השכבה צפויה להעניק לתיק את היציבות וההכנסה השוטפת. משקל אגרות החוב הקלאסיות נמוך יחסית לענף ועומד על כ־44% בלבד (לעומת כ־56% בממוצע בקטגוריה), מול שכבה עבה יחסית של השקעות לא סחירות (כ־14% לעומת 11% בענף).</p>
-        <p style={{ margin:'0 0 8px',fontSize:11,color:'#3D3D3D',lineHeight:1.8 }}>• שכבת המניות הגלובלית (כ־42%): עם חשיפה של 42% למניות בחו"ל – גבוהה משמעותית מהממוצע בקטגוריה שעומד על כ־30% – התיק מעניק משקל גבוה למנועי הצמיחה הגלובליים.<br/>• מעטפת שכבת המט"ח (כ־35%): החשיפה למט"ח קרובה לחשיפה למניות חו"ל, כך שרוב החשיפה לחו"ל נותרת ללא גידור מטבעי. ברגעי משבר עשוי להפוך לשכבת הגנה — "ריצה אל הדולר".<br/>• שכבת הצמיחה הישראלית (כ־22%): מנוע תשואות משני, עם חשיפה מקומית של 22% לעומת כ־33% בממוצע בענף.</p>
-        <p style={{ margin:0,fontSize:10,color:'#7C3AED',fontStyle:'italic' }}>**ניתן לקבל בדיקת התאמה אישית למוצר או הצעה לחלופות, באמצעות מתכנן פיננסי מאושר ע"י פרוגמלנט</p>
-      </div></div>}
+      <AIAnalysisBlock/></div>}
         {activeTab==='mix'&&<div><MixChart fund={fund} catFundIds={catFundIds} catLabel={catLabel} histData={histData} allFunds={allFunds} externalIds={externalCompare}/>
 
-      <div style={{ background:'linear-gradient(135deg,#F8F5FF,#EEF2FF)',border:'1px solid #C4B5FD',borderRadius:9,padding:'12px 14px',margin:'8px 14px 12px',direction:'rtl' }}>
-        <div style={{ display:'flex',alignItems:'center',gap:6,marginBottom:8 }}><span style={{ fontSize:14 }}>🤖</span><span style={{ fontSize:11.5,fontWeight:700,color:'#4C1D95' }}>ניתוח AI</span><span style={{ fontSize:9.5,color:'#7C3AED',background:'#EDE9FE',borderRadius:7,padding:'1px 6px' }}>בדיקה</span></div>
-        <p style={{ margin:'0 0 8px',fontSize:11,color:'#3D3D3D',lineHeight:1.8 }}>בתקופה שנבדקה (בין השנים 2016 ל־2026), המוצר השיג תשואה שנתית ממוצעת של כ־6.2%, מול ממוצע קטגוריאלי של כ־7.1%. המבנה הייחודי שלו, שכבת בסיס אג"חית צרה יחסית לצד גג מניות ומט"ח רחב – גבה לעיתים מחיר של תנודתיות מוגברת. תמהיל דומה* אליו רשם בשיא המשברים העולמיים (2000 ו-2008) ירידות שהגיעו לאזור ה־15%–20%, ואופיינו בזמן התאוששות שנמשך בשיא עד 3 שנים.</p>
-        <p style={{ margin:'0 0 8px',fontSize:11,color:'#3D3D3D',lineHeight:1.8 }}>הגוף המנהל: ההיסטוריה של הגוף המנהל מלמדת על גוף השקעות עם DNA יציב, שלא נבהל מזעזועים, וגם לא רודף אחרי טרנדים. ההתאמה המשמעותית ביותר במסלול נרשמה בשנים 2021–2023, כשהוגדלה משמעותית החשיפה לחו"ל ולמט"ח. המהלך הזה תרם לביצועים בטווח הקצר, ואף שהשארתו לאורך זמן הגדילה את התנודתיות, הוא מעיד על גוף שמאמין באסטרטגיה לטווח ארוך. העקביות הזו, לצד פתרונות אשראי אטרקטיביים יחסית כנגד הקופה, וצוות השקעות חזק, תמך בדירוג הגבוה בסקר שביעות רצון פנימי.</p>
-        <p style={{ margin:'0 0 6px',fontSize:11,fontWeight:700,color:'#4C1D95' }}>מבט אל תוך המוצר</p>
-        <p style={{ margin:'0 0 8px',fontSize:11,color:'#3D3D3D',lineHeight:1.8 }}>תמהיל הנכסים של המוצר בנוי מ"שכבות" השקעה. רכיב האג"ח והנכסים הלא-סחירים (כ־58% ביחד): השכבה צפויה להעניק לתיק את היציבות וההכנסה השוטפת. משקל אגרות החוב הקלאסיות נמוך יחסית לענף ועומד על כ־44% בלבד (לעומת כ־56% בממוצע בקטגוריה), מול שכבה עבה יחסית של השקעות לא סחירות (כ־14% לעומת 11% בענף).</p>
-        <p style={{ margin:'0 0 8px',fontSize:11,color:'#3D3D3D',lineHeight:1.8 }}>• שכבת המניות הגלובלית (כ־42%): עם חשיפה של 42% למניות בחו"ל – גבוהה משמעותית מהממוצע בקטגוריה שעומד על כ־30% – התיק מעניק משקל גבוה למנועי הצמיחה הגלובליים.<br/>• מעטפת שכבת המט"ח (כ־35%): החשיפה למט"ח קרובה לחשיפה למניות חו"ל, כך שרוב החשיפה לחו"ל נותרת ללא גידור מטבעי. ברגעי משבר עשוי להפוך לשכבת הגנה — "ריצה אל הדולר".<br/>• שכבת הצמיחה הישראלית (כ־22%): מנוע תשואות משני, עם חשיפה מקומית של 22% לעומת כ־33% בממוצע בענף.</p>
-        <p style={{ margin:0,fontSize:10,color:'#7C3AED',fontStyle:'italic' }}>**ניתן לקבל בדיקת התאמה אישית למוצר או הצעה לחלופות, באמצעות מתכנן פיננסי מאושר ע"י פרוגמלנט</p>
-      </div></div>}
+      <AIAnalysisBlock/></div>}
         {activeTab==='risk'&&(
           <div>
             <div style={{ padding:'40px 20px',textAlign:'center',color:C.muted,fontSize:13 }}>
@@ -1525,15 +1535,7 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
               <div style={{ fontSize:11.5 }}>בקרוב — ציר X: ירידה מקסימלית | ציר Y: טווח השקעה | גודל נקודה: היקף נכסים</div>
             </div>
 
-      <div style={{ background:'linear-gradient(135deg,#F8F5FF,#EEF2FF)',border:'1px solid #C4B5FD',borderRadius:9,padding:'12px 14px',margin:'8px 14px 12px',direction:'rtl' }}>
-        <div style={{ display:'flex',alignItems:'center',gap:6,marginBottom:8 }}><span style={{ fontSize:14 }}>🤖</span><span style={{ fontSize:11.5,fontWeight:700,color:'#4C1D95' }}>ניתוח AI</span><span style={{ fontSize:9.5,color:'#7C3AED',background:'#EDE9FE',borderRadius:7,padding:'1px 6px' }}>בדיקה</span></div>
-        <p style={{ margin:'0 0 8px',fontSize:11,color:'#3D3D3D',lineHeight:1.8 }}>בתקופה שנבדקה (בין השנים 2016 ל־2026), המוצר השיג תשואה שנתית ממוצעת של כ־6.2%, מול ממוצע קטגוריאלי של כ־7.1%. המבנה הייחודי שלו, שכבת בסיס אג"חית צרה יחסית לצד גג מניות ומט"ח רחב – גבה לעיתים מחיר של תנודתיות מוגברת. תמהיל דומה* אליו רשם בשיא המשברים העולמיים (2000 ו-2008) ירידות שהגיעו לאזור ה־15%–20%, ואופיינו בזמן התאוששות שנמשך בשיא עד 3 שנים.</p>
-        <p style={{ margin:'0 0 8px',fontSize:11,color:'#3D3D3D',lineHeight:1.8 }}>הגוף המנהל: ההיסטוריה של הגוף המנהל מלמדת על גוף השקעות עם DNA יציב, שלא נבהל מזעזועים, וגם לא רודף אחרי טרנדים. ההתאמה המשמעותית ביותר במסלול נרשמה בשנים 2021–2023, כשהוגדלה משמעותית החשיפה לחו"ל ולמט"ח. המהלך הזה תרם לביצועים בטווח הקצר, ואף שהשארתו לאורך זמן הגדילה את התנודתיות, הוא מעיד על גוף שמאמין באסטרטגיה לטווח ארוך. העקביות הזו, לצד פתרונות אשראי אטרקטיביים יחסית כנגד הקופה, וצוות השקעות חזק, תמך בדירוג הגבוה בסקר שביעות רצון פנימי.</p>
-        <p style={{ margin:'0 0 6px',fontSize:11,fontWeight:700,color:'#4C1D95' }}>מבט אל תוך המוצר</p>
-        <p style={{ margin:'0 0 8px',fontSize:11,color:'#3D3D3D',lineHeight:1.8 }}>תמהיל הנכסים של המוצר בנוי מ"שכבות" השקעה. רכיב האג"ח והנכסים הלא-סחירים (כ־58% ביחד): השכבה צפויה להעניק לתיק את היציבות וההכנסה השוטפת. משקל אגרות החוב הקלאסיות נמוך יחסית לענף ועומד על כ־44% בלבד (לעומת כ־56% בממוצע בקטגוריה), מול שכבה עבה יחסית של השקעות לא סחירות (כ־14% לעומת 11% בענף).</p>
-        <p style={{ margin:'0 0 8px',fontSize:11,color:'#3D3D3D',lineHeight:1.8 }}>• שכבת המניות הגלובלית (כ־42%): עם חשיפה של 42% למניות בחו"ל – גבוהה משמעותית מהממוצע בקטגוריה שעומד על כ־30% – התיק מעניק משקל גבוה למנועי הצמיחה הגלובליים.<br/>• מעטפת שכבת המט"ח (כ־35%): החשיפה למט"ח קרובה לחשיפה למניות חו"ל, כך שרוב החשיפה לחו"ל נותרת ללא גידור מטבעי. ברגעי משבר עשוי להפוך לשכבת הגנה — "ריצה אל הדולר".<br/>• שכבת הצמיחה הישראלית (כ־22%): מנוע תשואות משני, עם חשיפה מקומית של 22% לעומת כ־33% בממוצע בענף.</p>
-        <p style={{ margin:0,fontSize:10,color:'#7C3AED',fontStyle:'italic' }}>**ניתן לקבל בדיקת התאמה אישית למוצר או הצעה לחלופות, באמצעות מתכנן פיננסי מאושר ע"י פרוגמלנט</p>
-      </div>
+      <AIAnalysisBlock/>
           </div>
         )}
       </div>
@@ -1575,7 +1577,7 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
         <td style={{ ...TD,color:C.muted,textAlign:'center',fontSize:9.5,width:18,padding:'4px 3px' }}>{isAvg?'⌀':rank}</td>
         {!isAvg
           ? <td style={{ ...TD,width:50,padding:'4px',textAlign:'center',whiteSpace:'nowrap' }}>
-              <button title="הוסף לחיפוש והשוואת מוצרים"
+              <button title="הוסף לחיפוש והוספת מוצרים להשוואה"
                 onClick={e=>{e.stopPropagation();onAddToComparison&&onAddToComparison(fund);}}
                 style={{ background:'none',border:`1.5px solid ${C.border}`,borderRadius:5,cursor:'pointer',fontSize:14,width:22,height:22,display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.muted,transition:'all 0.1s' }}
                 onMouseEnter={e=>{e.currentTarget.style.background=C.crimson;e.currentTarget.style.color='white';e.currentTarget.style.borderColor=C.crimson;}}
@@ -1598,8 +1600,7 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
         <td style={{ ...TD,textAlign:'center',color:'#7C3AED',fontWeight:600 }}>{fund.foreign!=null?fund.foreign.toFixed(1)+'%':'—'}</td>
         <td style={{ ...TD,textAlign:'center',color:'#059669',fontWeight:600 }}>{fund.forex!=null?fund.forex.toFixed(1)+'%':'—'}</td>
         <td style={{ ...TD,textAlign:'center',color:'#9CA3AF',fontWeight:600 }}>{fund.illiquid!=null?fund.illiquid.toFixed(1)+'%':'—'}</td>
-        <td style={{ ...TD,textAlign:'center',color:C.dark,fontWeight:600 }}>{fund.sharpe!=null?fund.sharpe.toFixed(2):'—'}</td>
-        {isPension&&<td style={{ ...TD,textAlign:'center',color:'#B45309',fontWeight:600 }}>{fund.alpha!=null?fund.alpha.toFixed(2):'—'}</td>}
+        {!isPension&&<td style={{ ...TD,textAlign:'center',color:C.dark,fontWeight:600 }}>{fund.sharpe!=null?fund.sharpe.toFixed(2):'—'}</td>}
         {isPension&&<td style={{ ...TD,textAlign:'center',color:'#047857',fontWeight:600 }}>{fund.actuarial_balance!=null?fund.actuarial_balance.toFixed(2):'—'}</td>}
         <td style={{ ...TD,textAlign:'center',color:C.crimson,fontWeight:700 }}>{fund.profit_index!=null?fund.profit_index.toFixed(1):'—'}</td>
       </tr>
@@ -1635,8 +1636,7 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
             <SortTh col={{ key:'foreign',  label:'% חו"ל',     tip:'חשיפה לחו"ל',      color:'#C4B5FD' }}/>
             <SortTh col={{ key:'forex',    label:'% מט"ח',     tip:'חשיפה למט"ח',      color:'#6EE7B7' }}/>
             <SortTh col={{ key:'illiquid', label:'% לא סחיר',  tip:'חשיפה ללא סחיר',   color:'#D1D5DB' }}/>
-            <SortTh col={{ key:'sharpe',   label:'מדד שארפ',   tip:'מדד שארפ',          color:'#FCA5A5' }}/>
-            {isPension&&<SortTh col={{ key:'alpha',    label:'אלפא',       tip:'אלפא שנתי — ביצוע עודף מול הסיכון', color:'#FCD34D' }}/>}
+            {!isPension&&<SortTh col={{ key:'sharpe',   label:'מדד שארפ',   tip:'מדד שארפ',          color:'#FCA5A5' }}/>}
             {isPension&&<SortTh col={{ key:'actuarial_balance', label:'איזון אקטוארי', tip:'עודף/גירעון אקטוארי', color:'#A7F3D0' }}/>}
             <th style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.5)' }}>מדד פרוגמלנט</th>
           </tr></thead>
