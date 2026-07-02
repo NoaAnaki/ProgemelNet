@@ -887,6 +887,9 @@ function buildCurrentData(history) {
     // קרן שלא נמצאת במיפוי האקסל — לא מוצגת במסלולי השקעה
     if (!sheet) continue;
 
+    // הסרת מוצרי "ניהול אישי" מקרנות השתלמות (בכל המקומות)
+    if (product === 'השתלמות' && sheet === 'ניהול אישי') continue;
+
     if (!result[product]) result[product] = {};
     if (!result[product][sheet]) result[product][sheet] = [];
 
