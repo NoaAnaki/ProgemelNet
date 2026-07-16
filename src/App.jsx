@@ -657,9 +657,10 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
 
   function TrackSortTh({label, colKey, color}) {
     const active = trackSort.key===colKey;
+    const arrow = active ? (trackSort.dir==='desc'?'↓':'↑') : '↕';
     return <th onClick={()=>setTrackSort(s=>s.key===colKey?{key:colKey,dir:s.dir==='desc'?'asc':'desc'}:{key:colKey,dir:'desc'})}
       style={{ ...TH,textAlign:'center',cursor:'pointer',userSelect:'none',color:active?'#FFD6DE':(color||'rgba(255,255,255,0.7)'),background:active?'rgba(255,255,255,0.08)':'transparent',minWidth:50 }}>
-      <span style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:2 }}>{label}{active&&<span style={{ fontSize:8 }}>{trackSort.dir==='desc'?'↓':'↑'}</span>}</span>
+      <span style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:3 }}>{label}<span style={{ fontSize:8,opacity:active?1:0.4 }}>{arrow}</span></span>
     </th>;
   }
 
@@ -902,7 +903,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
               <thead><tr style={{ background:C.darkMid }}>
                 <th style={{ ...TH,width:5,padding:0 }}></th>
                 <th style={{ ...TH,width:52 }}></th>
-                <th style={{ ...TH,textAlign:'right',color:'rgba(255,255,255,0.8)',paddingRight:10 }}>שם המוצר</th>
+                <th onClick={()=>setTrackSort(s=>s.key==='name'?{key:'name',dir:s.dir==='desc'?'asc':'desc'}:{key:'name',dir:'asc'})} title="מיון לפי א-ב" style={{ ...TH,textAlign:'right',color:trackSort.key==='name'?'#FFD6DE':'rgba(255,255,255,0.8)',background:trackSort.key==='name'?'rgba(255,255,255,0.08)':'transparent',paddingRight:10,cursor:'pointer',userSelect:'none' }}><span style={{ display:'inline-flex',alignItems:'center',gap:3 }}>שם המוצר<span style={{ fontSize:8,opacity:trackSort.key==='name'?1:0.4 }}>{trackSort.key==='name'?(trackSort.dir==='desc'?'↓':'↑'):'↕'}</span></span></th>
                 <th style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.7)',minWidth:60 }}>משקל %</th>
                 {COMP_COLS.map(c=><th key={c.key} style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.7)' }}>{c.label}</th>)}
               </tr></thead>
@@ -1157,14 +1158,29 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
   // תוויות ציר X (שנים) — קח כל תקופה שמסתיימת ב-01 (ינואר) או הראשונה/אחרונה
   const xLabels = useMemo(()=>{
     const labels = [];
-    let lastYear = '';
-    allPeriods.forEach((p,i)=>{
-      const year = p.slice(0,4);
-      if(year!==lastYear || i===allPeriods.length-1){
-        labels.push({ period:p, label:year });
-        lastYear = year;
-      }
-    });
+    const n = allPeriods.length;
+    if(n===0) return labels;
+    // טווח קצר (עד ~24 חודשים) — הצג חודש/שנה. אחרת — שנים בלבד.
+    const shortRange = n <= 24;
+    if(shortRange){
+      // הצג תווית כל חודש-חודשיים לפי צפיפות
+      const step = n<=12 ? 1 : 2;
+      allPeriods.forEach((p,i)=>{
+        if(i % step === 0 || i===n-1){
+          const mm = p.slice(4,6), yy = p.slice(2,4);
+          labels.push({ period:p, label:`${mm}/${yy}` });
+        }
+      });
+    } else {
+      let lastYear = '';
+      allPeriods.forEach((p,i)=>{
+        const year = p.slice(0,4);
+        if(year!==lastYear || i===n-1){
+          labels.push({ period:p, label:year });
+          lastYear = year;
+        }
+      });
+    }
     return labels;
   },[allPeriods]);
 
@@ -1235,11 +1251,11 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
                   const val=maxVal*(1-f), y=PT+chartH*f;
                   return <g key={f}>
                     <line x1={PL} y1={y} x2={svgW-PR} y2={y} stroke={C.border} strokeWidth="0.5" strokeDasharray="2 3" opacity="0.6"/>
-                    <text x={PL-5} y={y+3} textAnchor="end" fontSize="9" fill={C.muted}>{val.toFixed(0)}%</text>
+                    <text x={PL-5} y={y+3.5} textAnchor="end" fontSize="11.5" fill={C.muted}>{val.toFixed(0)}%</text>
                   </g>;
                 })}
                 {xLabels.map(l=>(
-                  <text key={l.period} x={xFor(l.period)} y={PT+chartH+16} textAnchor="middle" fontSize="9" fill={C.muted}>{l.label}</text>
+                  <text key={l.period} x={xFor(l.period)} y={PT+chartH+18} textAnchor="middle" fontSize="11.5" fill={C.muted}>{l.label}</text>
                 ))}
                 {allEntries.map(entry=>(
                   <path key={entry.id} d={pathFor(entry.series)} fill="none" stroke={entry.color} strokeWidth={entry.isAvg?2:2.6} strokeDasharray={entry.isAvg?'5 3':'none'} opacity={entry.isAvg?0.75:0.95} strokeLinejoin="round" strokeLinecap="round"/>
@@ -1321,11 +1337,11 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
             const val=maxVal*(1-f), y=PT+chartH*f;
             return <g key={f}>
               <line x1={PL} y1={y} x2={svgW-PR} y2={y} stroke={C.border} strokeWidth="0.5" strokeDasharray="2 3" opacity="0.6"/>
-              <text x={PL-5} y={y+3} textAnchor="end" fontSize="8.5" fill={C.muted}>{val.toFixed(0)}%</text>
+              <text x={PL-5} y={y+3.5} textAnchor="end" fontSize="11" fill={C.muted}>{val.toFixed(0)}%</text>
             </g>;
           })}
           {xLabels.map(l=>(
-            <text key={l.period} x={xFor(l.period)} y={PT+chartH+14} textAnchor="middle" fontSize="8.5" fill={C.muted}>{l.label}</text>
+            <text key={l.period} x={xFor(l.period)} y={PT+chartH+16} textAnchor="middle" fontSize="11" fill={C.muted}>{l.label}</text>
           ))}
           {allEntries.map(entry=>(
             <path key={entry.id} d={pathFor(entry.series)} fill="none"
@@ -1545,6 +1561,12 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
 
 // ─── Fund Table ───────────────────────────────────────────────────────────────
 function sortByKey(funds,key,dir) {
+  if(key==='name'){
+    return [...funds].sort((a,b)=>{
+      const r=(a.name||'').localeCompare(b.name||'','he');
+      return dir==='desc'?-r:r;
+    });
+  }
   return [...funds].sort((a,b)=>{ const av=a[key]??-Infinity,bv=b[key]??-Infinity; return dir==='desc'?bv-av:av-bv; });
 }
 
@@ -1566,7 +1588,8 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
       if(sortKey===col.key) setSortDir(d=>d==='desc'?'asc':'desc');
       else { setSortKey(col.key); setSortDir('desc'); }
     };
-    return <th onClick={handleSort} style={{ ...TH,textAlign:'center',cursor:'pointer',userSelect:'none',color:active?'#FFD6DE':baseColor,background:active?'rgba(255,255,255,0.08)':'transparent',minWidth:50 }}><span style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:2,pointerEvents:'none' }}><Tooltip text={col.tip}/>{col.label}{active&&<span style={{ fontSize:8 }}>{sortDir==='desc'?'↓':'↑'}</span>}</span></th>;
+    const arrow = active ? (sortDir==='desc'?'↓':'↑') : '↕';
+    return <th onClick={handleSort} title={col.tip||''} style={{ ...TH,textAlign:'center',cursor:'pointer',userSelect:'none',color:active?'#FFD6DE':baseColor,background:active?'rgba(255,255,255,0.08)':'transparent',minWidth:50 }}><span style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:3,pointerEvents:'none' }}>{col.label}<span style={{ fontSize:8,opacity:active?1:0.4 }}>{arrow}</span></span></th>;
   }
 
   function Row({fund,rank}) {
@@ -1625,7 +1648,7 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
           <thead><tr style={{ background:'#2A2A2A' }}>
             <th style={{ ...TH,width:18,color:'rgba(255,255,255,0.4)',padding:'5px 3px' }}>#</th>
             <th style={{ ...TH,width:28,padding:'4px' }}></th>
-            <th style={{ ...TH,textAlign:'right',color:'rgba(255,255,255,0.8)' }}>שם המוצר</th>
+            <th onClick={()=>{ if(sortKey==='name') setSortDir(d=>d==='desc'?'asc':'desc'); else { setSortKey('name'); setSortDir('asc'); } }} title="מיון לפי א-ב" style={{ ...TH,textAlign:'right',color:sortKey==='name'?'#FFD6DE':'rgba(255,255,255,0.8)',background:sortKey==='name'?'rgba(255,255,255,0.08)':'transparent',cursor:'pointer',userSelect:'none' }}><span style={{ display:'inline-flex',alignItems:'center',gap:3 }}>שם המוצר<span style={{ fontSize:8,opacity:sortKey==='name'?1:0.4 }}>{sortKey==='name'?(sortDir==='desc'?'↓':'↑'):'↕'}</span></span></th>
             <SortTh col={{ key:'ret_month', label:`% ${getLatestMonthName()}`,    tip:'תשואה בחודש האחרון' }}/>
             <SortTh col={{ key:'ret_ytd',   label:'% YTD',      tip:'תשואה מתחילת שנה' }}/>
             <SortTh col={{ key:'ret_1y',    label:'% שנה',      tip:'תשואה שנתית' }}/>
