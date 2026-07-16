@@ -1172,12 +1172,21 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
         }
       });
     } else {
+      // תווית אחת לכל שנה (בתחילתה). אם יש הרבה שנים — כל שנה שנייה
+      // כדי שהתוויות לא ידרסו זו את זו, תוך שמירה על פונט גדול וקריא.
+      const firstOfYear = [];
       let lastYear = '';
-      allPeriods.forEach((p,i)=>{
+      allPeriods.forEach((p)=>{
         const year = p.slice(0,4);
-        if(year!==lastYear || i===n-1){
-          labels.push({ period:p, label:year });
+        if(year!==lastYear){
+          firstOfYear.push({ period:p, year });
           lastYear = year;
+        }
+      });
+      const stepY = firstOfYear.length > 10 ? 2 : 1;
+      firstOfYear.forEach((it, idx)=>{
+        if(idx % stepY === 0){
+          labels.push({ period:it.period, label:it.year });
         }
       });
     }
