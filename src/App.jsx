@@ -903,7 +903,7 @@ function ComparisonSearch({ allFunds, product, selected, setSelected, onSelectFu
               <thead><tr style={{ background:C.darkMid }}>
                 <th style={{ ...TH,width:5,padding:0 }}></th>
                 <th style={{ ...TH,width:52 }}></th>
-                <th onClick={()=>setTrackSort(s=>s.key==='name'?{key:'name',dir:s.dir==='desc'?'asc':'desc'}:{key:'name',dir:'asc'})} title="מיון לפי א-ב" style={{ ...TH,textAlign:'right',color:trackSort.key==='name'?'#FFD6DE':'rgba(255,255,255,0.8)',background:trackSort.key==='name'?'rgba(255,255,255,0.08)':'transparent',paddingRight:10,cursor:'pointer',userSelect:'none' }}><span style={{ display:'inline-flex',alignItems:'center',gap:3 }}>שם המוצר<span style={{ fontSize:8,opacity:trackSort.key==='name'?1:0.4 }}>{trackSort.key==='name'?(trackSort.dir==='desc'?'↓':'↑'):'↕'}</span></span></th>
+                <th style={{ ...TH,textAlign:'right',color:'rgba(255,255,255,0.8)',paddingRight:10 }}>שם המוצר</th>
                 <th style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.7)',minWidth:60 }}>משקל %</th>
                 {COMP_COLS.map(c=><th key={c.key} style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.7)' }}>{c.label}</th>)}
               </tr></thead>
