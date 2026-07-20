@@ -1478,7 +1478,196 @@ function AIAnalysisBlock() {
 }
 
 
-function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, allFunds, externalCompare, onTabChange }) {
+// ─── גרף סיכון (Risk Chart) ─────────────────────────────────────────────────
+// מדדי הסיכון מתוך backtest.json. גרף scatter עם בוררי X/Y + טבלה + הנחות.
+const RISK_METRICS = [
+  { key:'max_drawdown',        label:'ירידה מקסימלית',        fmt:v=>v!=null?(v*100).toFixed(1)+'%':'—', better:'high' },
+  { key:'max_recovery_months', label:'זמן התאוששות מקס',      fmt:v=>v!=null?v+' ח\'':'—',              better:'low'  },
+  { key:'neg_year_freq',       label:'תדירות שנה שלילית',      fmt:v=>v!=null?v.toFixed(1)+'%':'—',      better:'low'  },
+  { key:'avg_neg_year',        label:'ירידה ממוצעת בשנה שלילית', fmt:v=>v!=null?(v*100).toFixed(1)+'%':'—', better:'high' },
+  { key:'cagr',                label:'תשואה ממוצעת רב-שנתית',  fmt:v=>v!=null?(v*100).toFixed(1)+'%':'—', better:'high' },
+];
+
+function RiskChart({ fund, backtestData, externalIds }) {
+  const RC_COLORS = ['#E63946','#16A34A','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D','#EA580C'];
+  const [xKey, setXKey] = useState('max_drawdown');
+  const [yKey, setYKey] = useState('max_recovery_months');
+  const [extraIds, setExtraIds] = useState([]);
+  const [hover, setHover] = useState(null);
+
+  // הוספת מוצרים חיצוניים (מהאימוג'י)
+  useEffect(()=>{
+    if(!externalIds?.length) return;
+    setExtraIds(prev=>{
+      const toAdd = externalIds.filter(id=>!prev.includes(id) && id!==fund.fund_id);
+      return toAdd.length ? [...prev,...toAdd] : prev;
+    });
+  },[externalIds, fund.fund_id]);
+
+  if(!backtestData) {
+    return <div style={{ padding:'40px 20px',textAlign:'center',color:C.muted,fontSize:12 }}>טוען נתוני סיכון…</div>;
+  }
+
+  const funds = backtestData.funds || {};
+  const assumptions = backtestData.assumptions || [];
+
+  // המוצר הראשי + הנוספים
+  const mainRow = funds[fund.fund_id];
+  const allRows = [
+    mainRow ? { id:fund.fund_id, name:fund.name, color:RC_COLORS[0], data:mainRow } : null,
+    ...extraIds.map((id,i)=>{
+      const d = funds[id];
+      return d ? { id, name:d.name, color:RC_COLORS[(i+1)%RC_COLORS.length], data:d } : null;
+    }),
+  ].filter(Boolean);
+
+  if(!mainRow) {
+    return <div style={{ padding:'40px 20px',textAlign:'center',color:C.muted,fontSize:12 }}>אין נתוני סיכון היסטוריים למוצר זה</div>;
+  }
+
+  // גיאומטריית הגרף
+  const svgW = 620, chartH = 240, PT = 20, PB = 44, PL = 56, PR = 20;
+  const svgH = chartH + PT + PB;
+  const plotW = svgW - PL - PR;
+
+  const xMetric = RISK_METRICS.find(m=>m.key===xKey);
+  const yMetric = RISK_METRICS.find(m=>m.key===yKey);
+
+  const xVals = allRows.map(r=>r.data[xKey]).filter(v=>v!=null);
+  const yVals = allRows.map(r=>r.data[yKey]).filter(v=>v!=null);
+  const xMin = Math.min(...xVals), xMax = Math.max(...xVals);
+  const yMin = Math.min(...yVals), yMax = Math.max(...yVals);
+  // padding לטווח כדי שנקודות לא ידבקו לקצה
+  const xPad = (xMax-xMin)*0.15 || Math.abs(xMax*0.15) || 1;
+  const yPad = (yMax-yMin)*0.15 || Math.abs(yMax*0.15) || 1;
+  const xLo = xMin-xPad, xHi = xMax+xPad, yLo = yMin-yPad, yHi = yMax+yPad;
+
+  const xFor = v => PL + ((v-xLo)/(xHi-xLo||1))*plotW;
+  const yFor = v => PT + chartH - ((v-yLo)/(yHi-yLo||1))*chartH;
+
+  return (
+    <div style={{ direction:'rtl' }}>
+      {/* בוררי צירים ליד כל מדד */}
+      <div style={{ padding:'10px 14px 4px' }}>
+        <div style={{ fontSize:11,fontWeight:700,color:C.dark,marginBottom:6 }}>בחירת צירים לגרף:</div>
+        <div style={{ display:'flex',flexDirection:'column',gap:4 }}>
+          {RISK_METRICS.map(m=>(
+            <div key={m.key} style={{ display:'flex',alignItems:'center',gap:6,fontSize:11 }}>
+              <button onClick={()=>setXKey(m.key)} style={{ width:24,height:22,borderRadius:5,border:`1.5px solid ${xKey===m.key?C.crimson:C.border}`,background:xKey===m.key?C.crimson:C.white,color:xKey===m.key?C.white:C.muted,fontWeight:700,fontSize:11,cursor:'pointer',fontFamily:'inherit' }}>X</button>
+              <button onClick={()=>setYKey(m.key)} style={{ width:24,height:22,borderRadius:5,border:`1.5px solid ${yKey===m.key?'#2563EB':C.border}`,background:yKey===m.key?'#2563EB':C.white,color:yKey===m.key?C.white:C.muted,fontWeight:700,fontSize:11,cursor:'pointer',fontFamily:'inherit' }}>Y</button>
+              <span style={{ color:C.dark }}>{m.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* הגרף */}
+      <div style={{ padding:'6px 14px' }}>
+        <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ display:'block',overflow:'visible' }}>
+          {/* כתב מים */}
+          <text x={svgW/2} y={svgH/2} textAnchor="middle" fontSize="24" fontWeight="800" fill={C.crimson} opacity="0.06" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none' }}>Progemel-net</text>
+          {/* רשת + תוויות Y */}
+          {[0,0.25,0.5,0.75,1].map(f=>{
+            const val=yLo+(yHi-yLo)*(1-f), y=PT+chartH*f;
+            return <g key={'gy'+f}>
+              <line x1={PL} y1={y} x2={svgW-PR} y2={y} stroke={C.border} strokeWidth="0.5" strokeDasharray="2 3" opacity="0.6"/>
+              <text x={PL-6} y={y+3.5} textAnchor="end" fontSize="10" fill={C.muted}>{yMetric.fmt(val)}</text>
+            </g>;
+          })}
+          {/* תוויות X */}
+          {[0,0.25,0.5,0.75,1].map(f=>{
+            const val=xLo+(xHi-xLo)*f, x=PL+plotW*f;
+            return <text key={'gx'+f} x={x} y={PT+chartH+16} textAnchor="middle" fontSize="10" fill={C.muted}>{xMetric.fmt(val)}</text>;
+          })}
+          {/* שמות הצירים */}
+          <text x={PL+plotW/2} y={svgH-6} textAnchor="middle" fontSize="11" fontWeight="700" fill={C.dark}>{xMetric.label}</text>
+          <text x={14} y={PT+chartH/2} textAnchor="middle" fontSize="11" fontWeight="700" fill={C.dark} transform={`rotate(-90 14 ${PT+chartH/2})`}>{yMetric.label}</text>
+          {/* הנקודות */}
+          {allRows.map(r=>{
+            const xv=r.data[xKey], yv=r.data[yKey];
+            if(xv==null||yv==null) return null;
+            return <g key={r.id} onMouseEnter={()=>setHover(r)} onMouseLeave={()=>setHover(null)} style={{ cursor:'pointer' }}>
+              <circle cx={xFor(xv)} cy={yFor(yv)} r={hover&&hover.id===r.id?8:6} fill={r.color} stroke="#fff" strokeWidth="2" opacity="0.9"/>
+            </g>;
+          })}
+          {/* Tooltip */}
+          {hover&&(()=>{
+            const xv=hover.data[xKey], yv=hover.data[yKey];
+            const px=xFor(xv), py=yFor(yv);
+            const boxW=180, boxH=18+RISK_METRICS.length*15;
+            const bx=Math.min(Math.max(px-boxW/2,4),svgW-boxW-4);
+            const by=py-boxH-12>0?py-boxH-12:py+14;
+            return <g style={{ pointerEvents:'none' }}>
+              <rect x={bx} y={by} width={boxW} height={boxH} rx="6" fill={C.dark} opacity="0.95"/>
+              <text x={bx+8} y={by+14} fontSize="10" fontWeight="700" fill="#fff">{hover.name.length>28?hover.name.slice(0,28)+'…':hover.name}</text>
+              {RISK_METRICS.map((m,i)=>(
+                <text key={m.key} x={bx+8} y={by+30+i*15} fontSize="9.5" fill="#E5E7EB">{m.label}: <tspan fill={hover.color} fontWeight="700">{m.fmt(hover.data[m.key])}</tspan></text>
+              ))}
+            </g>;
+          })()}
+        </svg>
+      </div>
+
+      {/* מקרא + הסרת מוצרים */}
+      {allRows.length>1&&(
+        <div style={{ padding:'2px 14px 8px',display:'flex',gap:8,flexWrap:'wrap' }}>
+          {allRows.map((r,i)=>(
+            <div key={r.id} style={{ display:'flex',alignItems:'center',gap:4,fontSize:10 }}>
+              <span style={{ width:9,height:9,borderRadius:'50%',background:r.color,display:'inline-block' }}/>
+              <span style={{ color:C.dark }}>{r.name.length>22?r.name.slice(0,22)+'…':r.name}</span>
+              {i>0&&<button onClick={()=>setExtraIds(prev=>prev.filter(id=>id!==r.id))} style={{ background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:12,lineHeight:1,padding:0 }}>×</button>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* הטבלה */}
+      <div style={{ padding:'8px 14px' }}>
+        <div style={{ overflowX:'auto' }}>
+          <table style={{ width:'100%',borderCollapse:'collapse',fontSize:10.5,minWidth:520 }}>
+            <thead>
+              <tr style={{ background:C.dark }}>
+                <th style={{ padding:'6px 8px',textAlign:'right',color:'#fff',fontWeight:600,position:'sticky',right:0,background:C.dark }}>מוצר</th>
+                {RISK_METRICS.map(m=>(
+                  <th key={m.key} style={{ padding:'6px 6px',textAlign:'center',color:'rgba(255,255,255,0.85)',fontWeight:600,whiteSpace:'nowrap' }}>{m.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {allRows.map(r=>(
+                <tr key={r.id} style={{ borderBottom:`1px solid ${C.border}` }}>
+                  <td style={{ padding:'6px 8px',textAlign:'right',fontWeight:600,color:r.color,whiteSpace:'nowrap',maxWidth:180,overflow:'hidden',textOverflow:'ellipsis' }}>{r.name}</td>
+                  {RISK_METRICS.map(m=>(
+                    <td key={m.key} style={{ padding:'6px 6px',textAlign:'center',color:C.dark }}>{m.fmt(r.data[m.key])}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* משנת + הנחות */}
+      <div style={{ padding:'8px 14px 14px' }}>
+        <div style={{ fontSize:11,color:C.dark,marginBottom:6 }}>
+          <span style={{ fontWeight:700 }}>נתונים משנת: </span>
+          {allRows.map((r,i)=>(
+            <span key={r.id}>{i>0?' · ':''}<span style={{ color:r.color,fontWeight:600 }}>{r.data.start_year}</span></span>
+          ))}
+        </div>
+        <details style={{ fontSize:10,color:C.muted }}>
+          <summary style={{ cursor:'pointer',fontWeight:600,color:C.mid,marginBottom:4 }}>הנחות יסוד לחישוב</summary>
+          <ul style={{ margin:'4px 0',paddingRight:16,lineHeight:1.7 }}>
+            {assumptions.map((a,i)=><li key={i} style={{ marginBottom:3 }}>{a}</li>)}
+          </ul>
+        </details>
+      </div>
+    </div>
+  );
+}
+
+
+function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, allFunds, externalCompare, onTabChange, backtestData }) {
   if(!fund) return null;
   const [activeTab, setActiveTab] = useState('history');
   const handleTabChange = (id) => { setActiveTab(id); onTabChange&&onTabChange(id); };
@@ -1552,15 +1741,7 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
 
       <AIAnalysisBlock/></div>}
         {activeTab==='risk'&&(
-          <div>
-            <div style={{ padding:'40px 20px',textAlign:'center',color:C.muted,fontSize:13 }}>
-              <div style={{ fontSize:32,marginBottom:12 }}>⚠️</div>
-              <div style={{ fontWeight:700,color:C.dark,marginBottom:6 }}>גרף סיכון</div>
-              <div style={{ fontSize:11.5 }}>בקרוב — ציר X: ירידה מקסימלית | ציר Y: טווח השקעה | גודל נקודה: היקף נכסים</div>
-            </div>
-
-      <AIAnalysisBlock/>
-          </div>
+          <RiskChart fund={fund} backtestData={backtestData} externalIds={externalCompare}/>
         )}
       </div>
     </div>
@@ -1709,6 +1890,12 @@ export default function App() {
     }).catch(console.error);
   },[]);
 
+  // טוען backtest.json (נתוני סיכון היסטוריים) — נטען פעם אחת
+  const [backtestData, setBacktestData] = useState(null);
+  useEffect(()=>{
+    fetch('/backtest.json').then(r=>r.json()).then(setBacktestData).catch(console.error);
+  },[]);
+
   const rawFundsProduct = product||'השתלמות';
   const rawFunds = useMemo(()=>getAllFunds(rawFundsProduct),[rawFundsProduct,dataReady]);
   const funds = useMemo(()=>rawFunds.map(f=>({...f,profit_index:profitIndex[f.name]??f.profit_index??null})),[rawFunds,profitIndex]);
@@ -1811,7 +1998,7 @@ export default function App() {
         )}
         {panelOpen&&(
           <div style={{ position:'fixed',top:56,left:0,width:PANEL_W,height:'calc(100vh - 56px)',overflow:'hidden',zIndex:50,boxShadow:'4px 0 20px rgba(0,0,0,0.15)' }}>
-            <FundDetail key={selFund?.fund_id} fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);setVirtualWeightedAvg(null);}} catAvg={catAvg} catFundIds={catFundIds} catLabel={catLabel} histData={virtualWeightedAvg?{...histData,__weighted_avg__:virtualWeightedAvg.points}:(histData??{})} allFunds={virtualWeightedAvg?[...allFunds,{fund_id:'__weighted_avg__',name:virtualWeightedAvg.name}]:allFunds} externalCompare={activePanelTab==='mix'?sentToMix:sentToChart} onTabChange={setActivePanelTab}/>
+            <FundDetail key={selFund?.fund_id} fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);setVirtualWeightedAvg(null);}} catAvg={catAvg} catFundIds={catFundIds} catLabel={catLabel} histData={virtualWeightedAvg?{...histData,__weighted_avg__:virtualWeightedAvg.points}:(histData??{})} allFunds={virtualWeightedAvg?[...allFunds,{fund_id:'__weighted_avg__',name:virtualWeightedAvg.name}]:allFunds} externalCompare={activePanelTab==='mix'?sentToMix:sentToChart} onTabChange={setActivePanelTab} backtestData={backtestData}/>
           </div>
         )}
       </div>
