@@ -1590,23 +1590,26 @@ function RiskChart({ fund, backtestData, externalIds }) {
               <circle cx={xFor(xv)} cy={yFor(yv)} r={hover&&hover.id===r.id?8:6} fill={r.color} stroke="#fff" strokeWidth="2" opacity="0.9"/>
             </g>;
           })}
-          {/* Tooltip */}
+          {/* Tooltip — foreignObject עם HTML אמיתי לתמיכת RTL מלאה */}
           {hover&&(()=>{
             const xv=hover.data[xKey], yv=hover.data[yKey];
             const px=xFor(xv), py=yFor(yv);
-            const boxW=250, boxH=20+RISK_METRICS.length*16;
+            const boxW=240, boxH=22+RISK_METRICS.length*17;
+            // ממקם ממורכז אופקית על הנקודה, מוגבל לגבולות ה-SVG
             const bx=Math.min(Math.max(px-boxW/2,4),svgW-boxW-4);
             const by=py-boxH-12>0?py-boxH-12:py+14;
-            const tx=bx+boxW-10;
             return <g style={{ pointerEvents:'none' }}>
-              <rect x={bx} y={by} width={boxW} height={boxH} rx="6" fill={C.dark} opacity="0.96"/>
-              <text x={tx} y={by+15} textAnchor="end" fontSize="10.5" fontWeight="700" fill="#fff">{hover.name.length>30?hover.name.slice(0,30)+'…':hover.name}</text>
-              {RISK_METRICS.map((m,i)=>(
-                <text key={m.key} x={tx} y={by+32+i*16} textAnchor="end" fontSize="10" fill="#E5E7EB">
-                  <tspan fill={hover.color} fontWeight="700">{m.fmt(hover.data[m.key])}</tspan>
-                  <tspan fill="#E5E7EB"> :{m.label}</tspan>
-                </text>
-              ))}
+              <foreignObject x={bx} y={by} width={boxW} height={boxH}>
+                <div xmlns="http://www.w3.org/1999/xhtml" style={{ direction:'rtl',background:C.dark,opacity:0.96,borderRadius:6,padding:'6px 9px',fontFamily:'Assistant,Heebo,sans-serif',boxSizing:'border-box',width:'100%',height:'100%' }}>
+                  <div style={{ color:'#fff',fontWeight:700,fontSize:10.5,marginBottom:3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis' }}>{hover.name}</div>
+                  {RISK_METRICS.map(m=>(
+                    <div key={m.key} style={{ fontSize:9.5,color:'#E5E7EB',lineHeight:1.5,display:'flex',justifyContent:'space-between',gap:8 }}>
+                      <span>{m.label}</span>
+                      <span style={{ color:hover.color,fontWeight:700 }}>{m.fmt(hover.data[m.key])}</span>
+                    </div>
+                  ))}
+                </div>
+              </foreignObject>
             </g>;
           })()}
         </svg>
