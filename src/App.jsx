@@ -1594,14 +1594,18 @@ function RiskChart({ fund, backtestData, externalIds }) {
           {hover&&(()=>{
             const xv=hover.data[xKey], yv=hover.data[yKey];
             const px=xFor(xv), py=yFor(yv);
-            const boxW=180, boxH=18+RISK_METRICS.length*15;
+            const boxW=250, boxH=20+RISK_METRICS.length*16;
             const bx=Math.min(Math.max(px-boxW/2,4),svgW-boxW-4);
             const by=py-boxH-12>0?py-boxH-12:py+14;
+            const tx=bx+boxW-10;
             return <g style={{ pointerEvents:'none' }}>
-              <rect x={bx} y={by} width={boxW} height={boxH} rx="6" fill={C.dark} opacity="0.95"/>
-              <text x={bx+8} y={by+14} fontSize="10" fontWeight="700" fill="#fff">{hover.name.length>28?hover.name.slice(0,28)+'…':hover.name}</text>
+              <rect x={bx} y={by} width={boxW} height={boxH} rx="6" fill={C.dark} opacity="0.96"/>
+              <text x={tx} y={by+15} textAnchor="end" fontSize="10.5" fontWeight="700" fill="#fff">{hover.name.length>30?hover.name.slice(0,30)+'…':hover.name}</text>
               {RISK_METRICS.map((m,i)=>(
-                <text key={m.key} x={bx+8} y={by+30+i*15} fontSize="9.5" fill="#E5E7EB">{m.label}: <tspan fill={hover.color} fontWeight="700">{m.fmt(hover.data[m.key])}</tspan></text>
+                <text key={m.key} x={tx} y={by+32+i*16} textAnchor="end" fontSize="10" fill="#E5E7EB">
+                  <tspan fill={hover.color} fontWeight="700">{m.fmt(hover.data[m.key])}</tspan>
+                  <tspan fill="#E5E7EB"> :{m.label}</tspan>
+                </text>
               ))}
             </g>;
           })()}
@@ -1878,6 +1882,7 @@ export default function App() {
   const [sentToChart, setSentToChart] = useState([]); // fund_ids שנשלחו לגרף
   const [virtualWeightedAvg, setVirtualWeightedAvg] = useState(null); // {points:[{period,ret}], name, fund_id:'__weighted_avg__'}
   const [sentToMix, setSentToMix]     = useState([]); // fund_ids שנשלחו לגרף תמהיל
+  const [sentToRisk, setSentToRisk]   = useState([]); // fund_ids שנשלחו לגרף סיכון
   const [activePanelTab, setActivePanelTab] = useState('history');
   const profitIndex = useProfitIndex();
 
@@ -1961,12 +1966,12 @@ export default function App() {
       <div style={{ display:'flex',minHeight:'calc(100vh - 56px)' }}>
         <div style={{ flex:1,minWidth:0,display:'flex',flexDirection:'column',marginLeft:panelOpen?PANEL_W:0,transition:'margin-left 0.2s ease' }}>
           <div style={{ padding:'10px 16px 9px',background:C.white,borderBottom:`1px solid ${C.border}` }}>
-            <ProductSelector selected={product} onChange={k=>{setProduct(k);setSelFund(null);setSelCatId(null);setSentToChart([]);setSentToMix([]);}}/>
+            <ProductSelector selected={product} onChange={k=>{setProduct(k);setSelFund(null);setSelCatId(null);setSentToChart([]);setSentToMix([]);setSentToRisk([]);}}/>
           </div>
-          <ComparisonSearch allFunds={allFunds} product={product||'השתלמות'} selected={compSelected} setSelected={setCompSelected} onSelectFund={(f)=>{setSelFund(f);setSelCatId(null);setSentToChart([]);setSentToMix([]);}} setSentToChart={setSentToChart} setSentToMix={setSentToMix} setAddedFund={setAddedFund} panelOpen={panelOpen} histData={histData} setSelFund={setSelFund} setVirtualWeightedAvg={setVirtualWeightedAvg}
+          <ComparisonSearch allFunds={allFunds} product={product||'השתלמות'} selected={compSelected} setSelected={setCompSelected} onSelectFund={(f)=>{setSelFund(f);setSelCatId(null);setSentToChart([]);setSentToMix([]);setSentToRisk([]);}} setSentToChart={setSentToChart} setSentToMix={setSentToMix} setAddedFund={setAddedFund} panelOpen={panelOpen} histData={histData} setSelFund={setSelFund} setVirtualWeightedAvg={setVirtualWeightedAvg}
             onAddToChart={(f,cid)=>{ if(!f.fund_id) return;
-              if(!selFund){ setVirtualWeightedAvg(null); setSelFund(f); setSelCatId(cid??null); setSentToChart([]); setSentToMix([]); setAddedFund('📊 נפתחה מערכת הגרפים עבור '+f.name.slice(0,24)); setTimeout(()=>setAddedFund(null),2800); }
-              else { setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund('📊 '+f.name.slice(0,28)+' התווסף למערכת הגרפים'); setTimeout(()=>setAddedFund(null),2800); }
+              if(!selFund){ setVirtualWeightedAvg(null); setSelFund(f); setSelCatId(cid??null); setSentToChart([]); setSentToMix([]); setSentToRisk([]); setAddedFund('📊 נפתחה מערכת הגרפים עבור '+f.name.slice(0,24)); setTimeout(()=>setAddedFund(null),2800); }
+              else { setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); setSentToRisk(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund('📊 '+f.name.slice(0,28)+' התווסף למערכת הגרפים'); setTimeout(()=>setAddedFund(null),2800); }
             }}/>
           {product===null ? (
             <HomePage
@@ -1976,11 +1981,11 @@ export default function App() {
               setCompSelected={setCompSelected}
               setAddedFund={setAddedFund}/>
           ) : (
-            <TrackBrowser product={product} onSelectFund={(f,cid)=>{setSelFund(f);setSelCatId(cid);setSentToChart([]);setSentToMix([]);}} selFund={selFund} order={order} funds={funds}
+            <TrackBrowser product={product} onSelectFund={(f,cid)=>{setSelFund(f);setSelCatId(cid);setSentToChart([]);setSentToMix([]);setSentToRisk([]);}} selFund={selFund} order={order} funds={funds}
               onAddToComparison={f=>{ setCompSelected(prev=>prev.find(s=>s.name===f.name)||prev.length>=10?prev:[...prev,f]); setAddedFund(f.name); setTimeout(()=>setAddedFund(null),2500); }}
               onAddToChart={(f,cid)=>{ if(!f.fund_id) return;
-                if(!selFund){ setSelFund(f); setSelCatId(cid??null); setSentToChart([]); setSentToMix([]); setAddedFund('📊 נפתחה מערכת הגרפים עבור '+f.name.slice(0,24)); setTimeout(()=>setAddedFund(null),2800); }
-                else { setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund('📊 '+f.name.slice(0,28)+' התווסף למערכת הגרפים'); setTimeout(()=>setAddedFund(null),2800); }
+                if(!selFund){ setSelFund(f); setSelCatId(cid??null); setSentToChart([]); setSentToMix([]); setSentToRisk([]); setAddedFund('📊 נפתחה מערכת הגרפים עבור '+f.name.slice(0,24)); setTimeout(()=>setAddedFund(null),2800); }
+                else { setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); setSentToRisk(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund('📊 '+f.name.slice(0,28)+' התווסף למערכת הגרפים'); setTimeout(()=>setAddedFund(null),2800); }
               }}/>
           )}
           <div style={{ padding:'0 0 48px' }}/>
@@ -1998,7 +2003,7 @@ export default function App() {
         )}
         {panelOpen&&(
           <div style={{ position:'fixed',top:56,left:0,width:PANEL_W,height:'calc(100vh - 56px)',overflow:'hidden',zIndex:50,boxShadow:'4px 0 20px rgba(0,0,0,0.15)' }}>
-            <FundDetail key={selFund?.fund_id} fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);setVirtualWeightedAvg(null);}} catAvg={catAvg} catFundIds={catFundIds} catLabel={catLabel} histData={virtualWeightedAvg?{...histData,__weighted_avg__:virtualWeightedAvg.points}:(histData??{})} allFunds={virtualWeightedAvg?[...allFunds,{fund_id:'__weighted_avg__',name:virtualWeightedAvg.name}]:allFunds} externalCompare={activePanelTab==='mix'?sentToMix:sentToChart} onTabChange={setActivePanelTab} backtestData={backtestData}/>
+            <FundDetail key={selFund?.fund_id} fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);setVirtualWeightedAvg(null);}} catAvg={catAvg} catFundIds={catFundIds} catLabel={catLabel} histData={virtualWeightedAvg?{...histData,__weighted_avg__:virtualWeightedAvg.points}:(histData??{})} allFunds={virtualWeightedAvg?[...allFunds,{fund_id:'__weighted_avg__',name:virtualWeightedAvg.name}]:allFunds} externalCompare={activePanelTab==='mix'?sentToMix:(activePanelTab==='risk'?sentToRisk:sentToChart)} onTabChange={setActivePanelTab} backtestData={backtestData}/>
           </div>
         )}
       </div>
