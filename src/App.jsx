@@ -1392,7 +1392,6 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
           </div>
         )}</>
         )}
-        )}
       </div>
 
       {/* מקרא */}
