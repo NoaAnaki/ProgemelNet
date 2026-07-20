@@ -1547,9 +1547,38 @@ function RiskChart({ fund, backtestData, externalIds }) {
 
   return (
     <div style={{ direction:'rtl' }}>
-      {/* בוררי צירים ליד כל מדד */}
-      <div style={{ padding:'10px 14px 4px' }}>
-        <div style={{ fontSize:11,fontWeight:700,color:C.dark,marginBottom:6 }}>בחירת צירים לגרף:</div>
+      {/* הסבר על משמעות הטבלה */}
+      <div style={{ padding:'12px 14px 8px' }}>
+        <div style={{ background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'10px 12px',fontSize:11,color:C.dark,lineHeight:1.7 }}>
+          <span style={{ fontWeight:700,color:C.crimson }}>המחשת סיכון היסטורי:</span> הנתונים מציגים כיצד <span style={{ fontWeight:600 }}>תמהיל סינטטי דומה לתמהיל הנוכחי של המוצר</span> היה מתנהג לאורך ההיסטוריה — כלומר, אילו החשיפות הנוכחיות היו "מוקפאות" ומורצות על נתוני השוק ההיסטוריים. זהו כלי להמחשת פרופיל הסיכון של החשיפות הקיימות, ואינו תחזית.
+        </div>
+      </div>
+
+      {/* הטבלה — רשימה אנכית (מדד בכל שורה) */}
+      <div style={{ padding:'4px 14px 8px' }}>
+        {allRows.map(r=>(
+          <div key={r.id} style={{ marginBottom:12,border:`1px solid ${C.border}`,borderRadius:8,overflow:'hidden' }}>
+            <div style={{ background:r.color,padding:'6px 10px',display:'flex',alignItems:'center',justifyContent:'space-between' }}>
+              <span style={{ color:'#fff',fontWeight:700,fontSize:11.5 }}>{r.name}</span>
+              {allRows.length>1 && r.id!==fund.fund_id && (
+                <button onClick={()=>setExtraIds(prev=>prev.filter(id=>id!==r.id))} style={{ background:'rgba(255,255,255,0.25)',border:'none',color:'#fff',width:20,height:20,borderRadius:'50%',cursor:'pointer',fontSize:13,lineHeight:1,display:'flex',alignItems:'center',justifyContent:'center' }}>×</button>
+              )}
+            </div>
+            <div>
+              {RISK_METRICS.map((m,i)=>(
+                <div key={m.key} style={{ display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 12px',background:i%2===0?'#fff':'#FAFAFA',fontSize:11 }}>
+                  <span style={{ color:C.mid }}>{m.label}</span>
+                  <span style={{ color:C.dark,fontWeight:700 }}>{m.fmt(r.data[m.key])}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* בוררי צירים לגרף */}
+      <div style={{ padding:'8px 14px 4px',borderTop:`1px solid ${C.border}` }}>
+        <div style={{ fontSize:11,fontWeight:700,color:C.dark,marginBottom:6 }}>גרף — בחירת צירים:</div>
         <div style={{ display:'flex',flexDirection:'column',gap:4 }}>
           {RISK_METRICS.map(m=>(
             <div key={m.key} style={{ display:'flex',alignItems:'center',gap:6,fontSize:11 }}>
@@ -1564,9 +1593,7 @@ function RiskChart({ fund, backtestData, externalIds }) {
       {/* הגרף */}
       <div style={{ padding:'6px 14px' }}>
         <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ display:'block',overflow:'visible' }}>
-          {/* כתב מים */}
           <text x={svgW/2} y={svgH/2} textAnchor="middle" fontSize="24" fontWeight="800" fill={C.crimson} opacity="0.06" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none' }}>Progemel-net</text>
-          {/* רשת + תוויות Y */}
           {[0,0.25,0.5,0.75,1].map(f=>{
             const val=yLo+(yHi-yLo)*(1-f), y=PT+chartH*f;
             return <g key={'gy'+f}>
@@ -1574,15 +1601,12 @@ function RiskChart({ fund, backtestData, externalIds }) {
               <text x={PL-6} y={y+3.5} textAnchor="end" fontSize="10" fill={C.muted}>{yMetric.fmt(val)}</text>
             </g>;
           })}
-          {/* תוויות X */}
           {[0,0.25,0.5,0.75,1].map(f=>{
             const val=xLo+(xHi-xLo)*f, x=PL+plotW*f;
             return <text key={'gx'+f} x={x} y={PT+chartH+16} textAnchor="middle" fontSize="10" fill={C.muted}>{xMetric.fmt(val)}</text>;
           })}
-          {/* שמות הצירים */}
           <text x={PL+plotW/2} y={svgH-6} textAnchor="middle" fontSize="11" fontWeight="700" fill={C.dark}>{xMetric.label}</text>
           <text x={14} y={PT+chartH/2} textAnchor="middle" fontSize="11" fontWeight="700" fill={C.dark} transform={`rotate(-90 14 ${PT+chartH/2})`}>{yMetric.label}</text>
-          {/* הנקודות */}
           {allRows.map(r=>{
             const xv=r.data[xKey], yv=r.data[yKey];
             if(xv==null||yv==null) return null;
@@ -1590,12 +1614,10 @@ function RiskChart({ fund, backtestData, externalIds }) {
               <circle cx={xFor(xv)} cy={yFor(yv)} r={hover&&hover.id===r.id?8:6} fill={r.color} stroke="#fff" strokeWidth="2" opacity="0.9"/>
             </g>;
           })}
-          {/* Tooltip — foreignObject עם HTML אמיתי לתמיכת RTL מלאה */}
           {hover&&(()=>{
             const xv=hover.data[xKey], yv=hover.data[yKey];
             const px=xFor(xv), py=yFor(yv);
             const boxW=240, boxH=22+RISK_METRICS.length*17;
-            // ממקם ממורכז אופקית על הנקודה, מוגבל לגבולות ה-SVG
             const bx=Math.min(Math.max(px-boxW/2,4),svgW-boxW-4);
             const by=py-boxH-12>0?py-boxH-12:py+14;
             return <g style={{ pointerEvents:'none' }}>
@@ -1613,45 +1635,6 @@ function RiskChart({ fund, backtestData, externalIds }) {
             </g>;
           })()}
         </svg>
-      </div>
-
-      {/* מקרא + הסרת מוצרים */}
-      {allRows.length>1&&(
-        <div style={{ padding:'2px 14px 8px',display:'flex',gap:8,flexWrap:'wrap' }}>
-          {allRows.map((r,i)=>(
-            <div key={r.id} style={{ display:'flex',alignItems:'center',gap:4,fontSize:10 }}>
-              <span style={{ width:9,height:9,borderRadius:'50%',background:r.color,display:'inline-block' }}/>
-              <span style={{ color:C.dark }}>{r.name.length>22?r.name.slice(0,22)+'…':r.name}</span>
-              {i>0&&<button onClick={()=>setExtraIds(prev=>prev.filter(id=>id!==r.id))} style={{ background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:12,lineHeight:1,padding:0 }}>×</button>}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* הטבלה */}
-      <div style={{ padding:'8px 14px' }}>
-        <div style={{ overflowX:'auto' }}>
-          <table style={{ width:'100%',borderCollapse:'collapse',fontSize:10.5,minWidth:520 }}>
-            <thead>
-              <tr style={{ background:C.dark }}>
-                <th style={{ padding:'6px 8px',textAlign:'right',color:'#fff',fontWeight:600,position:'sticky',right:0,background:C.dark }}>מוצר</th>
-                {RISK_METRICS.map(m=>(
-                  <th key={m.key} style={{ padding:'6px 6px',textAlign:'center',color:'rgba(255,255,255,0.85)',fontWeight:600,whiteSpace:'nowrap' }}>{m.label}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {allRows.map(r=>(
-                <tr key={r.id} style={{ borderBottom:`1px solid ${C.border}` }}>
-                  <td style={{ padding:'6px 8px',textAlign:'right',fontWeight:600,color:r.color,whiteSpace:'nowrap',maxWidth:180,overflow:'hidden',textOverflow:'ellipsis' }}>{r.name}</td>
-                  {RISK_METRICS.map(m=>(
-                    <td key={m.key} style={{ padding:'6px 6px',textAlign:'center',color:C.dark }}>{m.fmt(r.data[m.key])}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </div>
 
       {/* משנת + הנחות */}
