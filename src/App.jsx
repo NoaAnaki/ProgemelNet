@@ -66,6 +66,85 @@ function useProfitIndex() {
 }
 
 // ─── Tooltip ─────────────────────────────────────────────────────────────────
+// ─── הסברי קטגוריות רשמיות (רשות שוק ההון) ──────────────────────────────────
+const CAT_INFO_BY_CORE = {
+  'כללי':                  'חשיפה לכל סוגי הנכסים המותרים ולשיקול דעת ועדת ההשקעות.',
+  'אגח ממשלות':            'חשיפה של 75%–120% לאגרות חוב ממשלתיות.',
+  'אגח ממשלתי':            'חשיפה של 75%–120% לאג"ח ממשלתיות בארץ ובחו"ל, באמצעות נכסים סחירים בלבד.',
+  'מניות סחיר':            'חשיפה של 75%–120% למניות בארץ ובחו"ל באמצעות נכסים סחירים בלבד.',
+  'אשראי ואגח עד 25':      'חשיפה של לפחות 75% לאשראי, חוב ופיקדונות (כולל נכסים לא-סחירים), עם חשיפה למניות שלא תעלה על 25%.',
+  'אשראי ואגח':            'חשיפה של 75%–120% לאשראי, חוב ופיקדונות, כולל הלוואות וקרנות חוב (השקעה בנכסים לא-סחירים מותרת).',
+  'עד 25 מניות':           'חשיפה של לפחות 75% לאשראי, חוב ופיקדונות, עם חשיפה למניות שלא תעלה על 25%.',
+  'מניות':                 'חשיפה של 75%–120% למניות בארץ ובחו"ל, במישרין, באמצעות נגזרים, קרנות סל, קרנות נאמנות וקרנות השקעה. המסלול אינו מוגבל לנכסים סחירים בלבד.',
+  'אגח סחיר':              'חשיפה של 75%–120% לאג"ח קונצרני וממשלתי באמצעות נכסים סחירים בלבד.',
+  'אגח סחיר עד 25':        'חשיפה של לפחות 75% לאג"ח, עם עד 25% מניות, כשהכל מבוצע בנכסים סחירים בלבד.',
+  'כספי שקלי':             'חשיפה של 75%–120% לפיקדונות, הלוואות ואג"ח שקליים לא־צמודים וללא סיכון מטבע זר.',
+  'S&P 500':               'כל נכסי המסלול עוקבים אחר מדד S&P 500, למעט מזומן ונכסים קצרים לצורכי נזילות, ביטחונות וגידור. החשיפה למדד לא תעלה על 100%. המסלול עשוי להיות חשוף לשינוי בשער הדולר.',
+  'חול':                   'קטגוריה היסטורית: חשיפה של 75%–120% לנכסים שהונפקו בחו"ל. יש לבדוק את מעמד המסלול הספציפי אצל החברה.',
+  'מניות חול':             'קטגוריה היסטורית: חשיפה של 75%–120% למניות הנסחרות בחו"ל. יש לבדוק את מעמד המסלול הספציפי בחברה.',
+  'עוקב מדדים גמיש':       'מעקב של 75%–100% אחר לפחות שלושה מדדי מניות או אג"ח שאינם דומים. משקלו של כל אחד משלושת המדדים הגדולים יהיה 10%–50%.',
+  'עוקב מדדי מניות':       'מעקב של 75%–100% אחר לפחות שלושה מדדי מניות שאינם דומים. משקלו של כל אחד משלושת המדדים הגדולים יהיה 10%–50%.',
+  'עוקב מדדי אגח':         'מעקב של 75%–100% אחר לפחות שלושה מדדי אג"ח קונצרני או ממשלתי שאינם דומים. משקלו של כל אחד משלושת המדדים הגדולים יהיה 10%–50%.',
+  'עוקב מדדים עד 25':      'לפחות 75% מהמסלול עוקבים אחר לפחות שלושה מדדי אג"ח קונצרני או ממשלתי; החשיפה למניות מוגבלת ל־25%, והחשיפה הכוללת אינה עולה על 100%.',
+  'עוקב אגח עד 25':        'לפחות 75% מהמסלול עוקבים אחר לפחות שלושה מדדי אג"ח קונצרני או ממשלתי; החשיפה למניות מוגבלת ל־25%, והחשיפה הכוללת אינה עולה על 100%.',
+  'משולב סחיר':            'חשיפה של 75%–120% לתמהיל מניות, אג"ח ממשלתי ואג"ח קונצרני בארץ ובחו"ל באמצעות נכסים סחירים.',
+  'קיימות':                'ככלל, נכסי המסלול יושקעו בנכסים שמטרתם העיקרית לקדם את יעדי הפיתוח בר־הקיימא של האו"ם. אין שיעור מניות או דרישת סחירות קבועים.',
+  'סביבתי':                'ככלל, נכסי המסלול יושקעו בהשקעות סביבתיות לפי סטנדרטים בינלאומיים או בנכסים המקדמים יעדי פיתוח בר־קיימא סביבתיים. אין שיעור מניות או דרישת סחירות קבועים.',
+  'הלכה':                  'השקעה בנכסים מסוגים שונים בכפוף לדין ולכללי ההלכה היהודית. ועדת ההשקעות של הגוף המוסדי נושאת באחריות להשקעות.',
+  'הלכתי':                 'השקעה בנכסים מסוגים שונים בכפוף לדין ולכללי ההלכה היהודית. ועדת ההשקעות של הגוף המוסדי נושאת באחריות להשקעות.',
+  'הלכתי קצבה':            'מסלול הלכתי המיועד למקבלי קצבה: השקעה בכפוף לכללי ההלכה היהודית, בהתאם להוראות הדין.',
+  'שריעה':                 'השקעה בנכסים מסוגים שונים בכפוף לדין ולכללי השריעה האסלאמית. ועדת ההשקעות של הגוף המוסדי נושאת באחריות להשקעות.',
+  'עד50':                  'מסלול ברירת מחדל תלוי גיל (לבני 50 ומטה). הנכסים והרכב הסיכון נקבעים לפי שיקול דעת ועדת ההשקעות, בהתחשב בין היתר בגיל העמיתים.',
+  '50-60':                 'מסלול ברירת מחדל תלוי גיל (לבני 50 עד 60). הנכסים והרכב הסיכון נקבעים לפי שיקול דעת ועדת ההשקעות, בהתחשב בין היתר בגיל העמיתים.',
+  '60+':                   'מסלול ברירת מחדל תלוי גיל (לבני 60 ומעלה). הנכסים והרכב הסיכון נקבעים לפי שיקול דעת ועדת ההשקעות. אין הבטחת קרן או תקרת מניות אחידה שנקבעה על ידי הרשות.',
+  'מקבלי קצבה':            'מיועד למקבלי קצבה בקרן פנסיה או בקופת ביטוח. הרכב הנכסים נקבע בכפוף לדין; אין רמת סיכון אחידה שנקבעה.',
+  'פנסיונרים':             'מיועד למקבלי קצבה (פנסיונרים). הרכב הנכסים נקבע בכפוף לדין; אין רמת סיכון אחידה שנקבעה.',
+  'זכאים קיימים':          'מסלול לאוכלוסיות ותיקות שהיו זכאיות לקצבה לפני מועדים שנקבעו בהוראות. אין לתארו בהכרח כמסלול "סולידי".',
+  'עוקב קצבה':             'עוקב בשיעור 75%–100% אחר לפחות שלושה מדדי מניות או אג"ח שאינם דומים, עבור מקבלי קצבה.',
+  'עוקב מדדים למקבלי קצבה':'עוקב בשיעור 75%–100% אחר לפחות שלושה מדדי מניות או אג"ח שאינם דומים, עבור מקבלי קצבה.',
+  'מיועד פורשים':          'מסלול המיועד לפורשים. הרכב הנכסים נקבע בכפוף לדין ולשיקול דעת ועדת ההשקעות.',
+  'ניהול אישי':            'מסלול בניהול אישי (IRA) — החוסך מנהל בעצמו את תיק ההשקעות, בכפוף למגבלות הרגולציה.',
+  // צורות מקוצרות (כפי שמופיעות בשמות מסלולי פנסיה)
+  'S&P500':                'כל נכסי המסלול עוקבים אחר מדד S&P 500, למעט מזומן ונכסים קצרים לצורכי נזילות, ביטחונות וגידור. החשיפה למדד לא תעלה על 100%. המסלול עשוי להיות חשוף לשינוי בשער הדולר.',
+  'עוקב אגח':              'מעקב של 75%–100% אחר לפחות שלושה מדדי אג"ח קונצרני או ממשלתי שאינם דומים. משקלו של כל אחד משלושת המדדים הגדולים יהיה 10%–50%.',
+  'עוקב מניות':            'מעקב של 75%–100% אחר לפחות שלושה מדדי מניות שאינם דומים. משקלו של כל אחד משלושת המדדים הגדולים יהיה 10%–50%.',
+  'עוקב גמיש':             'מעקב של 75%–100% אחר לפחות שלושה מדדי מניות או אג"ח שאינם דומים. משקלו של כל אחד משלושת המדדים הגדולים יהיה 10%–50%.',
+  'אשראי אגח':             'חשיפה של 75%–120% לאשראי, חוב ופיקדונות, כולל הלוואות וקרנות חוב (השקעה בנכסים לא-סחירים מותרת).',
+};
+
+// מחזיר הסבר לקטגוריה: מסיר תחיליות (מקיפה-/כללית-/מובילות-) ומנרמל מקפים
+function getCategoryInfo(name) {
+  if(!name) return null;
+  let s = String(name).trim();
+  if(CAT_INFO_BY_CORE[s]) return CAT_INFO_BY_CORE[s];
+  // הסר תחילית סוג-קרן
+  s = s.replace(/^(מקיפה|כללית|מובילות)[-\s]/, '');
+  if(CAT_INFO_BY_CORE[s]) return CAT_INFO_BY_CORE[s];
+  // נרמל מקפים לרווחים
+  const spaced = s.replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
+  if(CAT_INFO_BY_CORE[spaced]) return CAT_INFO_BY_CORE[spaced];
+  // נרמל רווחים למקפים
+  const hyphen = s.replace(/\s+/g, '-');
+  if(CAT_INFO_BY_CORE[hyphen]) return CAT_INFO_BY_CORE[hyphen];
+  // "כללי עד 500מ" וכד' — התאמה לפי תחילית "כללי"
+  if(/^כללי\b/.test(spaced)) return CAT_INFO_BY_CORE['כללי'];
+  return null;
+}
+
+// סימן שאלה עם הסבר הקטגוריה (רחב יותר מ-Tooltip הרגיל)
+function CategoryInfo({ text }) {
+  const [show, setShow] = useState(false);
+  if(!text) return null;
+  return (
+    <span style={{ position:'relative', display:'inline-flex', alignItems:'center' }}>
+      <span onMouseEnter={()=>setShow(true)} onMouseLeave={()=>setShow(false)} onClick={()=>setShow(s=>!s)}
+        style={{ width:14,height:14,borderRadius:'50%',background:'rgba(255,255,255,0.2)',color:'#fff',fontSize:9,fontWeight:700,display:'inline-flex',alignItems:'center',justifyContent:'center',cursor:'help',border:'1px solid rgba(255,255,255,0.35)' }}>?</span>
+      {show && <div style={{ position:'absolute',top:'calc(100% + 6px)',right:0,width:320,background:C.dark,color:C.white,borderRadius:8,padding:'9px 12px',fontSize:11,lineHeight:1.65,zIndex:3000,boxShadow:'0 8px 24px rgba(0,0,0,0.45)',direction:'rtl',fontWeight:400,pointerEvents:'none' }}>{text}</div>}
+    </span>
+  );
+}
+
+
 function Tooltip({ text }) {
   const [show, setShow] = useState(false);
   return (
@@ -1483,7 +1562,7 @@ function AIAnalysisBlock() {
 const RISK_METRICS = [
   { key:'max_drawdown',        label:'ירידה מקסימלית',        fmt:v=>v!=null?(v*100).toFixed(1)+'%':'—', better:'high' },
   { key:'max_recovery_years',  label:'זמן התאוששות מקס',      fmt:v=>v!=null?(v===1?'שנה':v+' שנים'):'—', better:'low'  },
-  { key:'neg_year_freq',       label:'תדירות שנה שלילית',      fmt:v=>v!=null?v.toFixed(1)+'%':'—',      better:'low'  },
+  { key:'neg_year_freq',       label:'תדירות שנה שלילית',      fmt:v=>v!=null?v.toFixed(1):'—',          better:'low'  },
   { key:'avg_neg_year',        label:'ירידה ממוצעת בשנה שלילית', fmt:v=>v!=null?(v*100).toFixed(1)+'%':'—', better:'high' },
   { key:'cagr',                label:'תשואה ממוצעת רב-שנתית',  fmt:v=>v!=null?(v*100).toFixed(1)+'%':'—', better:'high' },
 ];
@@ -1554,26 +1633,37 @@ function RiskChart({ fund, backtestData, externalIds }) {
         </div>
       </div>
 
-      {/* הטבלה — רשימה אנכית (מדד בכל שורה) */}
+      {/* הטבלה — מדדים כשורות, כל מוצר כעמודה */}
       <div style={{ padding:'4px 14px 8px' }}>
-        {allRows.map(r=>(
-          <div key={r.id} style={{ marginBottom:12,border:`1px solid ${C.border}`,borderRadius:8,overflow:'hidden' }}>
-            <div style={{ background:r.color,padding:'6px 10px',display:'flex',alignItems:'center',justifyContent:'space-between' }}>
-              <span style={{ color:'#fff',fontWeight:700,fontSize:11.5 }}>{r.name}</span>
-              {allRows.length>1 && r.id!==fund.fund_id && (
-                <button onClick={()=>setExtraIds(prev=>prev.filter(id=>id!==r.id))} style={{ background:'rgba(255,255,255,0.25)',border:'none',color:'#fff',width:20,height:20,borderRadius:'50%',cursor:'pointer',fontSize:13,lineHeight:1,display:'flex',alignItems:'center',justifyContent:'center' }}>×</button>
-              )}
-            </div>
-            <div>
+        <div style={{ overflowX:'auto',border:`1px solid ${C.border}`,borderRadius:8 }}>
+          <table style={{ width:'100%',borderCollapse:'collapse',fontSize:11 }}>
+            <thead>
+              <tr>
+                <th style={{ background:C.darkMid,color:'rgba(255,255,255,0.85)',fontWeight:600,fontSize:10.5,padding:'7px 10px',textAlign:'right',whiteSpace:'nowrap' }}>מדד</th>
+                {allRows.map(r=>(
+                  <th key={r.id} style={{ background:r.color,color:'#fff',fontWeight:700,fontSize:10.5,padding:'7px 10px',textAlign:'center',minWidth:110 }}>
+                    <div style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:5 }}>
+                      <span style={{ maxWidth:150,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{r.name}</span>
+                      {r.id!==fund.fund_id && (
+                        <button onClick={()=>setExtraIds(prev=>prev.filter(id=>id!==r.id))} style={{ background:'rgba(255,255,255,0.25)',border:'none',color:'#fff',width:16,height:16,borderRadius:'50%',cursor:'pointer',fontSize:11,lineHeight:1,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0 }}>×</button>
+                      )}
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
               {RISK_METRICS.map((m,i)=>(
-                <div key={m.key} style={{ display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 12px',background:i%2===0?'#fff':'#FAFAFA',fontSize:11 }}>
-                  <span style={{ color:C.mid }}>{m.label}</span>
-                  <span style={{ color:C.dark,fontWeight:700 }}>{m.fmt(r.data[m.key])}</span>
-                </div>
+                <tr key={m.key} style={{ background:i%2===0?'#fff':'#FAFAFA' }}>
+                  <td style={{ padding:'7px 10px',textAlign:'right',color:C.mid,whiteSpace:'nowrap' }}>{m.label}</td>
+                  {allRows.map(r=>(
+                    <td key={r.id} style={{ padding:'7px 10px',textAlign:'center',color:C.dark,fontWeight:700 }}>{m.fmt(r.data[m.key])}</td>
+                  ))}
+                </tr>
               ))}
-            </div>
-          </div>
-        ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* בוררי צירים לגרף */}
@@ -1814,12 +1904,13 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
       <div style={{ background:C.darkMid,borderRadius:'8px 8px 0 0',padding:'6px 10px 5px' }}>
         <div style={{ display:'flex',alignItems:'center',gap:8 }}>
           <span style={{ fontSize:11.5,fontWeight:800,color:C.white }}>{cat?.label}</span>
+          <CategoryInfo text={getCategoryInfo(catLabel||catId)}/>
           <span style={{ fontSize:10,color:'rgba(255,255,255,0.4)' }}>{cat?.desc}</span>
           <span style={{ marginRight:'auto',fontSize:10,color:'rgba(255,255,255,0.3)' }}>{funds.length} מוצרים</span>
         </div>
         <div style={{ display:'flex',alignItems:'center',gap:8,marginTop:2 }}>
-          <span style={{ fontSize:9,color:'rgba(255,255,255,0.45)' }}>על בסיס תשואה מצטברת לפני דמי ניהול</span>
-          <span style={{ marginRight:'auto',fontSize:9,color:'rgba(255,255,255,0.4)',fontWeight:600,letterSpacing:'0.02em' }}>progemel-net.vercel.app</span>
+          <span style={{ fontSize:9,color:C.white,fontWeight:700 }}>על בסיס תשואה מצטברת לפני דמי ניהול</span>
+          <span style={{ margin:'0 auto',fontSize:9,color:C.white,fontWeight:700,letterSpacing:'0.02em' }}>progemel-net</span>
         </div>
       </div>
       <div style={{ overflowX: panelOpen?'auto':'visible',WebkitOverflowScrolling:'touch',border:`1px solid ${C.border}`,borderTop:'none',borderRadius:'0 0 8px 8px' }}>
