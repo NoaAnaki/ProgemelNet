@@ -1482,7 +1482,7 @@ function AIAnalysisBlock() {
 // מדדי הסיכון מתוך backtest.json. גרף scatter עם בוררי X/Y + טבלה + הנחות.
 const RISK_METRICS = [
   { key:'max_drawdown',        label:'ירידה מקסימלית',        fmt:v=>v!=null?(v*100).toFixed(1)+'%':'—', better:'high' },
-  { key:'max_recovery_months', label:'זמן התאוששות מקס',      fmt:v=>v!=null?v+' ח\'':'—',              better:'low'  },
+  { key:'max_recovery_years',  label:'זמן התאוששות מקס',      fmt:v=>v!=null?(v===1?'שנה':v+' שנים'):'—', better:'low'  },
   { key:'neg_year_freq',       label:'תדירות שנה שלילית',      fmt:v=>v!=null?v.toFixed(1)+'%':'—',      better:'low'  },
   { key:'avg_neg_year',        label:'ירידה ממוצעת בשנה שלילית', fmt:v=>v!=null?(v*100).toFixed(1)+'%':'—', better:'high' },
   { key:'cagr',                label:'תשואה ממוצעת רב-שנתית',  fmt:v=>v!=null?(v*100).toFixed(1)+'%':'—', better:'high' },
@@ -1491,7 +1491,7 @@ const RISK_METRICS = [
 function RiskChart({ fund, backtestData, externalIds }) {
   const RC_COLORS = ['#E63946','#16A34A','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D','#EA580C'];
   const [xKey, setXKey] = useState('max_drawdown');
-  const [yKey, setYKey] = useState('max_recovery_months');
+  const [yKey, setYKey] = useState('max_recovery_years');
   const [extraIds, setExtraIds] = useState([]);
   const [hover, setHover] = useState(null);
 
@@ -1640,9 +1640,9 @@ function RiskChart({ fund, backtestData, externalIds }) {
       {/* משנת + הנחות */}
       <div style={{ padding:'8px 14px 14px' }}>
         <div style={{ fontSize:11,color:C.dark,marginBottom:6 }}>
-          <span style={{ fontWeight:700 }}>נתונים משנת: </span>
+          <span style={{ fontWeight:700 }}>תקופת הנתונים: </span>
           {allRows.map((r,i)=>(
-            <span key={r.id}>{i>0?' · ':''}<span style={{ color:r.color,fontWeight:600 }}>{r.data.start_year}</span></span>
+            <span key={r.id}>{i>0?' · ':''}<span style={{ color:r.color,fontWeight:600 }}>{r.data.first_year}–{r.data.last_year}</span></span>
           ))}
         </div>
         <details style={{ fontSize:10,color:C.muted }}>
