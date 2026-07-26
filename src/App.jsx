@@ -729,7 +729,17 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
     );
   },[activeCompany,product,sheets]);
 
+  // מיפוי מוצר → הקטגוריה הרשמית (sheet) שאליה הוא שייך
+  const fundSheetMap = useMemo(()=>{
+    const map = {};
+    sheets.forEach(sh=>{
+      getFundsBySheet(product,sh).forEach(f=>{ map[f.fund_id ?? f.name] = sh; });
+    });
+    return map;
+  },[product,sheets]);
+
   const [trackSort, setTrackSort] = useState({ key:'ret_3y', dir:'desc' });
+
   const sortedDisplay = useMemo(()=>sortByKey(viewMode==='company'?companyFunds:sheetFunds, trackSort.key, trackSort.dir),[sheetFunds,companyFunds,viewMode,trackSort]);
   const displayFunds = sortedDisplay;
   const avg = useMemo(()=>calcAverages(displayFunds),[displayFunds]);
@@ -822,6 +832,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
           {(viewMode==='company'&&activeCompany&&companyFunds.length>0)&&(
             <FundTable catId={activeCompany} catLabel={activeCompany}
               funds={companyFunds}
+              getCategoryFunds={(f)=>{ const sh=fundSheetMap[f.fund_id ?? f.name]; return sh?getFundsBySheet(product,sh):[]; }}
               onSelect={(f)=>{
                 const cats=order?classifyFund(f).filter(c=>order.includes(c)&&funds&&getFundsForCategory(funds,c).length>0):[];
                 onSelectFund(f,cats.length>0?cats[0]:null);
@@ -1839,13 +1850,30 @@ function sortByKey(funds,key,dir) {
   return [...funds].sort((a,b)=>{ const av=a[key]??-Infinity,bv=b[key]??-Infinity; return dir==='desc'?bv-av:av-bv; });
 }
 
-function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddToComparison, onAddToChart, panelOpen }) {
+function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddToComparison, onAddToChart, panelOpen, getCategoryFunds }) {
   const isPension = funds.length>0 && funds[0].product==='פנסיה';
   const [sortKey, setSortKey] = useState('ret_3y');
   const [sortDir, setSortDir] = useState('desc');
   const [showAll, setShowAll] = useState(false);
   const cat = CATEGORIES[catId] || { label: catLabel||catId, desc:'' };
   const sorted = useMemo(()=>sortByKey(funds,sortKey,sortDir),[funds,sortKey,sortDir]);
+
+  // דירוג לפי קטגוריה רשמית (לתצוגת מנהל): מיקום המוצר בין כל מוצרי הקטגוריה שלו, לפי המיון הנבחר
+  const catRankOf = useMemo(()=>{
+    if(!getCategoryFunds) return null;
+    const cache = {};
+    return (fund)=>{
+      const key = fund.fund_id ?? fund.name;
+      if(key in cache) return cache[key];
+      const catFunds = getCategoryFunds(fund) || [];
+      const ranked = sortByKey(catFunds, sortKey, sortDir);
+      const pos = ranked.findIndex(f=>(f.fund_id ?? f.name)===key);
+      const rank = pos>=0 ? pos+1 : null;
+      cache[key] = rank;
+      return rank;
+    };
+  },[getCategoryFunds,sortKey,sortDir]);
+
   const top12 = sorted.slice(0,12), rest = sorted.slice(12);
   const avg = useMemo(()=>calcAverages(sorted),[sorted]);
 
@@ -1934,9 +1962,9 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
             <th style={{ ...TH,textAlign:'center',color:'rgba(255,255,255,0.5)' }}>מדד פרוגמלנט</th>
           </tr></thead>
           <tbody>
-            {top12.map((f,i)=><Row key={f.fund_id||f.name+i} fund={f} rank={i+1}/>)}
+            {top12.map((f,i)=><Row key={f.fund_id||f.name+i} fund={f} rank={catRankOf?catRankOf(f):i+1}/>)}
             <Row fund={avg} rank={null}/>
-            {showAll&&rest.map((f,i)=><Row key={f.fund_id||f.name+(13+i)} fund={f} rank={13+i}/>)}
+            {showAll&&rest.map((f,i)=><Row key={f.fund_id||f.name+(13+i)} fund={f} rank={catRankOf?catRankOf(f):13+i}/>)}
           </tbody>
         </table>
       </div>
