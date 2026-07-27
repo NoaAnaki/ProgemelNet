@@ -1759,6 +1759,91 @@ function RiskChart({ fund, backtestData, externalIds }) {
 
 
 // ─── גרף כסף מנוהל (Assets Chart) — שלב 1: נכסים לאורך זמן ──────────────────
+// ─── גרף עמודות גיוסים נטו (שלב 2) ──────────────────────────────────────────
+function FlowBarsView({ entries, allPeriods, svgW, chartH, PT, PB, PL, PR, plotW, svgH, periodsIdx, xFor, inRange, hoverPeriod, setHoverPeriod, svgRef, handleHover, C, fmtM, basis }) {
+  if(!entries.length || !allPeriods.length) {
+    return <div style={{ padding:'40px',textAlign:'center',color:C.muted,fontSize:12 }}>אין נתוני גיוסים להצגה</div>;
+  }
+  // טווח ערכים סימטרי סביב 0
+  let maxAbs = 0;
+  entries.forEach(e=>e.series.forEach(pt=>{ if(inRange(pt.period)){ const a=Math.abs(pt.val); if(a>maxAbs) maxAbs=a; } }));
+  maxAbs = maxAbs>0 ? maxAbs*1.15 : 1;
+  const zeroY = PT + chartH/2;
+  const yForFlow = v => zeroY - (v/maxAbs)*(chartH/2);
+
+  const periodsInRange = allPeriods.filter(inRange);
+  const nBars = periodsInRange.length;
+  const groupW = nBars>0 ? plotW/nBars : plotW;
+  const nSeries = entries.length;
+  const barW = Math.max(1.5, Math.min(14, (groupW*0.8)/Math.max(1,nSeries)));
+
+  // תוויות ציר X (שנים)
+  const xLabels = [];
+  let last='';
+  periodsInRange.forEach(p=>{ const y=p.slice(0,4); if(y!==last){ xLabels.push({period:p,label:y}); last=y; } });
+  const step = xLabels.length>10 ? 2 : 1;
+  const shownLabels = xLabels.filter((_,i)=>i%step===0);
+
+  const basisLabel = basis==='month'?'חודשי':basis==='ytd'?'מצטבר מתחילת השנה':'מסתכם ל-12 חודשים';
+
+  return (
+    <>
+    <svg ref={svgRef} width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ display:'block',overflow:'visible',cursor:'crosshair' }} onMouseMove={handleHover} onMouseLeave={()=>setHoverPeriod(null)}>
+      <text x={svgW/2} y={svgH/2} textAnchor="middle" fontSize="24" fontWeight="800" fill={C.crimson} opacity="0.06" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none' }}>Progemel-net</text>
+      {/* קווי רשת אופקיים */}
+      {[-1,-0.5,0,0.5,1].map(f=>{
+        const val=maxAbs*f, y=zeroY-(f*chartH/2);
+        return <g key={'g'+f}>
+          <line x1={PL} y1={y} x2={svgW-PR} y2={y} stroke={f===0?C.mid:C.border} strokeWidth={f===0?1:0.5} strokeDasharray={f===0?'none':'2 3'} opacity={f===0?0.6:0.5}/>
+          <text x={PL-6} y={y+3.5} textAnchor="end" fontSize="9.5" fill={C.muted}>{val>0?'+':''}{fmtM(val)}</text>
+        </g>;
+      })}
+      {/* עמודות */}
+      {periodsInRange.map(period=>{
+        const cx = xFor(period);
+        const groupStart = cx - (nSeries*barW)/2;
+        return entries.map((entry,si)=>{
+          const pt = entry.series.find(p=>p.period===period);
+          if(!pt || pt.val==null) return null;
+          const x = groupStart + si*barW;
+          const y = pt.val>=0 ? yForFlow(pt.val) : zeroY;
+          const h = Math.abs(yForFlow(pt.val)-zeroY);
+          const isHover = hoverPeriod===period;
+          // צבע: ירוק חיובי, אדום שלילי. אם יש כמה מוצרים — גוון לפי הצבע של המוצר
+          const posColor = nSeries>1 ? entry.color : '#16A34A';
+          const negColor = nSeries>1 ? entry.color : '#DC2626';
+          return <rect key={entry.id+period} x={x} y={y} width={Math.max(1,barW-1)} height={Math.max(0.5,h)}
+            fill={pt.val>=0?posColor:negColor} opacity={isHover?1:(nSeries>1?0.75:0.85)} rx="1"/>;
+        });
+      })}
+      {/* תוויות X */}
+      {shownLabels.map(l=>(
+        <text key={l.period} x={xFor(l.period)} y={PT+chartH+16} textAnchor="middle" fontSize="11" fill={C.muted}>{l.label}</text>
+      ))}
+    </svg>
+    {/* Tooltip מפורט */}
+    {hoverPeriod&&inRange(hoverPeriod)&&(
+      <div style={{ padding:'8px 12px',margin:'8px 0 0',background:C.dark,borderRadius:6,fontSize:11.5 }}>
+        <div style={{ color:C.white,fontWeight:700,marginBottom:4 }}>{hoverPeriod.slice(4,6)}/{hoverPeriod.slice(0,4)} · גיוס {basisLabel}</div>
+        {entries.map(entry=>{
+          const pt=entry.series.find(p=>p.period===hoverPeriod);
+          if(!pt||!pt.meta) return null;
+          const m=pt.meta;
+          const flowPct = m.prev>0 ? (m.net/m.prev*100) : 0;
+          return <div key={entry.id} style={{ display:'flex',flexDirection:'column',gap:1,marginBottom:5,paddingBottom:5,borderBottom:`1px solid rgba(255,255,255,0.1)` }}>
+            <span style={{ color:entry.color,fontWeight:700 }}>{entry.name.length>28?entry.name.slice(0,28)+'…':entry.name}</span>
+            <span style={{ color:'#E5E7EB',fontSize:10.5 }}>סך שינוי בנכסים: {m.totalChange>=0?'+':''}{fmtM(m.totalChange)}</span>
+            <span style={{ color:'#93C5FD',fontSize:10.5 }}>מתוכו מתשואה: {m.returnEffect>=0?'+':''}{fmtM(m.returnEffect)}</span>
+            <span style={{ color:pt.val>=0?'#86EFAC':'#FCA5A5',fontSize:11,fontWeight:700 }}>גיוס/פדיון נטו: {pt.val>=0?'+':''}{fmtM(pt.val)} ({flowPct>=0?'+':''}{flowPct.toFixed(2)}% מהנכסים)</span>
+          </div>;
+        })}
+      </div>
+    )}
+    </>
+  );
+}
+
+
 function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds }) {
   const AC_COLORS = ['#E63946','#16A34A','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D','#EA580C'];
   const [extraIds, setExtraIds] = useState([]);
@@ -1766,6 +1851,8 @@ function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalI
   const [acTo, setAcTo]     = useState('');
   const [showCatAvg, setShowCatAvg] = useState(true);
   const [hoverPeriod, setHoverPeriod] = useState(null);
+  const [viewType, setViewType] = useState('assets'); // 'assets' | 'flows'
+  const [flowBasis, setFlowBasis] = useState('month'); // 'month' | 'ytd' | '12m'
   const svgRef = useRef(null);
 
   useEffect(()=>{
@@ -1799,6 +1886,44 @@ function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalI
 
   const extraFunds = useMemo(()=>extraIds.map(id=>allFunds.find(f=>f.fund_id===id)).filter(Boolean),[extraIds,allFunds]);
 
+  // ── חישוב גיוסים נטו (הפרדת תשואה) ──
+  // net_flow[t] = assets[t] - assets[t-1] * (1 + ret[t]/100)
+  const buildMonthlyFlows = (fundId) => {
+    const pts = (histData[fundId]||[]).filter(p=>p.assets!=null);
+    const out = [];
+    for(let i=1;i<pts.length;i++){
+      const prev=pts[i-1].assets, cur=pts[i].assets, ret=pts[i].ret||0;
+      if(prev==null||cur==null||prev<=0){ continue; }
+      const returnEffect = prev*(ret/100);
+      const net = cur - prev - returnEffect;
+      out.push({ period:pts[i].period, net, returnEffect, totalChange:cur-prev, assets:cur, prev });
+    }
+    return out;
+  };
+
+  // המרת גיוסים חודשיים לפי הבסיס הנבחר (חודש / YTD / 12 חודשים)
+  const flowsByBasis = (monthly, basis) => {
+    if(basis==='month') return monthly;
+    if(basis==='ytd'){
+      return monthly.map((f,i)=>{
+        const year=f.period.slice(0,4);
+        let net=0, ret=0;
+        for(let j=0;j<=i;j++){ if(monthly[j].period.slice(0,4)===year){ net+=monthly[j].net; ret+=monthly[j].returnEffect; } }
+        return { ...f, net, returnEffect:ret };
+      });
+    }
+    // 12 חודשים מתגלגל
+    return monthly.map((f,i)=>{
+      const w=monthly.slice(Math.max(0,i-11),i+1);
+      const net=w.reduce((s,x)=>s+x.net,0);
+      const ret=w.reduce((s,x)=>s+x.returnEffect,0);
+      return { ...f, net, returnEffect:ret };
+    });
+  };
+
+  const buildFlowSeries = (fundId) => flowsByBasis(buildMonthlyFlows(fundId), flowBasis)
+    .map(f=>({ period:f.period, val:f.net, meta:f }));
+
   const allEntries = useMemo(()=>{
     const rows = [{ id:fund.fund_id, name:fund.name, color:AC_COLORS[0], series:buildAssetsSeries(fund.fund_id) }];
     extraFunds.forEach((f,i)=>{
@@ -1809,6 +1934,15 @@ function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalI
     }
     return rows.filter(r=>r.series.length>0);
   },[fund,extraFunds,showCatAvg,catFundIds,histData]);
+
+  // סדרות גיוסים (למצב עמודות)
+  const flowEntries = useMemo(()=>{
+    const rows = [{ id:fund.fund_id, name:fund.name, color:AC_COLORS[0], series:buildFlowSeries(fund.fund_id) }];
+    extraFunds.forEach((f,i)=>{
+      rows.push({ id:f.fund_id, name:f.name, color:AC_COLORS[(i+1)%AC_COLORS.length], series:buildFlowSeries(f.fund_id) });
+    });
+    return rows.filter(r=>r.series.length>0);
+  },[fund,extraFunds,flowBasis,histData]);
 
   const allPeriods = useMemo(()=>{
     const s = new Set();
@@ -1879,7 +2013,17 @@ function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalI
   return (
     <div style={{ direction:'rtl' }}>
       <div style={{ display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',padding:'10px 14px 6px' }}>
-        <span style={{ fontSize:11.5,fontWeight:700,color:C.dark }}>💰 סך נכסים מנוהלים (₪ מיליונים)</span>
+        <div style={{ display:'flex',gap:4 }}>
+          <button onClick={()=>setViewType('assets')} style={{ padding:'4px 11px',borderRadius:7,border:`1.5px solid ${viewType==='assets'?C.crimson:C.border}`,background:viewType==='assets'?C.crimson:C.white,color:viewType==='assets'?C.white:C.mid,fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:'inherit' }}>💰 סך נכסים</button>
+          <button onClick={()=>setViewType('flows')} style={{ padding:'4px 11px',borderRadius:7,border:`1.5px solid ${viewType==='flows'?C.crimson:C.border}`,background:viewType==='flows'?C.crimson:C.white,color:viewType==='flows'?C.white:C.mid,fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:'inherit' }}>📊 גיוסים נטו</button>
+        </div>
+        {viewType==='flows'&&(
+          <div style={{ display:'flex',gap:3 }}>
+            {[{k:'month',l:'חודשי'},{k:'ytd',l:'מתחילת השנה'},{k:'12m',l:'12 חודשים'}].map(b=>(
+              <button key={b.k} onClick={()=>setFlowBasis(b.k)} style={{ padding:'3px 9px',borderRadius:12,border:`1px solid ${flowBasis===b.k?C.crimson:C.border}`,background:flowBasis===b.k?'#FDF0F3':C.white,color:flowBasis===b.k?C.crimson:C.muted,fontSize:10,fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>{b.l}</button>
+            ))}
+          </div>
+        )}
         <div style={{ display:'flex',gap:4,alignItems:'center',marginRight:'auto' }}>
           <span style={{ fontSize:10,color:C.muted }}>מ:</span>
           <select value={acFrom} onChange={e=>setAcFrom(e.target.value)} style={{ fontSize:10,padding:'2px 4px',borderRadius:4,border:`1px solid ${C.border}`,fontFamily:'inherit',cursor:'pointer' }}>
@@ -1896,7 +2040,9 @@ function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalI
       </div>
 
       <div style={{ padding:'4px 14px' }}>
-        {allPeriods.length===0 ? (
+        {viewType==='flows' ? (
+          <FlowBarsView entries={flowEntries} allPeriods={allPeriods} svgW={svgW} chartH={chartH} PT={PT} PB={PB} PL={PL} PR={PR} plotW={plotW} svgH={svgH} periodsIdx={periodsIdx} xFor={xFor} inRange={inRange} hoverPeriod={hoverPeriod} setHoverPeriod={setHoverPeriod} svgRef={svgRef} handleHover={handleHover} C={C} fmtM={fmtM} basis={flowBasis}/>
+        ) : (allPeriods.length===0 ? (
           <div style={{ padding:'40px',textAlign:'center',color:C.muted,fontSize:12 }}>אין נתוני נכסים להצגה</div>
         ) : (
           <>
@@ -1936,7 +2082,7 @@ function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalI
             </div>
           )}
           </>
-        )}
+        ))}
       </div>
 
       <div style={{ padding:'4px 14px 10px',display:'flex',gap:10,flexWrap:'wrap',alignItems:'center',borderTop:`1px solid ${C.border}` }}>
@@ -1949,7 +2095,7 @@ function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalI
             )}
           </div>
         ))}
-        {catFundIds?.length>0 && (
+        {catFundIds?.length>0 && viewType==='assets' && (
           <button onClick={()=>setShowCatAvg(s=>!s)} style={{ marginRight:'auto',background:'none',border:`1px solid ${C.border}`,borderRadius:6,padding:'3px 9px',fontSize:10,color:showCatAvg?C.crimson:C.muted,cursor:'pointer',fontFamily:'inherit' }}>{showCatAvg?'הסתר':'הצג'} ממוצע קטגוריה</button>
         )}
       </div>
