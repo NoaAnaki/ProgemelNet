@@ -1868,7 +1868,7 @@ function FlowBarsView({ entries, allPeriods, svgW, chartH, PT, PB, PL, PR, plotW
       })}
       {/* תוויות X */}
       {shownLabels.map(l=>(
-        <text key={l.period} x={xFor(l.period)} y={PT+chartH+16} textAnchor="middle" fontSize="11" fill={C.muted}>{l.label}</text>
+        <text key={l.period} x={xForBar(l.period)} y={PT+chartH+16} textAnchor="middle" fontSize="11" fill={C.muted}>{l.label}</text>
       ))}
     </svg>
     {/* Tooltip מפורט */}
