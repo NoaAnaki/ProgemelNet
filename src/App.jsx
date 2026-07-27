@@ -1785,19 +1785,21 @@ function FlowBarsView({ entries, allPeriods, svgW, chartH, PT, PB, PL, PR, plotW
   if(!entries.length || !allPeriods.length) {
     return <div style={{ padding:'40px',textAlign:'center',color:C.muted,fontSize:12 }}>אין נתוני גיוסים להצגה</div>;
   }
-  // טווח ערכים סימטרי סביב 0
-  let maxAbs = 0;
-  entries.forEach(e=>e.series.forEach(pt=>{ if(inRange(pt.period)){ const a=Math.abs(pt.val); if(a>maxAbs) maxAbs=a; } }));
-  maxAbs = maxAbs>0 ? maxAbs*1.15 : 1;
-  const zeroY = PT + chartH/2;
-  const yForFlow = v => zeroY - (v/maxAbs)*(chartH/2);
-
+  // קודם קובעים אילו תקופות מוצגות בפועל
   let periodsInRange = allPeriods.filter(inRange);
-  // מצב YTD: הצג רק את השנה האחרונה (עמודה מצטברת לכל חודש מ-ינואר עד עכשיו)
   if(basis==='ytd' && periodsInRange.length){
     const lastYear = periodsInRange[periodsInRange.length-1].slice(0,4);
     periodsInRange = periodsInRange.filter(p=>p.slice(0,4)===lastYear);
   }
+  const periodsSet = new Set(periodsInRange);
+
+  // טווח ערכים סימטרי — רק על התקופות המוצגות בפועל (חשוב במצב YTD!)
+  let maxAbs = 0;
+  entries.forEach(e=>e.series.forEach(pt=>{ if(periodsSet.has(pt.period)){ const a=Math.abs(pt.val); if(a>maxAbs) maxAbs=a; } }));
+  maxAbs = maxAbs>0 ? maxAbs*1.15 : 1;
+  const zeroY = PT + chartH/2;
+  const yForFlow = v => zeroY - (v/maxAbs)*(chartH/2);
+
   const nBars = periodsInRange.length;
   const groupW = nBars>0 ? plotW/nBars : plotW;
   const nSeries = entries.length;
