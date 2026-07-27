@@ -1570,6 +1570,27 @@ function AIAnalysisBlock() {
 
 // ─── גרף סיכון (Risk Chart) ─────────────────────────────────────────────────
 // מדדי הסיכון מתוך backtest.json. גרף scatter עם בוררי X/Y + טבלה + הנחות.
+// ─── מדד מומנטום: גיוס נטו חיובי ב-3 החודשים האחרונים ──────────────────────
+// מחזיר את סך הגיוס נטו (הפרדת תשואה) ב-N החודשים האחרונים, כאחוז מהנכסים
+function recentNetFlowPct(fundId, months=3) {
+  const pts = (getHistory(fundId)||[]).filter(p=>p.assets!=null);
+  if(pts.length < months+1) return null;
+  const slice = pts.slice(-(months+1));
+  let net = 0;
+  const startAssets = slice[0].assets;
+  for(let i=1;i<slice.length;i++){
+    const prev=slice[i-1].assets, cur=slice[i].assets, ret=slice[i].ret||0;
+    if(prev==null||cur==null||prev<=0) return null;
+    net += cur - prev - prev*(ret/100);
+  }
+  return startAssets>0 ? (net/startAssets*100) : null;
+}
+// מוצר "חם" 🔥: גיוס נטו חיובי משמעותי ב-3 חודשים אחרונים
+function hasHotMomentum(fundId) {
+  const pct = recentNetFlowPct(fundId, 3);
+  return pct!=null && pct > 15; // מעל 15% גיוס נטו ב-3 חודשים — כ-18% הבולטים ביותר
+}
+
 const RISK_METRICS = [
   { key:'max_drawdown',        label:'ירידה מקסימלית',        fmt:v=>v!=null?(v*100).toFixed(1)+'%':'—', better:'high' },
   { key:'max_recovery_years',  label:'זמן התאוששות מקס',      fmt:v=>v!=null?(v===1?'שנה':v+' שנים'):'—', better:'low'  },
@@ -1809,11 +1830,10 @@ function FlowBarsView({ entries, allPeriods, svgW, chartH, PT, PB, PL, PR, plotW
           const y = pt.val>=0 ? yForFlow(pt.val) : zeroY;
           const h = Math.abs(yForFlow(pt.val)-zeroY);
           const isHover = hoverPeriod===period;
-          // צבע: ירוק חיובי, אדום שלילי. אם יש כמה מוצרים — גוון לפי הצבע של המוצר
-          const posColor = nSeries>1 ? entry.color : '#16A34A';
-          const negColor = nSeries>1 ? entry.color : '#DC2626';
+          // מוצר בודד: ירוק חיובי / אדום שלילי. השוואה: צבע קבוע לכל מוצר
+          const barColor = nSeries>1 ? entry.color : (pt.val>=0 ? '#16A34A' : '#DC2626');
           return <rect key={entry.id+period} x={x} y={y} width={Math.max(1,barW-1)} height={Math.max(0.5,h)}
-            fill={pt.val>=0?posColor:negColor} opacity={isHover?1:(nSeries>1?0.75:0.85)} rx="1"/>;
+            fill={barColor} opacity={isHover?1:(nSeries>1?0.8:0.85)} rx="1"/>;
         });
       })}
       {/* תוויות X */}
@@ -1907,9 +1927,12 @@ function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalI
     if(basis==='ytd'){
       return monthly.map((f,i)=>{
         const year=f.period.slice(0,4);
-        let net=0, ret=0;
-        for(let j=0;j<=i;j++){ if(monthly[j].period.slice(0,4)===year){ net+=monthly[j].net; ret+=monthly[j].returnEffect; } }
-        return { ...f, net, returnEffect:ret };
+        const win = monthly.filter((x,j)=>j<=i && x.period.slice(0,4)===year);
+        const net=win.reduce((s,x)=>s+x.net,0);
+        const ret=win.reduce((s,x)=>s+x.returnEffect,0);
+        const totalChange=win.reduce((s,x)=>s+x.totalChange,0);
+        const prev = win.length?win[0].prev:f.prev; // הנכסים בתחילת התקופה המצטברת
+        return { ...f, net, returnEffect:ret, totalChange, prev };
       });
     }
     // 12 חודשים מתגלגל
@@ -1917,7 +1940,9 @@ function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalI
       const w=monthly.slice(Math.max(0,i-11),i+1);
       const net=w.reduce((s,x)=>s+x.net,0);
       const ret=w.reduce((s,x)=>s+x.returnEffect,0);
-      return { ...f, net, returnEffect:ret };
+      const totalChange=w.reduce((s,x)=>s+x.totalChange,0);
+      const prev = w.length?w[0].prev:f.prev;
+      return { ...f, net, returnEffect:ret, totalChange, prev };
     });
   };
 
@@ -2258,7 +2283,7 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
                 onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color=C.muted;e.currentTarget.style.borderColor=C.border;}}>📈</button>}
             </td>
           : <td style={{ ...TD,width:50 }}></td>}
-        <td style={{ ...TD,color:isSel?C.crimson:isAvg?C.dark:C.darkMid,fontWeight:isAvg?700:500 }}><div style={{ whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis' }} title={fund.name}>{fund.name}</div></td>
+        <td style={{ ...TD,color:isSel?C.crimson:isAvg?C.dark:C.darkMid,fontWeight:isAvg?700:500 }}><div style={{ whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',display:'flex',alignItems:'center',gap:4 }} title={fund.name}>{!isAvg&&fund.fund_id&&hasHotMomentum(fund.fund_id)&&<span title="מומנטום חיובי — גיוסים נטו ב-3 החודשים האחרונים" style={{ flexShrink:0 }}>🔥</span>}<span style={{ overflow:'hidden',textOverflow:'ellipsis' }}>{fund.name}</span></div></td>
         <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_month),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_month'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_month)}</td>
         <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_ytd),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_ytd'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_ytd)}</td>
         <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_1y),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_1y'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_1y)}</td>
