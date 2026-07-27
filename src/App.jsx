@@ -1758,6 +1758,206 @@ function RiskChart({ fund, backtestData, externalIds }) {
 }
 
 
+// ─── גרף כסף מנוהל (Assets Chart) — שלב 1: נכסים לאורך זמן ──────────────────
+function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds }) {
+  const AC_COLORS = ['#E63946','#16A34A','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D','#EA580C'];
+  const [extraIds, setExtraIds] = useState([]);
+  const [acFrom, setAcFrom] = useState('');
+  const [acTo, setAcTo]     = useState('');
+  const [showCatAvg, setShowCatAvg] = useState(true);
+  const [hoverPeriod, setHoverPeriod] = useState(null);
+  const svgRef = useRef(null);
+
+  useEffect(()=>{
+    if(!externalIds?.length) return;
+    setExtraIds(prev=>{
+      const toAdd = externalIds.filter(id=>!prev.includes(id)&&id!==fund.fund_id);
+      return toAdd.length ? [...prev,...toAdd] : prev;
+    });
+  },[externalIds]);
+
+  const inRange = (period) => (!acFrom || period>=acFrom) && (!acTo || period<=acTo);
+
+  const buildAssetsSeries = (fundId) => {
+    const points = histData[fundId] || [];
+    return points.filter(p=>p.assets!=null).map(p=>({ period:p.period, val:p.assets }));
+  };
+  const buildCatAvgSeries = () => {
+    if(!catFundIds?.length) return [];
+    const byPeriod = {};
+    catFundIds.forEach(id=>{
+      (histData[id]||[]).forEach(p=>{
+        if(p.assets!=null){
+          if(!byPeriod[p.period]) byPeriod[p.period]={sum:0,n:0};
+          byPeriod[p.period].sum += p.assets;
+          byPeriod[p.period].n += 1;
+        }
+      });
+    });
+    return Object.keys(byPeriod).sort().map(period=>({ period, val:byPeriod[period].sum/byPeriod[period].n }));
+  };
+
+  const extraFunds = useMemo(()=>extraIds.map(id=>allFunds.find(f=>f.fund_id===id)).filter(Boolean),[extraIds,allFunds]);
+
+  const allEntries = useMemo(()=>{
+    const rows = [{ id:fund.fund_id, name:fund.name, color:AC_COLORS[0], series:buildAssetsSeries(fund.fund_id) }];
+    extraFunds.forEach((f,i)=>{
+      rows.push({ id:f.fund_id, name:f.name, color:AC_COLORS[(i+1)%AC_COLORS.length], series:buildAssetsSeries(f.fund_id) });
+    });
+    if(showCatAvg && catFundIds?.length){
+      rows.push({ id:'__catavg__', name:`ממוצע קטגוריה '${catLabel||''}'`, color:'#94A3B8', isAvg:true, series:buildCatAvgSeries() });
+    }
+    return rows.filter(r=>r.series.length>0);
+  },[fund,extraFunds,showCatAvg,catFundIds,histData]);
+
+  const allPeriods = useMemo(()=>{
+    const s = new Set();
+    allEntries.forEach(e=>e.series.forEach(pt=>s.add(pt.period)));
+    let arr = [...s].sort();
+    if(acFrom) arr = arr.filter(p=>p>=acFrom);
+    if(acTo)   arr = arr.filter(p=>p<=acTo);
+    return arr;
+  },[allEntries,acFrom,acTo]);
+
+  const yearOptions = useMemo(()=>{
+    const years = new Set();
+    allEntries.forEach(e=>e.series.forEach(pt=>years.add(pt.period.slice(0,4))));
+    return [...years].sort();
+  },[allEntries]);
+
+  const chartH=200, PT=16, PB=40, PL=64, PR=16;
+  const svgW=620, svgH=chartH+PT+PB;
+  const plotW=svgW-PL-PR;
+
+  const maxVal = useMemo(()=>{
+    let m=0;
+    allEntries.forEach(e=>e.series.forEach(pt=>{ if(inRange(pt.period)&&pt.val>m) m=pt.val; }));
+    return m>0 ? m*1.1 : 100;
+  },[allEntries,acFrom,acTo]);
+
+  const periodsIdx = useMemo(()=>{ const m={}; allPeriods.forEach((p,i)=>m[p]=i); return m; },[allPeriods]);
+  const xFor = (period) => allPeriods.length<2 ? PL+plotW/2 : PL + (periodsIdx[period]/(allPeriods.length-1))*plotW;
+  const yFor = (val) => PT + chartH - (val/maxVal)*chartH;
+
+  const pathFor = (series) => {
+    const pts = series.filter(pt=>inRange(pt.period) && periodsIdx[pt.period]!=null);
+    if(!pts.length) return '';
+    return pts.map((pt,i)=>`${i===0?'M':'L'}${xFor(pt.period).toFixed(1)},${yFor(pt.val).toFixed(1)}`).join(' ');
+  };
+
+  const xLabels = useMemo(()=>{
+    const labels=[]; const n=allPeriods.length; if(!n) return labels;
+    const firstOfYear=[]; let last='';
+    allPeriods.forEach(p=>{ const y=p.slice(0,4); if(y!==last){ firstOfYear.push({period:p,year:y}); last=y; } });
+    const step = firstOfYear.length>10 ? 2 : 1;
+    firstOfYear.forEach((it,idx)=>{ if(idx%step===0) labels.push({period:it.period,label:it.year}); });
+    return labels;
+  },[allPeriods]);
+
+  const fmtM = v => v>=1000 ? (v/1000).toFixed(1)+' מיליארד' : v.toFixed(0)+' מ\'';
+
+  const handleHover = (e) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if(!rect || !allPeriods.length) return;
+    const relX = (e.clientX-rect.left)/rect.width*svgW;
+    let nearest=null, best=Infinity;
+    allPeriods.forEach(p=>{ const d=Math.abs(xFor(p)-relX); if(d<best){best=d;nearest=p;} });
+    setHoverPeriod(nearest);
+  };
+
+  const endLabels = useMemo(()=>{
+    const items = allEntries.map(e=>{
+      const inr=e.series.filter(pt=>inRange(pt.period));
+      const last=inr[inr.length-1];
+      return last ? { id:e.id,color:e.color,val:last.val,period:last.period,y:yFor(last.val) } : null;
+    }).filter(Boolean).sort((a,b)=>a.y-b.y);
+    const MIN=12;
+    for(let i=1;i<items.length;i++){ if(items[i].y-items[i-1].y<MIN) items[i].y=items[i-1].y+MIN; }
+    return items;
+  },[allEntries,maxVal,acFrom,acTo]);
+
+  return (
+    <div style={{ direction:'rtl' }}>
+      <div style={{ display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',padding:'10px 14px 6px' }}>
+        <span style={{ fontSize:11.5,fontWeight:700,color:C.dark }}>💰 סך נכסים מנוהלים (₪ מיליונים)</span>
+        <div style={{ display:'flex',gap:4,alignItems:'center',marginRight:'auto' }}>
+          <span style={{ fontSize:10,color:C.muted }}>מ:</span>
+          <select value={acFrom} onChange={e=>setAcFrom(e.target.value)} style={{ fontSize:10,padding:'2px 4px',borderRadius:4,border:`1px solid ${C.border}`,fontFamily:'inherit',cursor:'pointer' }}>
+            <option value="">התחלה</option>
+            {yearOptions.map(y=><option key={y} value={`${y}01`}>{y}</option>)}
+          </select>
+          <span style={{ fontSize:10,color:C.muted }}>עד:</span>
+          <select value={acTo} onChange={e=>setAcTo(e.target.value)} style={{ fontSize:10,padding:'2px 4px',borderRadius:4,border:`1px solid ${C.border}`,fontFamily:'inherit',cursor:'pointer' }}>
+            <option value="">סוף</option>
+            {yearOptions.map(y=><option key={y} value={`${y}12`}>{y}</option>)}
+          </select>
+          {(acFrom||acTo)&&<button onClick={()=>{setAcFrom('');setAcTo('');}} style={{ background:'none',border:'none',color:C.muted,fontSize:10,cursor:'pointer',fontFamily:'inherit' }}>איפוס</button>}
+        </div>
+      </div>
+
+      <div style={{ padding:'4px 14px' }}>
+        {allPeriods.length===0 ? (
+          <div style={{ padding:'40px',textAlign:'center',color:C.muted,fontSize:12 }}>אין נתוני נכסים להצגה</div>
+        ) : (
+          <>
+          <svg ref={svgRef} width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ display:'block',overflow:'visible',cursor:'crosshair' }} onMouseMove={handleHover} onMouseLeave={()=>setHoverPeriod(null)}>
+            <text x={svgW/2} y={svgH/2} textAnchor="middle" fontSize="24" fontWeight="800" fill={C.crimson} opacity="0.06" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none' }}>Progemel-net</text>
+            {[0,0.25,0.5,0.75,1].map(f=>{
+              const val=maxVal*(1-f), y=PT+chartH*f;
+              return <g key={'gy'+f}>
+                <line x1={PL} y1={y} x2={svgW-PR} y2={y} stroke={C.border} strokeWidth="0.5" strokeDasharray="2 3" opacity="0.6"/>
+                <text x={PL-6} y={y+3.5} textAnchor="end" fontSize="10" fill={C.muted}>{fmtM(val)}</text>
+              </g>;
+            })}
+            {xLabels.map(l=>(
+              <text key={l.period} x={xFor(l.period)} y={PT+chartH+16} textAnchor="middle" fontSize="11" fill={C.muted}>{l.label}</text>
+            ))}
+            {allEntries.map(entry=>(
+              <path key={entry.id} d={pathFor(entry.series)} fill="none" stroke={entry.color} strokeWidth={entry.isAvg?2:2.6} strokeDasharray={entry.isAvg?'5 3':'none'} opacity={entry.isAvg?0.75:0.95} strokeLinejoin="round" strokeLinecap="round"/>
+            ))}
+            {hoverPeriod&&inRange(hoverPeriod)&&(()=>{
+              const hx=xFor(hoverPeriod);
+              return <g style={{ pointerEvents:'none' }}>
+                <line x1={hx} y1={PT} x2={hx} y2={PT+chartH} stroke={C.muted} strokeWidth="1" strokeDasharray="3 3" opacity="0.5"/>
+                {allEntries.map(entry=>{ const pt=entry.series.find(p=>p.period===hoverPeriod); if(!pt) return null; return <circle key={'hv-'+entry.id} cx={hx} cy={yFor(pt.val)} r="4" fill={entry.color} stroke="#fff" strokeWidth="1.5"/>; })}
+              </g>;
+            })()}
+            {endLabels.map(el=>(
+              <g key={'end-'+el.id} style={{ pointerEvents:'none' }}>
+                <circle cx={xFor(el.period)} cy={yFor(el.val)} r="3" fill={el.color}/>
+                <text x={xFor(el.period)-9} y={el.y+3} textAnchor="end" fontSize="10" fontWeight="700" fill={el.color}>{fmtM(el.val)}</text>
+              </g>
+            ))}
+          </svg>
+          {hoverPeriod&&inRange(hoverPeriod)&&(
+            <div style={{ display:'flex',flexWrap:'wrap',gap:'4px 14px',padding:'8px 12px',margin:'8px 0 0',background:C.dark,borderRadius:6,fontSize:12 }}>
+              <span style={{ color:C.white,fontWeight:700 }}>{hoverPeriod.slice(4,6)}/{hoverPeriod.slice(0,4)}</span>
+              {allEntries.map(entry=>{ const pt=entry.series.find(p=>p.period===hoverPeriod); if(!pt) return null; return <span key={'tt-'+entry.id} style={{ color:entry.color,fontWeight:600 }}>{fmtM(pt.val)}</span>; })}
+            </div>
+          )}
+          </>
+        )}
+      </div>
+
+      <div style={{ padding:'4px 14px 10px',display:'flex',gap:10,flexWrap:'wrap',alignItems:'center',borderTop:`1px solid ${C.border}` }}>
+        {allEntries.map(entry=>(
+          <div key={entry.id} style={{ display:'flex',alignItems:'center',gap:4,fontSize:10.5 }}>
+            <span style={{ width:12,height:3,background:entry.color,display:'inline-block',borderRadius:2 }}/>
+            <span style={{ color:C.dark }}>{entry.name.length>24?entry.name.slice(0,24)+'…':entry.name}</span>
+            {!entry.isAvg && entry.id!==fund.fund_id && (
+              <button onClick={()=>setExtraIds(prev=>prev.filter(id=>id!==entry.id))} style={{ background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:12,lineHeight:1,padding:0 }}>×</button>
+            )}
+          </div>
+        ))}
+        {catFundIds?.length>0 && (
+          <button onClick={()=>setShowCatAvg(s=>!s)} style={{ marginRight:'auto',background:'none',border:`1px solid ${C.border}`,borderRadius:6,padding:'3px 9px',fontSize:10,color:showCatAvg?C.crimson:C.muted,cursor:'pointer',fontFamily:'inherit' }}>{showCatAvg?'הסתר':'הצג'} ממוצע קטגוריה</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, allFunds, externalCompare, onTabChange, backtestData }) {
   if(!fund) return null;
   const [activeTab, setActiveTab] = useState('history');
@@ -1820,7 +2020,7 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
         </div>
       </div>
       <div style={{ display:'flex',borderBottom:`1px solid ${C.border}`,flexShrink:0,background:C.white }}>
-        {[{id:'history',label:'📈 גרף תשואה מצטברת'},{id:'mix',label:'📊 גרף תמהיל'},{id:'risk',label:'⚠️ גרף סיכון'}].map(tab=>(
+        {[{id:'history',label:'📈 גרף תשואה מצטברת'},{id:'mix',label:'📊 גרף תמהיל'},{id:'assets',label:'💰 כסף מנוהל'},{id:'risk',label:'⚠️ גרף סיכון'}].map(tab=>(
           <button key={tab.id} onClick={()=>handleTabChange(tab.id)} style={{ flex:1,padding:'9px 0',border:'none',background:'none',color:activeTab===tab.id?C.crimson:C.muted,fontFamily:'inherit',fontSize:12,fontWeight:700,cursor:'pointer',borderBottom:activeTab===tab.id?`2px solid ${C.crimson}`:'2px solid transparent' }}>{tab.label}</button>
         ))}
       </div>
@@ -1831,6 +2031,9 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
         {activeTab==='mix'&&<div><MixChart fund={fund} catFundIds={catFundIds} catLabel={catLabel} histData={histData} allFunds={allFunds} externalIds={externalCompare}/>
 
       <AIAnalysisBlock/></div>}
+        {activeTab==='assets'&&(
+          <AssetsChart fund={fund} catFundIds={catFundIds} catLabel={catLabel} histData={histData} allFunds={allFunds} externalIds={externalCompare}/>
+        )}
         {activeTab==='risk'&&(
           <RiskChart fund={fund} backtestData={backtestData} externalIds={externalCompare}/>
         )}
@@ -1988,6 +2191,7 @@ export default function App() {
   const [virtualWeightedAvg, setVirtualWeightedAvg] = useState(null); // {points:[{period,ret}], name, fund_id:'__weighted_avg__'}
   const [sentToMix, setSentToMix]     = useState([]); // fund_ids שנשלחו לגרף תמהיל
   const [sentToRisk, setSentToRisk]   = useState([]); // fund_ids שנשלחו לגרף סיכון
+  const [sentToAssets, setSentToAssets] = useState([]); // fund_ids שנשלחו לגרף כסף מנוהל
   const [activePanelTab, setActivePanelTab] = useState('history');
   const profitIndex = useProfitIndex();
 
@@ -2071,12 +2275,12 @@ export default function App() {
       <div style={{ display:'flex',minHeight:'calc(100vh - 56px)' }}>
         <div style={{ flex:1,minWidth:0,display:'flex',flexDirection:'column',marginLeft:panelOpen?PANEL_W:0,transition:'margin-left 0.2s ease' }}>
           <div style={{ padding:'10px 16px 9px',background:C.white,borderBottom:`1px solid ${C.border}` }}>
-            <ProductSelector selected={product} onChange={k=>{setProduct(k);setSelFund(null);setSelCatId(null);setSentToChart([]);setSentToMix([]);setSentToRisk([]);}}/>
+            <ProductSelector selected={product} onChange={k=>{setProduct(k);setSelFund(null);setSelCatId(null);setSentToChart([]);setSentToMix([]);setSentToRisk([]);setSentToAssets([]);}}/>
           </div>
-          <ComparisonSearch allFunds={allFunds} product={product||'השתלמות'} selected={compSelected} setSelected={setCompSelected} onSelectFund={(f)=>{setSelFund(f);setSelCatId(null);setSentToChart([]);setSentToMix([]);setSentToRisk([]);}} setSentToChart={setSentToChart} setSentToMix={setSentToMix} setAddedFund={setAddedFund} panelOpen={panelOpen} histData={histData} setSelFund={setSelFund} setVirtualWeightedAvg={setVirtualWeightedAvg}
+          <ComparisonSearch allFunds={allFunds} product={product||'השתלמות'} selected={compSelected} setSelected={setCompSelected} onSelectFund={(f)=>{setSelFund(f);setSelCatId(null);setSentToChart([]);setSentToMix([]);setSentToRisk([]);setSentToAssets([]);}} setSentToChart={setSentToChart} setSentToMix={setSentToMix} setAddedFund={setAddedFund} panelOpen={panelOpen} histData={histData} setSelFund={setSelFund} setVirtualWeightedAvg={setVirtualWeightedAvg}
             onAddToChart={(f,cid)=>{ if(!f.fund_id) return;
-              if(!selFund){ setVirtualWeightedAvg(null); setSelFund(f); setSelCatId(cid??null); setSentToChart([]); setSentToMix([]); setSentToRisk([]); setAddedFund('📊 נפתחה מערכת הגרפים עבור '+f.name.slice(0,24)); setTimeout(()=>setAddedFund(null),2800); }
-              else { setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); setSentToRisk(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund('📊 '+f.name.slice(0,28)+' התווסף למערכת הגרפים'); setTimeout(()=>setAddedFund(null),2800); }
+              if(!selFund){ setVirtualWeightedAvg(null); setSelFund(f); setSelCatId(cid??null); setSentToChart([]); setSentToMix([]); setSentToRisk([]); setSentToAssets([]); setAddedFund('📊 נפתחה מערכת הגרפים עבור '+f.name.slice(0,24)); setTimeout(()=>setAddedFund(null),2800); }
+              else { setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); setSentToRisk(prev=>[...new Set([...prev,f.fund_id])]); setSentToAssets(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund('📊 '+f.name.slice(0,28)+' התווסף למערכת הגרפים'); setTimeout(()=>setAddedFund(null),2800); }
             }}/>
           {product===null ? (
             <HomePage
@@ -2086,11 +2290,11 @@ export default function App() {
               setCompSelected={setCompSelected}
               setAddedFund={setAddedFund}/>
           ) : (
-            <TrackBrowser product={product} onSelectFund={(f,cid)=>{setSelFund(f);setSelCatId(cid);setSentToChart([]);setSentToMix([]);setSentToRisk([]);}} selFund={selFund} order={order} funds={funds}
+            <TrackBrowser product={product} onSelectFund={(f,cid)=>{setSelFund(f);setSelCatId(cid);setSentToChart([]);setSentToMix([]);setSentToRisk([]);setSentToAssets([]);}} selFund={selFund} order={order} funds={funds}
               onAddToComparison={f=>{ setCompSelected(prev=>prev.find(s=>s.name===f.name)||prev.length>=10?prev:[...prev,f]); setAddedFund(f.name); setTimeout(()=>setAddedFund(null),2500); }}
               onAddToChart={(f,cid)=>{ if(!f.fund_id) return;
-                if(!selFund){ setSelFund(f); setSelCatId(cid??null); setSentToChart([]); setSentToMix([]); setSentToRisk([]); setAddedFund('📊 נפתחה מערכת הגרפים עבור '+f.name.slice(0,24)); setTimeout(()=>setAddedFund(null),2800); }
-                else { setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); setSentToRisk(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund('📊 '+f.name.slice(0,28)+' התווסף למערכת הגרפים'); setTimeout(()=>setAddedFund(null),2800); }
+                if(!selFund){ setSelFund(f); setSelCatId(cid??null); setSentToChart([]); setSentToMix([]); setSentToRisk([]); setSentToAssets([]); setAddedFund('📊 נפתחה מערכת הגרפים עבור '+f.name.slice(0,24)); setTimeout(()=>setAddedFund(null),2800); }
+                else { setSentToChart(prev=>[...new Set([...prev,f.fund_id])]); setSentToMix(prev=>[...new Set([...prev,f.fund_id])]); setSentToRisk(prev=>[...new Set([...prev,f.fund_id])]); setSentToAssets(prev=>[...new Set([...prev,f.fund_id])]); setAddedFund('📊 '+f.name.slice(0,28)+' התווסף למערכת הגרפים'); setTimeout(()=>setAddedFund(null),2800); }
               }}/>
           )}
           <div style={{ padding:'0 0 48px' }}/>
@@ -2108,7 +2312,7 @@ export default function App() {
         )}
         {panelOpen&&(
           <div style={{ position:'fixed',top:56,left:0,width:PANEL_W,height:'calc(100vh - 56px)',overflow:'hidden',zIndex:50,boxShadow:'4px 0 20px rgba(0,0,0,0.15)' }}>
-            <FundDetail key={selFund?.fund_id} fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);setVirtualWeightedAvg(null);}} catAvg={catAvg} catFundIds={catFundIds} catLabel={catLabel} histData={virtualWeightedAvg?{...histData,__weighted_avg__:virtualWeightedAvg.points}:(histData??{})} allFunds={virtualWeightedAvg?[...allFunds,{fund_id:'__weighted_avg__',name:virtualWeightedAvg.name}]:allFunds} externalCompare={activePanelTab==='mix'?sentToMix:(activePanelTab==='risk'?sentToRisk:sentToChart)} onTabChange={setActivePanelTab} backtestData={backtestData}/>
+            <FundDetail key={selFund?.fund_id} fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);setVirtualWeightedAvg(null);}} catAvg={catAvg} catFundIds={catFundIds} catLabel={catLabel} histData={virtualWeightedAvg?{...histData,__weighted_avg__:virtualWeightedAvg.points}:(histData??{})} allFunds={virtualWeightedAvg?[...allFunds,{fund_id:'__weighted_avg__',name:virtualWeightedAvg.name}]:allFunds} externalCompare={activePanelTab==='mix'?sentToMix:(activePanelTab==='risk'?sentToRisk:(activePanelTab==='assets'?sentToAssets:sentToChart))} onTabChange={setActivePanelTab} backtestData={backtestData}/>
           </div>
         )}
       </div>
