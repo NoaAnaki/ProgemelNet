@@ -1440,7 +1440,7 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
             </g>;
           })}
           {xLabels.map(l=>(
-            <text key={l.period} x={xFor(l.period)} y={PT+chartH+16} textAnchor="middle" fontSize="11" fill={C.muted}>{l.label}</text>
+            <text key={l.period} x={xForBar(l.period)} y={PT+chartH+16} textAnchor="middle" fontSize="11" fill={C.muted}>{l.label}</text>
           ))}
           {allEntries.map(entry=>(
             <path key={entry.id} d={pathFor(entry.series)} fill="none"
@@ -1792,24 +1792,52 @@ function FlowBarsView({ entries, allPeriods, svgW, chartH, PT, PB, PL, PR, plotW
   const zeroY = PT + chartH/2;
   const yForFlow = v => zeroY - (v/maxAbs)*(chartH/2);
 
-  const periodsInRange = allPeriods.filter(inRange);
+  let periodsInRange = allPeriods.filter(inRange);
+  // מצב YTD: הצג רק את השנה האחרונה (עמודה מצטברת לכל חודש מ-ינואר עד עכשיו)
+  if(basis==='ytd' && periodsInRange.length){
+    const lastYear = periodsInRange[periodsInRange.length-1].slice(0,4);
+    periodsInRange = periodsInRange.filter(p=>p.slice(0,4)===lastYear);
+  }
   const nBars = periodsInRange.length;
   const groupW = nBars>0 ? plotW/nBars : plotW;
   const nSeries = entries.length;
   const barW = Math.max(1.5, Math.min(14, (groupW*0.8)/Math.max(1,nSeries)));
 
-  // תוויות ציר X (שנים)
-  const xLabels = [];
-  let last='';
-  periodsInRange.forEach(p=>{ const y=p.slice(0,4); if(y!==last){ xLabels.push({period:p,label:y}); last=y; } });
-  const step = xLabels.length>10 ? 2 : 1;
-  const shownLabels = xLabels.filter((_,i)=>i%step===0);
+  // מיקום אופקי מבוסס על התקופות המוצגות בפועל (חשוב במצב YTD המסונן)
+  const localIdx = {}; periodsInRange.forEach((p,i)=>{ localIdx[p]=i; });
+  const xForBar = (period) => nBars<2 ? PL+plotW/2 : PL + (localIdx[period]/(nBars-1))*plotW;
+
+  const handleHoverBar = (e) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if(!rect || !periodsInRange.length) return;
+    const relX = (e.clientX-rect.left)/rect.width*svgW;
+    let nearest=null, best=Infinity;
+    periodsInRange.forEach(p=>{ const d=Math.abs(xForBar(p)-relX); if(d<best){best=d;nearest=p;} });
+    setHoverPeriod(nearest);
+  };
+
+  // תוויות ציר X: טווח קצר (≤24 עמודות) → חודש/שנה; אחרת → שנים
+  const shownLabels = (() => {
+    const n = periodsInRange.length;
+    if(!n) return [];
+    if(n <= 24){
+      // הצג חודש/שנה, מדלל לפי צפיפות
+      const stepM = n<=12 ? 1 : 2;
+      return periodsInRange.filter((_,i)=>i%stepM===0 || i===n-1)
+        .map(p=>({ period:p, label:`${p.slice(4,6)}/${p.slice(2,4)}` }));
+    }
+    // טווח ארוך — שנה בתחילתה, כל שנה שנייה אם יש הרבה
+    const firstOfYear=[]; let last='';
+    periodsInRange.forEach(p=>{ const y=p.slice(0,4); if(y!==last){ firstOfYear.push({period:p,label:y}); last=y; } });
+    const stepY = firstOfYear.length>10 ? 2 : 1;
+    return firstOfYear.filter((_,i)=>i%stepY===0);
+  })();
 
   const basisLabel = basis==='month'?'חודשי':basis==='ytd'?'מצטבר מתחילת השנה':'מסתכם ל-12 חודשים';
 
   return (
     <>
-    <svg ref={svgRef} width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ display:'block',overflow:'visible',cursor:'crosshair' }} onMouseMove={handleHover} onMouseLeave={()=>setHoverPeriod(null)}>
+    <svg ref={svgRef} width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ display:'block',overflow:'visible',cursor:'crosshair' }} onMouseMove={handleHoverBar} onMouseLeave={()=>setHoverPeriod(null)}>
       <text x={svgW/2} y={svgH/2} textAnchor="middle" fontSize="24" fontWeight="800" fill={C.crimson} opacity="0.06" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none' }}>Progemel-net</text>
       {/* קווי רשת אופקיים */}
       {[-1,-0.5,0,0.5,1].map(f=>{
@@ -1821,7 +1849,7 @@ function FlowBarsView({ entries, allPeriods, svgW, chartH, PT, PB, PL, PR, plotW
       })}
       {/* עמודות */}
       {periodsInRange.map(period=>{
-        const cx = xFor(period);
+        const cx = xForBar(period);
         const groupStart = cx - (nSeries*barW)/2;
         return entries.map((entry,si)=>{
           const pt = entry.series.find(p=>p.period===period);
