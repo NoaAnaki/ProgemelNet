@@ -1440,7 +1440,7 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
             </g>;
           })}
           {xLabels.map(l=>(
-            <text key={l.period} x={xForBar(l.period)} y={PT+chartH+16} textAnchor="middle" fontSize="11" fill={C.muted}>{l.label}</text>
+            <text key={l.period} x={xFor(l.period)} y={PT+chartH+16} textAnchor="middle" fontSize="11" fill={C.muted}>{l.label}</text>
           ))}
           {allEntries.map(entry=>(
             <path key={entry.id} d={pathFor(entry.series)} fill="none"
@@ -1806,6 +1806,8 @@ function FlowBarsView({ entries, allPeriods, svgW, chartH, PT, PB, PL, PR, plotW
   if(basis==='ytd' && periodsInRange.length){
     const lastYear = periodsInRange[periodsInRange.length-1].slice(0,4);
     periodsInRange = periodsInRange.filter(p=>p.slice(0,4)===lastYear);
+  } else if(basis==='12m' && periodsInRange.length>12){
+    periodsInRange = periodsInRange.slice(-12); // 12 החודשים האחרונים בלבד
   }
   const periodsSet = new Set(periodsInRange);
 
@@ -1851,7 +1853,7 @@ function FlowBarsView({ entries, allPeriods, svgW, chartH, PT, PB, PL, PR, plotW
     return firstOfYear.filter((_,i)=>i%stepY===0);
   })();
 
-  const basisLabel = basis==='month'?'חודשי':basis==='ytd'?'מצטבר מתחילת השנה':'מסתכם ל-12 חודשים';
+  const basisLabel = basis==='month'?'חודשי':basis==='ytd'?'מצטבר מתחילת השנה':'חודשי';
 
   return (
     <>
@@ -1981,15 +1983,8 @@ function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalI
         return { ...f, net, returnEffect:ret, totalChange, prev };
       });
     }
-    // 12 חודשים מתגלגל
-    return monthly.map((f,i)=>{
-      const w=monthly.slice(Math.max(0,i-11),i+1);
-      const net=w.reduce((s,x)=>s+x.net,0);
-      const ret=w.reduce((s,x)=>s+x.returnEffect,0);
-      const totalChange=w.reduce((s,x)=>s+x.totalChange,0);
-      const prev = w.length?w[0].prev:f.prev;
-      return { ...f, net, returnEffect:ret, totalChange, prev };
-    });
+    // 12 חודשים אחרונים — גיוס חודשי; החלון מסונן ל-12 האחרונים בתצוגה (FlowBarsView)
+    return monthly;
   };
 
   const buildFlowSeries = (fundId) => flowsByBasis(buildMonthlyFlows(fundId), flowBasis)
