@@ -1570,26 +1570,42 @@ function AIAnalysisBlock() {
 
 // ─── גרף סיכון (Risk Chart) ─────────────────────────────────────────────────
 // מדדי הסיכון מתוך backtest.json. גרף scatter עם בוררי X/Y + טבלה + הנחות.
-// ─── מדד מומנטום: גיוס נטו חיובי ב-3 החודשים האחרונים ──────────────────────
-// מחזיר את סך הגיוס נטו (הפרדת תשואה) ב-N החודשים האחרונים, כאחוז מהנכסים
-function recentNetFlowPct(fundId, months=3) {
+// ─── מדד מומנטום: גיוס נטו אבסולוטי (₪) ב-3 החודשים האחרונים ─────────────────
+// סך הגיוס נטו בשקלים (בנטרול תשואה) ב-N החודשים האחרונים. יחידות: מיליוני ₪ (כמו assets).
+function netFlow3mAbs(fundId, months=3) {
   const pts = (getHistory(fundId)||[]).filter(p=>p.assets!=null);
   if(pts.length < months+1) return null;
   const slice = pts.slice(-(months+1));
   let net = 0;
-  const startAssets = slice[0].assets;
   for(let i=1;i<slice.length;i++){
     const prev=slice[i-1].assets, cur=slice[i].assets, ret=slice[i].ret||0;
     if(prev==null||cur==null||prev<=0) return null;
     net += cur - prev - prev*(ret/100);
   }
-  return startAssets>0 ? (net/startAssets*100) : null;
+  return net;
 }
-// מוצר "חם" 🔥: גיוס נטו חיובי משמעותי ב-3 חודשים אחרונים
-function hasHotMomentum(fundId) {
-  const pct = recentNetFlowPct(fundId, 3);
-  return pct!=null && pct > 15; // מעל 15% גיוס נטו ב-3 חודשים — כ-18% הבולטים ביותר
+// מוצרים "חמים" 🔥 בתוך קטגוריה — 20% העליונים לפי גיוס נטו אבסולוטי ב-3ח.
+// כללי הלקוח: קטגוריה כולה בגיוס שלילי → אין אש לאף אחד; ואש רק אם הקרן עצמה חיובית.
+// מחזיר Map: fund_id → גיוס נטו (₪ מ׳) עבור המסלולים החמים בלבד.
+function categoryHotMap(catFunds) {
+  const hot = new Map();
+  if(!catFunds || !catFunds.length) return hot;
+  const flows = []; let catTotal = 0;
+  catFunds.forEach(f=>{
+    const id = f.fund_id; if(!id) return;
+    const nf = netFlow3mAbs(id, 3);
+    if(nf==null) return;
+    catTotal += nf;
+    flows.push({ id, nf });
+  });
+  if(catTotal <= 0) return hot;                          // הקטגוריה כולה בפדיון → אין אש
+  const positive = flows.filter(x=>x.nf>0).sort((a,b)=>b.nf-a.nf);
+  const topK = Math.max(1, Math.ceil(flows.length*0.20)); // 20% העליונים מגודל הקטגוריה
+  positive.slice(0, topK).forEach(x=>hot.set(x.id, x.nf));
+  return hot;
 }
+// פורמט קצר לגיוס נטו (יחידות מיליוני ₪)
+function fmtFlow(v){ return Math.abs(v)>=1000 ? (v/1000).toFixed(1)+' מיליארד ₪' : Math.round(v)+' מ\' ₪'; }
 
 const RISK_METRICS = [
   { key:'max_drawdown',        label:'ירידה מקסימלית',        fmt:v=>v!=null?(v*100).toFixed(1)+'%':'—', better:'high' },
@@ -2278,6 +2294,25 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
     };
   },[getCategoryFunds,sortKey,sortDir]);
 
+  // מפת מומנטום 🔥 יחסית-לקטגוריה: לכל מסלול מוצג — האם הוא מבין 20% העליונים בגיוס נטו 3ח בקטגוריה שלו.
+  // תצוגת קטגוריה: הקטגוריה = funds. תצוגת מנהל: כל מסלול מדורג מול קבוצת הקטגוריה שלו (getCategoryFunds).
+  const hotMap = useMemo(()=>{
+    const result = new Map();
+    if(getCategoryFunds){
+      const cache = new Map(); // חתימת-קטגוריה → Map חמים, כדי לא לחשב פעמיים
+      funds.forEach(f=>{
+        const id = f.fund_id; if(!id) return;
+        const peers = getCategoryFunds(f) || [];
+        const sig = peers.map(p=>p.fund_id).join('|');
+        let m = cache.get(sig);
+        if(!m){ m = categoryHotMap(peers); cache.set(sig, m); }
+        if(m.has(id)) result.set(id, m.get(id));
+      });
+      return result;
+    }
+    return categoryHotMap(funds); // תצוגת קטגוריה: funds הוא הקטגוריה כולה
+  },[funds,getCategoryFunds]);
+
   const top12 = sorted.slice(0,12), rest = sorted.slice(12);
   const avg = useMemo(()=>calcAverages(sorted),[sorted]);
 
@@ -2313,7 +2348,7 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
                 onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color=C.muted;e.currentTarget.style.borderColor=C.border;}}>📈</button>}
             </td>
           : <td style={{ ...TD,width:50 }}></td>}
-        <td style={{ ...TD,color:isSel?C.crimson:isAvg?C.dark:C.darkMid,fontWeight:isAvg?700:500 }}><div style={{ whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',display:'flex',alignItems:'center',gap:4 }} title={fund.name}>{!isAvg&&fund.fund_id&&hasHotMomentum(fund.fund_id)&&<span title="מומנטום חיובי — גיוסים נטו ב-3 החודשים האחרונים" style={{ flexShrink:0 }}>🔥</span>}<span style={{ overflow:'hidden',textOverflow:'ellipsis' }}>{fund.name}</span></div></td>
+        <td style={{ ...TD,color:isSel?C.crimson:isAvg?C.dark:C.darkMid,fontWeight:isAvg?700:500 }}><div style={{ whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',display:'flex',alignItems:'center',gap:4 }} title={fund.name}>{!isAvg&&fund.fund_id&&hotMap.has(fund.fund_id)&&<span title={`מומנטום חיובי — מבין 20% המגייסים המובילים בקטגוריה · גיוס נטו 3ח: +${fmtFlow(hotMap.get(fund.fund_id))}`} style={{ flexShrink:0 }}>🔥</span>}<span style={{ overflow:'hidden',textOverflow:'ellipsis' }}>{fund.name}</span></div></td>
         <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_month),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_month'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_month)}</td>
         <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_ytd),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_ytd'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_ytd)}</td>
         <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_1y),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_1y'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_1y)}</td>
