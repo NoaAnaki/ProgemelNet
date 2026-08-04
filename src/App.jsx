@@ -2170,6 +2170,120 @@ function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalI
 }
 
 
+// ─── טבלת פירוט כסף מנוהל (מתחת לגרף כסף מנוהל) ────────────────────────────────
+// יחידות: פנסיה שמורה באלפי ₪, שאר המוצרים במיליוני ₪ → מנרמלים פנסיה ÷1000 ל-₪מ׳.
+function aumFromHist(fundId, product, histData){
+  const pts = histData?.[fundId];
+  if(!pts || !pts.length) return null;
+  const a = pts[pts.length-1].assets;
+  if(a==null) return null;
+  return product==='פנסיה' ? a/1000 : a;
+}
+// סכום AUM (₪מ׳ מנורמל) על קבוצת קרנות מאותו מוצר
+function sumAumM(funds, product, histData){
+  let raw=0, any=false;
+  funds.forEach(f=>{
+    const pts=histData?.[f.fund_id];
+    const a = pts&&pts.length ? pts[pts.length-1].assets : null;
+    if(a!=null){ raw+=a; any=true; }
+  });
+  if(!any) return 0;
+  return product==='פנסיה' ? raw/1000 : raw;
+}
+const AUM_FMT = v => v==null ? '—' : (v>=1000 ? (v/1000).toFixed(1)+' מיליארד ₪' : (v>=1 ? Math.round(v)+' מ׳ ₪' : v.toFixed(1)+' מ׳ ₪'));
+const PCT_FMT = v => v==null ? '—' : (v>0 && v<0.1 ? '<0.1%' : v.toFixed(1)+'%');
+
+function AumBreakdownTable({ fund, histData }){
+  const data = useMemo(()=>{
+    if(!fund?.fund_id || !histData) return null;
+    // חלק א׳ — המסלול
+    const fundAum = aumFromHist(fund.fund_id, fund.product, histData);
+    const catFunds = getFundsBySheet(fund.product, fund.sheet) || [];
+    const catTotal = sumAumM(catFunds, fund.product, histData);
+    const pctOfCat = (fundAum!=null && catTotal>0) ? fundAum/catTotal*100 : null;
+    // זיהוי הגוף המנהל
+    const company = COMPANY_PATTERNS.find(co=>matchesCompany(fund.name, co.patterns)) || null;
+    // חלק ב׳ — הגוף בכל מוצר + סה"כ
+    const products = Object.keys(PRODUCT_LABELS);
+    let compTotal=0, marketTotal=0;
+    const rows = products.map(p=>{
+      const marketFunds = getAllFunds(p);
+      const marketM = sumAumM(marketFunds, p, histData);
+      marketTotal += marketM;
+      let compM=null, share=null, count=0;
+      if(company){
+        const compFunds = getCompanyFunds(marketFunds, company.patterns);
+        count = compFunds.length;
+        if(count>0){
+          compM = sumAumM(compFunds, p, histData);
+          compTotal += compM;
+          share = marketM>0 ? compM/marketM*100 : null;
+        }
+      }
+      return { product:p, label:PRODUCT_LABELS[p].label, icon:PRODUCT_LABELS[p].icon, compM, share, count };
+    });
+    const totalShare = marketTotal>0 ? compTotal/marketTotal*100 : null;
+    return { fundAum, catTotal, pctOfCat, company, rows, compTotal, totalShare };
+  },[fund, histData]);
+
+  if(!data) return null;
+  const { fundAum, catTotal, pctOfCat, company, rows, compTotal, totalShare } = data;
+  const cellTd = { padding:'7px 10px', fontSize:12, borderBottom:'1px solid #F0EBE6' };
+  const headTh = { padding:'7px 10px', fontSize:11, fontWeight:700, color:C.white };
+
+  return (
+    <div style={{ direction:'rtl', padding:'4px 14px 18px' }}>
+      {/* חלק א׳ — המסלול */}
+      <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, overflow:'hidden', marginBottom:12 }}>
+        <div style={{ background:C.crimson, padding:'8px 12px', color:C.white, fontSize:12.5, fontWeight:700 }}>כסף מנוהל — המסלול</div>
+        <div style={{ display:'flex', flexWrap:'wrap' }}>
+          <div style={{ flex:'1 1 46%', padding:'10px 12px', borderLeft:`1px solid ${C.border}` }}>
+            <div style={{ fontSize:11, color:C.muted, marginBottom:3 }}>כסף מנוהל במסלול</div>
+            <div style={{ fontSize:16, fontWeight:800, color:C.crimson }}>{AUM_FMT(fundAum)}</div>
+          </div>
+          <div style={{ flex:'1 1 46%', padding:'10px 12px' }}>
+            <div style={{ fontSize:11, color:C.muted, marginBottom:3 }}>נתח מהקטגוריה '{fund.sheet}'</div>
+            <div style={{ fontSize:16, fontWeight:800, color:C.dark }}>{PCT_FMT(pctOfCat)}<span style={{ fontSize:11, fontWeight:500, color:C.muted }}> מתוך {AUM_FMT(catTotal)}</span></div>
+          </div>
+        </div>
+      </div>
+      {/* חלק ב׳ — הגוף */}
+      <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, overflow:'hidden' }}>
+        <div style={{ background:C.crimson, padding:'8px 12px', color:C.white, fontSize:12.5, fontWeight:700 }}>
+          {company ? `הגוף המנהל — ${company.name}` : 'הגוף המנהל'}
+        </div>
+        {company ? (
+          <table style={{ width:'100%', borderCollapse:'collapse' }}>
+            <thead>
+              <tr style={{ background:C.dark }}>
+                <th style={{ ...headTh, textAlign:'right' }}>מוצר</th>
+                <th style={{ ...headTh, textAlign:'center' }}>כסף מנוהל</th>
+                <th style={{ ...headTh, textAlign:'center' }}>נתח שוק במוצר</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r=>(
+                <tr key={r.product}>
+                  <td style={{ ...cellTd, color:C.darkMid, fontWeight:600 }}>{r.icon} {r.label}</td>
+                  <td style={{ ...cellTd, textAlign:'center', color:r.count>0?C.crimson:C.muted, fontWeight:700, fontVariantNumeric:'tabular-nums' }}>{r.count>0?AUM_FMT(r.compM):'—'}</td>
+                  <td style={{ ...cellTd, textAlign:'center', color:r.count>0?C.dark:C.muted, fontWeight:600, fontVariantNumeric:'tabular-nums' }}>{r.count>0?PCT_FMT(r.share):'—'}</td>
+                </tr>
+              ))}
+              <tr style={{ background:C.avgBg||'#FBF6F3' }}>
+                <td style={{ ...cellTd, fontWeight:800, color:C.dark, borderBottom:'none' }}>סה"כ בכל המוצרים</td>
+                <td style={{ ...cellTd, textAlign:'center', fontWeight:800, color:C.crimson, borderBottom:'none', fontVariantNumeric:'tabular-nums' }}>{AUM_FMT(compTotal)}</td>
+                <td style={{ ...cellTd, textAlign:'center', fontWeight:800, color:C.dark, borderBottom:'none', fontVariantNumeric:'tabular-nums' }}>{PCT_FMT(totalShare)}<span style={{ fontSize:10, fontWeight:500, color:C.muted }}> מהשוק</span></td>
+              </tr>
+            </tbody>
+          </table>
+        ) : (
+          <div style={{ padding:'14px 12px', fontSize:12, color:C.muted }}>לא זוהה גוף מנהל עבור מסלול זה.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, allFunds, externalCompare, onTabChange, backtestData }) {
   if(!fund) return null;
   const [activeTab, setActiveTab] = useState('history');
@@ -2244,7 +2358,10 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
 
       <AIAnalysisBlock/></div>}
         {activeTab==='assets'&&(
-          <AssetsChart fund={fund} catFundIds={catFundIds} catLabel={catLabel} histData={histData} allFunds={allFunds} externalIds={externalCompare}/>
+          <>
+            <AssetsChart fund={fund} catFundIds={catFundIds} catLabel={catLabel} histData={histData} allFunds={allFunds} externalIds={externalCompare}/>
+            <AumBreakdownTable fund={fund} histData={histData}/>
+          </>
         )}
         {activeTab==='risk'&&(
           <RiskChart fund={fund} backtestData={backtestData} externalIds={externalCompare}/>
