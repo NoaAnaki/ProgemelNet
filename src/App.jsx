@@ -1933,18 +1933,23 @@ function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalI
 
   const inRange = (period) => (!acFrom || period>=acFrom) && (!acTo || period<=acTo);
 
+  // נרמול יחידות: פנסיה שמורה באלפי ₪, השאר במיליונים → פנסיה ÷1000 ל-₪מ׳ אחיד
+  const assetDiv = (points) => (points.length && points[points.length-1].product==='פנסיה') ? 1000 : 1;
   const buildAssetsSeries = (fundId) => {
     const points = histData[fundId] || [];
-    return points.filter(p=>p.assets!=null).map(p=>({ period:p.period, val:p.assets }));
+    const div = assetDiv(points);
+    return points.filter(p=>p.assets!=null).map(p=>({ period:p.period, val:p.assets/div }));
   };
   const buildCatAvgSeries = () => {
     if(!catFundIds?.length) return [];
     const byPeriod = {};
     catFundIds.forEach(id=>{
-      (histData[id]||[]).forEach(p=>{
+      const pts = histData[id]||[];
+      const div = assetDiv(pts);
+      pts.forEach(p=>{
         if(p.assets!=null){
           if(!byPeriod[p.period]) byPeriod[p.period]={sum:0,n:0};
-          byPeriod[p.period].sum += p.assets;
+          byPeriod[p.period].sum += p.assets/div;
           byPeriod[p.period].n += 1;
         }
       });
@@ -1957,10 +1962,12 @@ function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalI
   // ── חישוב גיוסים נטו (הפרדת תשואה) ──
   // net_flow[t] = assets[t] - assets[t-1] * (1 + ret[t]/100)
   const buildMonthlyFlows = (fundId) => {
-    const pts = (histData[fundId]||[]).filter(p=>p.assets!=null);
+    const raw = histData[fundId]||[];
+    const div = assetDiv(raw);
+    const pts = raw.filter(p=>p.assets!=null);
     const out = [];
     for(let i=1;i<pts.length;i++){
-      const prev=pts[i-1].assets, cur=pts[i].assets, ret=pts[i].ret||0;
+      const prev=pts[i-1].assets/div, cur=pts[i].assets/div, ret=pts[i].ret||0;
       if(prev==null||cur==null||prev<=0){ continue; }
       const returnEffect = prev*(ret/100);
       const net = cur - prev - returnEffect;
