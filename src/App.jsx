@@ -2240,52 +2240,46 @@ function AumBreakdownTable({ fund, histData }){
 
   return (
     <div style={{ direction:'rtl', padding:'4px 14px 18px' }}>
-      {/* חלק א׳ — המסלול */}
-      <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, overflow:'hidden', marginBottom:12 }}>
-        <div style={{ background:C.crimson, padding:'8px 12px', color:C.white, fontSize:12.5, fontWeight:700 }}>כסף מנוהל — המסלול</div>
-        <div style={{ display:'flex', flexWrap:'wrap' }}>
-          <div style={{ flex:'1 1 46%', padding:'10px 12px', borderLeft:`1px solid ${C.border}` }}>
-            <div style={{ fontSize:11, color:C.muted, marginBottom:3 }}>כסף מנוהל במסלול</div>
-            <div style={{ fontSize:16, fontWeight:800, color:C.crimson }}>{AUM_FMT(fundAum)}</div>
-          </div>
-          <div style={{ flex:'1 1 46%', padding:'10px 12px' }}>
-            <div style={{ fontSize:11, color:C.muted, marginBottom:3 }}>נתח מהקטגוריה '{fund.sheet}'</div>
-            <div style={{ fontSize:16, fontWeight:800, color:C.dark }}>{PCT_FMT(pctOfCat)}<span style={{ fontSize:11, fontWeight:500, color:C.muted }}> מתוך {AUM_FMT(catTotal)}</span></div>
-          </div>
-        </div>
-      </div>
-      {/* חלק ב׳ — הגוף */}
       <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, overflow:'hidden' }}>
-        <div style={{ background:C.crimson, padding:'8px 12px', color:C.white, fontSize:12.5, fontWeight:700 }}>
-          {company ? `הגוף המנהל — ${company.name}` : 'הגוף המנהל'}
+        {/* כותרת + הבהרה */}
+        <div style={{ background:C.crimson, padding:'8px 12px', color:C.white }}>
+          <div style={{ fontSize:12.5, fontWeight:700 }}>כסף מנוהל{company ? ` — ${company.name}` : ''}</div>
+          <div style={{ fontSize:10, opacity:0.9, marginTop:2 }}>הנתונים מתוך הנכסים הפתוחים לציבור המופיעים בפלטפורמה</div>
         </div>
-        {company ? (
-          <table style={{ width:'100%', borderCollapse:'collapse' }}>
-            <thead>
-              <tr style={{ background:C.dark }}>
-                <th style={{ ...headTh, textAlign:'right' }}>מוצר</th>
-                <th style={{ ...headTh, textAlign:'center' }}>כסף מנוהל</th>
-                <th style={{ ...headTh, textAlign:'center' }}>נתח שוק במוצר</th>
-              </tr>
-            </thead>
-            <tbody>
+        <table style={{ width:'100%', borderCollapse:'collapse' }}>
+          <thead>
+            <tr style={{ background:C.dark }}>
+              <th style={{ ...headTh, textAlign:'right' }}>שם</th>
+              <th style={{ ...headTh, textAlign:'center' }}>כסף מנוהל</th>
+              <th style={{ ...headTh, textAlign:'center' }}>נתח שוק</th>
+            </tr>
+          </thead>
+          <tbody>
+            {/* המסלול הנבחר */}
+            <tr style={{ background:C.avgBg||'#FBF6F3' }}>
+              <td style={{ ...cellTd, fontWeight:700, color:C.crimson }}>המסלול: {fund.name}</td>
+              <td style={{ ...cellTd, textAlign:'center', fontWeight:800, color:C.crimson, fontVariantNumeric:'tabular-nums' }}>{AUM_FMT(fundAum)}</td>
+              <td style={{ ...cellTd, textAlign:'center', fontWeight:700, color:C.dark, fontVariantNumeric:'tabular-nums' }}>{PCT_FMT(pctOfCat)}<div style={{ fontSize:9, fontWeight:500, color:C.muted }}>מהקטגוריה '{fund.sheet}'</div></td>
+            </tr>
+            {/* המוצרים של הגוף */}
+            {company ? (<>
               {rows.map(r=>(
                 <tr key={r.product}>
-                  <td style={{ ...cellTd, color:C.darkMid, fontWeight:600 }}>{r.icon} {r.label}</td>
+                  <td style={{ ...cellTd, color:C.darkMid, fontWeight:600 }}>{r.icon} {r.label} {company.name}</td>
                   <td style={{ ...cellTd, textAlign:'center', color:r.count>0?C.crimson:C.muted, fontWeight:700, fontVariantNumeric:'tabular-nums' }}>{r.count>0?AUM_FMT(r.compM):'—'}</td>
                   <td style={{ ...cellTd, textAlign:'center', color:r.count>0?C.dark:C.muted, fontWeight:600, fontVariantNumeric:'tabular-nums' }}>{r.count>0?PCT_FMT(r.share):'—'}</td>
                 </tr>
               ))}
-              <tr style={{ background:C.avgBg||'#FBF6F3' }}>
-                <td style={{ ...cellTd, fontWeight:800, color:C.dark, borderBottom:'none' }}>סה"כ בכל המוצרים</td>
+              <tr style={{ background:C.avgBg||'#FBF6F3', borderTop:`2px solid ${C.border}` }}>
+                <td style={{ ...cellTd, fontWeight:800, color:C.dark, borderBottom:'none' }}>סה"כ {company.name} בכל המוצרים</td>
                 <td style={{ ...cellTd, textAlign:'center', fontWeight:800, color:C.crimson, borderBottom:'none', fontVariantNumeric:'tabular-nums' }}>{AUM_FMT(compTotal)}</td>
-                <td style={{ ...cellTd, textAlign:'center', fontWeight:800, color:C.dark, borderBottom:'none', fontVariantNumeric:'tabular-nums' }}>{PCT_FMT(totalShare)}<span style={{ fontSize:10, fontWeight:500, color:C.muted }}> מהשוק</span></td>
+                <td style={{ ...cellTd, textAlign:'center', fontWeight:800, color:C.dark, borderBottom:'none', fontVariantNumeric:'tabular-nums' }}>{PCT_FMT(totalShare)}<div style={{ fontSize:9, fontWeight:500, color:C.muted }}>מכלל השוק</div></td>
               </tr>
-            </tbody>
-          </table>
-        ) : (
-          <div style={{ padding:'14px 12px', fontSize:12, color:C.muted }}>לא זוהה גוף מנהל עבור מסלול זה.</div>
-        )}
+            </>) : (
+              <tr><td colSpan={3} style={{ ...cellTd, color:C.muted, borderBottom:'none' }}>לא זוהה גוף מנהל עבור מסלול זה.</td></tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
