@@ -2241,7 +2241,7 @@ function AumBreakdownTable({ fund, histData }){
         {/* כותרת + הבהרה */}
         <div style={{ background:C.crimson, padding:'8px 12px', color:C.white }}>
           <div style={{ fontSize:12.5, fontWeight:700 }}>כסף מנוהל{company ? ` — ${company.name}` : ''}</div>
-          <div style={{ fontSize:10, opacity:0.9, marginTop:2 }}>הנתונים מתוך הנכסים הפתוחים לציבור המופיעים בפלטפורמה</div>
+          <div style={{ fontSize:10, opacity:0.9, marginTop:2 }}>הנתונים מתוך הנכסים הפתוחים לציבור המופיעים במערכת פרוגמלנט</div>
         </div>
         <table style={{ width:'100%', borderCollapse:'collapse' }}>
           <thead>
