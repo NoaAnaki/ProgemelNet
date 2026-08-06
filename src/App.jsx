@@ -1589,19 +1589,16 @@ function netFlow3mAbs(fundId, months=3) {
 // מחזיר Map: fund_id → גיוס נטו (₪ מ׳) עבור המסלולים החמים בלבד.
 function categoryHotMap(catFunds) {
   const hot = new Map();
-  if(!catFunds || !catFunds.length) return hot;
-  const flows = []; let catTotal = 0;
+  if(!catFunds || catFunds.length < 4) return hot;       // חריג אמיר: טבלה עם פחות מ-4 מסלולים → אין אש
+  const flows = [];
   catFunds.forEach(f=>{
     const id = f.fund_id; if(!id) return;
     const nf = netFlow3mAbs(id, 3);
-    if(nf==null) return;
-    catTotal += nf;
-    flows.push({ id, nf });
+    if(nf!=null) flows.push({ id, nf });
   });
-  if(catTotal <= 0) return hot;                          // הקטגוריה כולה בפדיון → אין אש
+  // 1-2 המגייסים החזקים ביותר בטבלה, רק אם הם עצמם בגיוס נטו חיובי (בלי גייט קטגוריה)
   const positive = flows.filter(x=>x.nf>0).sort((a,b)=>b.nf-a.nf);
-  const topK = Math.max(1, Math.ceil(flows.length*0.20)); // 20% העליונים מגודל הקטגוריה
-  positive.slice(0, topK).forEach(x=>hot.set(x.id, x.nf));
+  positive.slice(0, 2).forEach(x=>hot.set(x.id, x.nf));
   return hot;
 }
 // פורמט קצר לגיוס נטו (יחידות מיליוני ₪)
@@ -2461,7 +2458,7 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
                 onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color=C.muted;e.currentTarget.style.borderColor=C.border;}}>📈</button>}
             </td>
           : <td style={{ ...TD,width:50 }}></td>}
-        <td style={{ ...TD,color:isSel?C.crimson:isAvg?C.dark:C.darkMid,fontWeight:isAvg?700:500 }}><div style={{ whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',display:'flex',alignItems:'center',gap:4 }} title={fund.name}>{!isAvg&&fund.fund_id&&hotMap.has(fund.fund_id)&&<span title={`מומנטום חיובי — מבין 20% המגייסים המובילים בקטגוריה · גיוס נטו 3ח: +${fmtFlow(hotMap.get(fund.fund_id))}`} style={{ flexShrink:0 }}>🔥</span>}<span style={{ overflow:'hidden',textOverflow:'ellipsis' }}>{fund.name}</span></div></td>
+        <td style={{ ...TD,color:isSel?C.crimson:isAvg?C.dark:C.darkMid,fontWeight:isAvg?700:500 }}><div style={{ whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',display:'flex',alignItems:'center',gap:4 }} title={fund.name}>{!isAvg&&fund.fund_id&&hotMap.has(fund.fund_id)&&<span title={`מומנטום חיובי — מהמגייסים החזקים ביותר בקטגוריה · גיוס נטו 3ח: +${fmtFlow(hotMap.get(fund.fund_id))}`} style={{ flexShrink:0 }}>🔥</span>}<span style={{ overflow:'hidden',textOverflow:'ellipsis' }}>{fund.name}</span></div></td>
         <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_month),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_month'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_month)}</td>
         <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_ytd),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_ytd'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_ytd)}</td>
         <td style={{ ...TD,textAlign:'center',color:numColor(fund.ret_1y),fontWeight:600,fontVariantNumeric:'tabular-nums',background:sortKey==='ret_1y'?'rgba(139,26,58,0.03)':'transparent' }}>{pctFmt(fund.ret_1y)}</td>
