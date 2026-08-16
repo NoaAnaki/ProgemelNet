@@ -934,8 +934,19 @@ export function getFundsBySheet(productKey, sheetName) {
 export function getSheets(productKey) {
   if (!currentData) return [];
   const sheets = Object.keys(currentData[productKey] ?? {});
-  // מיון: "כללי" (או "מקיפה-כללי") תמיד ראשון
+  // פנסיה: מסלולי הגיל הנפוצים (עד50 / 50-60 / 60+) ראשונים
+  const ageRank = (s) => {
+    if(/עד50|עד 50/.test(s)) return 0;
+    if(/50-60|50 עד 60/.test(s)) return 1;
+    if(/60\+|60 ומעלה/.test(s)) return 2;
+    return 9;
+  };
+  // מיון: (פנסיה) מסלולי גיל תחילה, ואז "כללי"/"מקיפה-כללי" ראשון
   return sheets.sort((a,b)=>{
+    if(productKey === 'פנסיה'){
+      const ar = ageRank(a), br = ageRank(b);
+      if(ar !== br) return ar - br;
+    }
     const aGen = a.includes('כללי') ? 0 : 1;
     const bGen = b.includes('כללי') ? 0 : 1;
     if(aGen !== bGen) return aGen - bGen;
