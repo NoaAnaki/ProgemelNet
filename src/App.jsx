@@ -131,6 +131,15 @@ function getCategoryInfo(name) {
   return null;
 }
 
+// שם תצוגה לקטגוריה (בלבד — המפתח הפנימי נשאר כמו שהוא, לשמירה על קיבוץ/tooltips)
+function catDisplayName(name) {
+  if(!name) return name;
+  if(name === 'מובילות-כללי')     return 'כללי';
+  if(name === 'אגח סחיר עד 25')    return 'אגח סחיר עד 25% מניות';
+  if(name === 'אשראי ואגח עד 25')  return 'אשראי ואגח עד 25% מניות';
+  return name;
+}
+
 // סימן שאלה עם הסבר הקטגוריה (רחב יותר מ-Tooltip הרגיל)
 function CategoryInfo({ text }) {
   const [show, setShow] = useState(false);
@@ -213,7 +222,7 @@ function ChartModal({ fund, mainSeries, avgSeries, compareSeries, allFunds, catL
             {avgSeries.length>0 && (
               <span style={{ display:'flex',alignItems:'center',gap:5,fontSize:12,color:'#2563EB',fontWeight:600 }}>
                 <svg width="22" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#2563EB" strokeWidth="2.5" strokeDasharray="6 3"/></svg>
-                {catLabel ? `ממוצע מסלולי '${catLabel}'` : 'ממוצע קטגוריה'}
+                {catLabel ? `ממוצע מסלולי '${catDisplayName(catLabel)}'` : 'ממוצע קטגוריה'}
               </span>
             )}
             {(compareSeries||[]).map((c,ci)=>{
@@ -477,7 +486,7 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
           {avgSeries.length>0&&(
             <span style={{ display:'flex',alignItems:'center',gap:4,fontSize:10.5,color:'#2563EB',fontWeight:600 }}>
               <svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#2563EB" strokeWidth="2" strokeDasharray="6 3"/></svg>
-              {catLabel ? `ממוצע מסלולי '${catLabel}'` : 'ממוצע קטגוריה'}
+              {catLabel ? `ממוצע מסלולי '${catDisplayName(catLabel)}'` : 'ממוצע קטגוריה'}
             </span>
           )}
           {compareSeries.map((c,ci)=>{
@@ -776,7 +785,7 @@ function TrackBrowser({ product, onSelectFund, selFund, order, funds, onAddToCom
                 <button key={sh}
                   onClick={()=>{ setActiveSheet(sh); setTimeout(()=>{ const el=document.getElementById(`cat-table-${product}-${sh}`); if(el){ const y=el.getBoundingClientRect().top+window.scrollY-70; window.scrollTo({top:y,behavior:'smooth'}); } },80); }}
                   style={{ padding:'4px 11px',borderRadius:14,border:`1.5px solid ${activeSheet===sh?C.crimson:C.border}`,background:activeSheet===sh?C.crimson:C.white,color:activeSheet===sh?C.white:C.mid,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'all 0.12s' }}>
-                  {sh}
+                  {catDisplayName(sh)}
                 </button>
               ))}
             </div>
@@ -1179,7 +1188,7 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
         id:f.fund_id, name:f.name, color:COLORS[(i+1)%COLORS.length], isAvg:false,
         series: buildHistSeries(f.fund_id, param)
       })),
-      { id:'avg', name:`ממוצע קטגוריה '${catLabel||''}'`, color:'#2563EB', isAvg:true,
+      { id:'avg', name:`ממוצע קטגוריה '${catDisplayName(catLabel)||''}'`, color:'#2563EB', isAvg:true,
         series: buildCatAvgSeries(param) },
     ];
     return rows.filter(r => r.series.length > 0);
@@ -2000,7 +2009,7 @@ function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalI
       rows.push({ id:f.fund_id, name:f.name, color:AC_COLORS[(i+1)%AC_COLORS.length], series:buildAssetsSeries(f.fund_id) });
     });
     if(showCatAvg && catFundIds?.length){
-      rows.push({ id:'__catavg__', name:`ממוצע קטגוריה '${catLabel||''}'`, color:'#94A3B8', isAvg:true, series:buildCatAvgSeries() });
+      rows.push({ id:'__catavg__', name:`ממוצע קטגוריה '${catDisplayName(catLabel)||''}'`, color:'#94A3B8', isAvg:true, series:buildCatAvgSeries() });
     }
     return rows.filter(r=>r.series.length>0);
   },[fund,extraFunds,showCatAvg,catFundIds,histData]);
@@ -2256,7 +2265,7 @@ function AumBreakdownTable({ fund, histData }){
             <tr style={{ background:C.avgBg||'#FBF6F3' }}>
               <td style={{ ...cellTd, fontWeight:700, color:C.crimson }}>המסלול: {fund.name}</td>
               <td style={{ ...cellTd, textAlign:'center', fontWeight:800, color:C.crimson, fontVariantNumeric:'tabular-nums' }}>{AUM_FMT(fundAum)}</td>
-              <td style={{ ...cellTd, textAlign:'center', fontWeight:700, color:C.dark, fontVariantNumeric:'tabular-nums' }}>{PCT_FMT(pctOfCat)}<div style={{ fontSize:9, fontWeight:500, color:C.muted }}>מהקטגוריה '{fund.sheet}'</div></td>
+              <td style={{ ...cellTd, textAlign:'center', fontWeight:700, color:C.dark, fontVariantNumeric:'tabular-nums' }}>{PCT_FMT(pctOfCat)}<div style={{ fontSize:9, fontWeight:500, color:C.muted }}>מהקטגוריה '{catDisplayName(fund.sheet)}'</div></td>
             </tr>
             {/* המוצרים של הגוף */}
             {company ? (<>
@@ -2480,7 +2489,7 @@ function FundTable({ funds, catId, catLabel, onSelect, selFund, selCatId, onAddT
     <div id={`sec-${catId}`} style={{ marginBottom:14,scrollMarginTop:104 }}>
       <div style={{ background:C.darkMid,borderRadius:'8px 8px 0 0',padding:'6px 10px 5px' }}>
         <div style={{ display:'flex',alignItems:'center',gap:8 }}>
-          <span style={{ fontSize:11.5,fontWeight:800,color:C.white }}>{cat?.label}</span>
+          <span style={{ fontSize:11.5,fontWeight:800,color:C.white }}>{catDisplayName(cat?.label)}</span>
           <CategoryInfo text={getCategoryInfo(catLabel||catId)}/>
           <span style={{ fontSize:10,color:'rgba(255,255,255,0.4)' }}>{cat?.desc}</span>
           <span style={{ marginRight:'auto',fontSize:10,color:'rgba(255,255,255,0.3)' }}>{funds.length} מוצרים</span>
