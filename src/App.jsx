@@ -1627,16 +1627,23 @@ function fmtFlow(v){ return Math.abs(v)>=1000 ? (v/1000).toFixed(1)+' מיליא
 
 const RISK_METRICS = [
   { key:'max_drawdown',        label:'ירידה מקסימלית',        fmt:v=>v!=null?(v*100).toFixed(1)+'%':'—', better:'high' },
-  { key:'max_recovery_years',  label:'זמן התאוששות מקס',      fmt:v=>v!=null?(v===1?'שנה':v+' שנים'):'—', better:'low'  },
+  { key:'max_recovery_months', label:'זמן התאוששות מקס',      fmt:v=>v!=null?(v===1?'חודש':v+' חודשים'):'—', better:'low', get:d=>d?.monthly_basis?.max_recovery_months ?? null },
   { key:'neg_year_freq',       label:'תדירות שנה שלילית',      fmt:v=>v!=null?v.toFixed(1):'—',          better:'low'  },
   { key:'avg_neg_year',        label:'ירידה ממוצעת בשנה שלילית', fmt:v=>v!=null?(v*100).toFixed(1)+'%':'—', better:'high' },
   { key:'cagr',                label:'תשואה ממוצעת רב-שנתית',  fmt:v=>v!=null?(v*100).toFixed(1)+'%':'—', better:'high' },
 ];
 
+// גישה לערך מדד — תומך במדדים מקוננים (get) כמו התאוששות חודשית ב-monthly_basis
+const riskVal = (data, key) => {
+  if(!data) return null;
+  const m = RISK_METRICS.find(x=>x.key===key);
+  return m && m.get ? m.get(data) : data[key];
+};
+
 function RiskChart({ fund, backtestData, externalIds }) {
   const RC_COLORS = ['#E63946','#16A34A','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D','#EA580C'];
   const [xKey, setXKey] = useState('max_drawdown');
-  const [yKey, setYKey] = useState('max_recovery_years');
+  const [yKey, setYKey] = useState('max_recovery_months');
   const [extraIds, setExtraIds] = useState([]);
   const [hover, setHover] = useState(null);
 
@@ -1678,8 +1685,8 @@ function RiskChart({ fund, backtestData, externalIds }) {
   const xMetric = RISK_METRICS.find(m=>m.key===xKey);
   const yMetric = RISK_METRICS.find(m=>m.key===yKey);
 
-  const xVals = allRows.map(r=>r.data[xKey]).filter(v=>v!=null);
-  const yVals = allRows.map(r=>r.data[yKey]).filter(v=>v!=null);
+  const xVals = allRows.map(r=>riskVal(r.data,xKey)).filter(v=>v!=null);
+  const yVals = allRows.map(r=>riskVal(r.data,yKey)).filter(v=>v!=null);
   const xMin = Math.min(...xVals), xMax = Math.max(...xVals);
   const yMin = Math.min(...yVals), yMax = Math.max(...yVals);
   // padding לטווח כדי שנקודות לא ידבקו לקצה
@@ -1723,7 +1730,7 @@ function RiskChart({ fund, backtestData, externalIds }) {
                 <tr key={m.key} style={{ background:i%2===0?'#fff':'#FAFAFA' }}>
                   <td style={{ padding:'7px 10px',textAlign:'right',color:C.mid,whiteSpace:'nowrap' }}>{m.label}</td>
                   {allRows.map(r=>(
-                    <td key={r.id} style={{ padding:'7px 10px',textAlign:'center',color:C.dark,fontWeight:700 }}>{m.fmt(r.data[m.key])}</td>
+                    <td key={r.id} style={{ padding:'7px 10px',textAlign:'center',color:C.dark,fontWeight:700 }}>{m.fmt(riskVal(r.data,m.key))}</td>
                   ))}
                 </tr>
               ))}
@@ -1764,14 +1771,14 @@ function RiskChart({ fund, backtestData, externalIds }) {
           <text x={PL+plotW/2} y={svgH-6} textAnchor="middle" fontSize="11" fontWeight="700" fill={C.dark}>{xMetric.label}</text>
           <text x={14} y={PT+chartH/2} textAnchor="middle" fontSize="11" fontWeight="700" fill={C.dark} transform={`rotate(-90 14 ${PT+chartH/2})`}>{yMetric.label}</text>
           {allRows.map(r=>{
-            const xv=r.data[xKey], yv=r.data[yKey];
+            const xv=riskVal(r.data,xKey), yv=riskVal(r.data,yKey);
             if(xv==null||yv==null) return null;
             return <g key={r.id} onMouseEnter={()=>setHover(r)} onMouseLeave={()=>setHover(null)} style={{ cursor:'pointer' }}>
               <circle cx={xFor(xv)} cy={yFor(yv)} r={hover&&hover.id===r.id?8:6} fill={r.color} stroke="#fff" strokeWidth="2" opacity="0.9"/>
             </g>;
           })}
           {hover&&(()=>{
-            const xv=hover.data[xKey], yv=hover.data[yKey];
+            const xv=riskVal(hover.data,xKey), yv=riskVal(hover.data,yKey);
             const px=xFor(xv), py=yFor(yv);
             const boxW=240, boxH=22+RISK_METRICS.length*17;
             const bx=Math.min(Math.max(px-boxW/2,4),svgW-boxW-4);
@@ -1783,7 +1790,7 @@ function RiskChart({ fund, backtestData, externalIds }) {
                   {RISK_METRICS.map(m=>(
                     <div key={m.key} style={{ fontSize:9.5,color:'#E5E7EB',lineHeight:1.5,display:'flex',justifyContent:'space-between',gap:8 }}>
                       <span>{m.label}</span>
-                      <span style={{ color:hover.color,fontWeight:700 }}>{m.fmt(hover.data[m.key])}</span>
+                      <span style={{ color:hover.color,fontWeight:700 }}>{m.fmt(riskVal(hover.data,m.key))}</span>
                     </div>
                   ))}
                 </div>
