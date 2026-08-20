@@ -1552,28 +1552,40 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
 
 // ─── Fund Detail Panel ────────────────────────────────────────────────────────
 // ── בלוק ניתוח AI (זהה לכל המוצרים) ──
-function AIAnalysisBlock() {
+// רינדור inline של **מודגש**
+function aiInline(text){
+  return text.split(/(\*\*[^*]+\*\*)/g).map((p,i)=>
+    p.startsWith('**')&&p.endsWith('**') ? <strong key={i}>{p.slice(2,-2)}</strong> : <span key={i}>{p}</span>
+  );
+}
+// ניתוח פרוגמלנט — מרנדר את ה-markdown מ-ai.json (3 בלוקים). fallback כשאין ניתוח.
+function AIAnalysisBlock({ analysis }) {
   const P = { margin:'0 0 8px',fontSize:11,color:'#3D3D3D',lineHeight:1.8 };
-  const H = { margin:'10px 0 6px',fontSize:11.5,fontWeight:700,color:'#4C1D95' };
-  return (
-    <div style={{ background:'linear-gradient(135deg,#F8F5FF,#EEF2FF)',border:'1px solid #C4B5FD',borderRadius:9,padding:'12px 14px',margin:'8px 14px 12px',direction:'rtl' }}>
-      <div style={{ display:'flex',alignItems:'center',gap:6,marginBottom:8 }}><span style={{ fontSize:14 }}>🤖</span><span style={{ fontSize:11.5,fontWeight:700,color:'#4C1D95' }}>ניתוח AI</span><span style={{ fontSize:9.5,color:'#7C3AED',background:'#EDE9FE',borderRadius:7,padding:'1px 6px' }}>בדיקה</span></div>
-      <p style={P}>הנתונים מראים כי המנוע המרכזי למיקומה הנוכחי של הקופה במקום ה-3 מתוך 12 קרנות בקטגוריה בשנה האחרונה, לעומת מקום ה-6 בטווח של 5 שנים, נובע משינוי מבני מובהק ברמת החשיפה לנכסים בחו"ל ובמט"ח. המערכת מזהה כי הגדלת הרכיב הלא סחיר בתיק העלתה את יציבות התשואה בהשוואה לממוצע הקטגוריה. נתון זה נתמך במדד FUND_ALPHA חיובי העומד על 0.4%, המהווה אות אנליטי נוסף לצד גורמי החשיפה הכלליים. בנוסף, רכיב המאזן האקטוארי של הקופה מציג דלתא חיובית של 0.15%+, התורמת באופן ישיר ועקבי לתשואת העמיתים במסלול זה.</p>
-      <p style={P}>מנגד, הסימולציה מציגה כי המנגנון המבני הכרוך בהגברת הנכסים הלא סחירים מייצר עלות מובנית של הפחתת הנזילות הכוללת של התיק, דבר העלול לעכב התאמות טקטיות מהירות במקרה של תהפוכות חדות בשווקים הציבוריים.</p>
-      <p style={P}>ממצאי המערכת מצביעים על אפשרות כי דינמיקת קיבולת הניהול של הגוף המנהל נמצאת בשלב יציב, כאשר גיוסי הכספים האחרונים אינם משפיעים לרעה על יכולת פיזור הנכסים. המשמעות המוסדית היא כי הקופה שומרת על יתרון לגודל מבלי לפגוע ביעילות ההשקעות בנכסים סחירים בארץ ובחו"ל.</p>
-      <p style={H}>📊 שכבת סימולציית סיכון ותשואה</p>
-      <p style={P}>📈 ביצועי הקופה בפועל (על בסיס נתוני העבר הרשמיים):<br/>תשואה ממוצעת ל-3 שנים: 7.2% ברמת המוצר<br/>תשואה ממוצעת ל-5 שנים: 6.8% ברמת המוצר<br/>תשואה ממוצעת ל-10 שנים: 6.1% ברמת המוצר</p>
-      <p style={P}>📉 סימולציית סיכון היפותטית (אם תמהיל הנכסים הנוכחי היה נשאר קבוע מאז 1995):<br/>תדירות שנים שליליות: אחת ל-6 שנים קלנדריות בממוצע.<br/>תרחיש שנתי שלילי טיפוסי (ירידה סבירה): 4.5%-.<br/>הנפילה ההיסטורית המקסימלית (Max Drawdown במשברים): 14.2%-.<br/>טווח זמן סביר לחזרה לקרן (התאוששות טיפוסית מהפסד): 14 חודשים.</p>
-      <p style={{ margin:'0 0 8px',fontSize:10,color:'#6B7280',lineHeight:1.7 }}>ℹ️ הנתונים בחלקו השני של הבלוק מבוססים על סימולציה היסטורית של תמהיל הנכסים הנוכחי החל משנת 1995, ונועדו להמחיש את פרופיל הסיכון של החשיפות הקיימות בלבד. תשואות העבר הרשמיות מוצגות בחלק הראשון ואינן מבטיחות תשואה בעתיד.</p>
-      <p style={H}>⚖️ חשיפות, סיכונים וכלים לקבלת החלטה</p>
-      <p style={P}>נכון לדיווח החודשי האחרון, הנתונים מראים כי מנהל הקופה שומר על חשיפה יציבה לרכיב המניות בארץ ובחו"ל בהשוואה לחודש הקודם, תוך שמירה על דלתא חיובית קלה בחשיפה למט"ח לעומת ממוצע המתחרים.</p>
-      <p style={P}>בהשוואה מול מוצרים חלופיים בקטגוריה, מוצרים כגון "בטא יציב כללי" או "גמא איזון כללי" מחזיקים ביעדי חשיפה בסיסיים דומים מאוד ברמת המאקרו, אך מנהליהם בחרו במיקום מאוזן וקרוב יותר לממוצע הקטגוריה בציר הטקטי של נכסים סחירים מול נכסים לא סחירים, וזאת במטרה לשמור על גמישות נזילות גבוהה יותר בתוך התיק.</p>
-      <p style={P}>אם תרצה להבין כיצד הממצאים האלה משתלבים עם שאר החסכונות שלך ולהתאים את תמהיל המוצרים היעיל ביותר עבורך, עומדות בפניך שתי אפשרויות: לקבל נתונים ישירות מנציגי הגופים המנוהלים, או להיעזר במתכנן פיננסי חיצוני שמכיר ומשקלל את כלל המוצרים בשוק.</p>
-      <p style={P}>💡 חשוב לדעת: שתי האפשרויות פועלות בסביבת עלות דומה, המגולמת ישירות מתוך דמי הניהול השוטפים של המוצרים (הנעים בטווח טיפוסי של 0.7%-0.9%), ללא צורך בתשלום חיצוני ישיר.</p>
-      <p style={{ margin:'0 0 8px',fontSize:11,fontWeight:600 }}>📍 <a href="https://www.profit-fs.com/agents/" target="_blank" rel="noopener noreferrer" style={{ color:'#7C3AED',textDecoration:'underline' }}>לרשימת המתכננים הפיננסיים המוסמכים באתר פרוגמלנט</a></p>
-      <p style={{ margin:0,fontSize:10,color:'#6B7280',fontStyle:'italic',lineHeight:1.7 }}>ℹ️ הניתוח המוצג מבוסס על חלוקת החשיפות המרכזיות (רמת המאקרו) כפי שדווחו על ידי מנהלי המוצרים לרשות שוק ההון בדיווח החודשי האחרון. הניתוח מתמקד במנועי התשואה הגדולים ואינו משקף בהכרח השפעות נקודתיות של תמהיל נכסים פנימי בתוך התיק (רמת המיקרו), ניירות ערך ספציפיים או גורמים שאינם נכללים בדיווח הציבורי.</p>
+  const H = { margin:'12px 0 6px',fontSize:12,fontWeight:700,color:'#4C1D95' };
+  const Q = { margin:'6px 0',fontSize:10,color:'#6B7280',lineHeight:1.7,borderRight:'2px solid #C4B5FD',paddingRight:8 };
+  const box = { background:'linear-gradient(135deg,#F8F5FF,#EEF2FF)',border:'1px solid #C4B5FD',borderRadius:9,padding:'12px 14px',margin:'8px 14px 12px',direction:'rtl' };
+  const header = (
+    <div style={{ display:'flex',alignItems:'center',gap:6,marginBottom:8 }}>
+      <span style={{ fontSize:14 }}>🤖</span>
+      <span style={{ fontSize:11.5,fontWeight:700,color:'#4C1D95' }}>ניתוח פרוגמלנט</span>
     </div>
   );
+  if(!analysis) return <div style={box}>{header}<p style={{ ...P,color:'#6B7280' }}>ניתוח ה-AI למוצר זה יתעדכן בקרוב.</p></div>;
+  const lines = String(analysis).split('\n');
+  const els=[]; let bullets=[];
+  const flush=()=>{ if(bullets.length){ els.push(<ul key={'u'+els.length} style={{ margin:'0 0 8px',paddingInlineStart:18 }}>{bullets.map((b,i)=><li key={i} style={{ fontSize:11,color:'#3D3D3D',lineHeight:1.8,marginBottom:2 }}>{aiInline(b)}</li>)}</ul>); bullets=[]; } };
+  lines.forEach((raw,idx)=>{
+    const line=raw.trim();
+    if(!line){ flush(); return; }
+    if(line==='---'){ flush(); els.push(<hr key={idx} style={{ border:0,borderTop:'1px solid #C4B5FD',margin:'10px 0' }}/>); return; }
+    if(line.startsWith('### ')){ flush(); els.push(<div key={idx} style={H}>{aiInline(line.slice(4))}</div>); return; }
+    if(line.startsWith('## ')){ flush(); els.push(<div key={idx} style={H}>{aiInline(line.slice(3))}</div>); return; }
+    if(line.startsWith('> ')){ flush(); els.push(<div key={idx} style={Q}>{aiInline(line.slice(2))}</div>); return; }
+    if(line.startsWith('- ')){ bullets.push(line.slice(2)); return; }
+    flush(); els.push(<p key={idx} style={P}>{aiInline(line)}</p>);
+  });
+  flush();
+  return <div style={box}>{header}{els}</div>;
 }
 
 
@@ -2291,7 +2303,7 @@ function AumBreakdownTable({ fund, histData }){
   );
 }
 
-function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, allFunds, externalCompare, onTabChange, backtestData }) {
+function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, allFunds, externalCompare, onTabChange, backtestData, aiData }) {
   if(!fund) return null;
   const [activeTab, setActiveTab] = useState('history');
   const handleTabChange = (id) => { setActiveTab(id); onTabChange&&onTabChange(id); };
@@ -2360,10 +2372,10 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
       <div style={{ flex:1,overflowY:'auto' }}>
         {activeTab==='history'&&<div><HistoricalChart fund={fundWithAll} catFundIds={catFundIds} catLabel={catLabel} histData={histData} externalCompare={externalCompare}/>
 
-      <AIAnalysisBlock/></div>}
+      <AIAnalysisBlock analysis={aiData?.[fund?.fund_id]?.analysis}/></div>}
         {activeTab==='mix'&&<div><MixChart fund={fund} catFundIds={catFundIds} catLabel={catLabel} histData={histData} allFunds={allFunds} externalIds={externalCompare}/>
 
-      <AIAnalysisBlock/></div>}
+      <AIAnalysisBlock analysis={aiData?.[fund?.fund_id]?.analysis}/></div>}
         {activeTab==='assets'&&(
           <>
             <AssetsChart fund={fund} catFundIds={catFundIds} catLabel={catLabel} histData={histData} allFunds={allFunds} externalIds={externalCompare}/>
@@ -2564,6 +2576,11 @@ export default function App() {
   useEffect(()=>{
     fetch('/backtest.json').then(r=>r.json()).then(setBacktestData).catch(console.error);
   },[]);
+  // טוען ai.json (ניתוחי AI פר-מוצר) — נטען פעם אחת
+  const [aiData, setAiData] = useState(null);
+  useEffect(()=>{
+    fetch('/ai.json').then(r=>r.json()).then(setAiData).catch(()=>setAiData({}));
+  },[]);
 
   const rawFundsProduct = product||'השתלמות';
   const rawFunds = useMemo(()=>getAllFunds(rawFundsProduct),[rawFundsProduct,dataReady]);
@@ -2667,7 +2684,7 @@ export default function App() {
         )}
         {panelOpen&&(
           <div style={{ position:'fixed',top:56,left:0,width:PANEL_W,height:'calc(100vh - 56px)',overflow:'hidden',zIndex:50,boxShadow:'4px 0 20px rgba(0,0,0,0.15)' }}>
-            <FundDetail key={selFund?.fund_id} fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);setVirtualWeightedAvg(null);}} catAvg={catAvg} catFundIds={catFundIds} catLabel={catLabel} histData={virtualWeightedAvg?{...histData,__weighted_avg__:virtualWeightedAvg.points}:(histData??{})} allFunds={virtualWeightedAvg?[...allFunds,{fund_id:'__weighted_avg__',name:virtualWeightedAvg.name}]:allFunds} externalCompare={activePanelTab==='mix'?sentToMix:(activePanelTab==='risk'?sentToRisk:(activePanelTab==='assets'?sentToAssets:sentToChart))} onTabChange={setActivePanelTab} backtestData={backtestData}/>
+            <FundDetail key={selFund?.fund_id} fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);setVirtualWeightedAvg(null);}} catAvg={catAvg} catFundIds={catFundIds} catLabel={catLabel} histData={virtualWeightedAvg?{...histData,__weighted_avg__:virtualWeightedAvg.points}:(histData??{})} allFunds={virtualWeightedAvg?[...allFunds,{fund_id:'__weighted_avg__',name:virtualWeightedAvg.name}]:allFunds} externalCompare={activePanelTab==='mix'?sentToMix:(activePanelTab==='risk'?sentToRisk:(activePanelTab==='assets'?sentToAssets:sentToChart))} onTabChange={setActivePanelTab} backtestData={backtestData} aiData={aiData}/>
           </div>
         )}
       </div>
