@@ -2614,7 +2614,45 @@ export default function App() {
   },[selCatId]);
 
   const panelOpen = selFund!==null;
-  const PANEL_W = '30%';
+  // ── רוחב פאנל הצד נגרר (resizable) ──
+  const MIN_PANEL = 340;          // רוחב מינימלי בפיקסלים
+  const MAX_PANEL_FRAC = 0.85;    // רוחב מקסימלי כשבר מרוחב החלון
+  const [panelWpx, setPanelWpx] = useState(()=>{
+    try { const s = parseInt(localStorage.getItem('pgn_panel_w')||'',10); if(s&&!Number.isNaN(s)) return s; } catch(e){}
+    const vw = (typeof window!=='undefined') ? window.innerWidth : 1200;
+    return Math.round(vw*0.3);
+  });
+  const [isResizing, setIsResizing] = useState(false);
+  // שמירת הרוחב ב-localStorage בכל שינוי
+  useEffect(()=>{ try{ localStorage.setItem('pgn_panel_w', String(panelWpx)); }catch(e){} },[panelWpx]);
+  // חסימה מחדש כשחלון הדפדפן משתנה
+  useEffect(()=>{
+    const onR = ()=> setPanelWpx(w=>Math.max(MIN_PANEL, Math.min(w, Math.round(window.innerWidth*MAX_PANEL_FRAC))));
+    window.addEventListener('resize',onR);
+    return ()=>window.removeEventListener('resize',onR);
+  },[]);
+  // התחלת גרירה — הפאנל נמצן בשמאל (left:0), לכן הרוחב = מרחק הסמן משמאל המסך
+  const startResize = (e)=>{
+    e.preventDefault();
+    const clampW = w => Math.max(MIN_PANEL, Math.min(w, Math.round(window.innerWidth*MAX_PANEL_FRAC)));
+    setIsResizing(true);
+    document.body.style.userSelect='none';
+    document.body.style.cursor='ew-resize';
+    const onMove = ev => { const x = ev.touches ? ev.touches[0].clientX : ev.clientX; setPanelWpx(clampW(x)); };
+    const onUp = ()=>{
+      setIsResizing(false);
+      document.body.style.userSelect='';
+      document.body.style.cursor='';
+      window.removeEventListener('mousemove',onMove);
+      window.removeEventListener('mouseup',onUp);
+      window.removeEventListener('touchmove',onMove);
+      window.removeEventListener('touchend',onUp);
+    };
+    window.addEventListener('mousemove',onMove);
+    window.addEventListener('mouseup',onUp);
+    window.addEventListener('touchmove',onMove,{passive:false});
+    window.addEventListener('touchend',onUp);
+  };
 
   return (
     <div style={{ minHeight:'100vh',background:C.bg,fontFamily:"'Assistant','Heebo',Arial,sans-serif",direction:'rtl' }}>
@@ -2652,7 +2690,7 @@ export default function App() {
       </nav>
 
       <div style={{ display:'flex',minHeight:'calc(100vh - 56px)' }}>
-        <div style={{ flex:1,minWidth:0,display:'flex',flexDirection:'column',marginLeft:panelOpen?PANEL_W:0,transition:'margin-left 0.2s ease' }}>
+        <div style={{ flex:1,minWidth:0,display:'flex',flexDirection:'column',marginLeft:panelOpen?panelWpx:0,transition:isResizing?'none':'margin-left 0.2s ease' }}>
           <div style={{ padding:'10px 16px 9px',background:C.white,borderBottom:`1px solid ${C.border}` }}>
             <ProductSelector selected={product} onChange={k=>{setProduct(k);setSelFund(null);setSelCatId(null);setSentToChart([]);setSentToMix([]);setSentToRisk([]);setSentToAssets([]);}}/>
           </div>
@@ -2690,8 +2728,14 @@ export default function App() {
           </div>
         )}
         {panelOpen&&(
-          <div style={{ position:'fixed',top:56,left:0,width:PANEL_W,height:'calc(100vh - 56px)',overflow:'hidden',zIndex:50,boxShadow:'4px 0 20px rgba(0,0,0,0.15)' }}>
+          <div style={{ position:'fixed',top:56,left:0,width:panelWpx,height:'calc(100vh - 56px)',overflow:'hidden',zIndex:50,boxShadow:'4px 0 20px rgba(0,0,0,0.15)',transition:isResizing?'none':'width 0.2s ease' }}>
             <FundDetail key={selFund?.fund_id} fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);setVirtualWeightedAvg(null);}} catAvg={catAvg} catFundIds={catFundIds} catLabel={catLabel} histData={virtualWeightedAvg?{...histData,__weighted_avg__:virtualWeightedAvg.points}:(histData??{})} allFunds={virtualWeightedAvg?[...allFunds,{fund_id:'__weighted_avg__',name:virtualWeightedAvg.name}]:allFunds} externalCompare={activePanelTab==='mix'?sentToMix:(activePanelTab==='risk'?sentToRisk:(activePanelTab==='assets'?sentToAssets:sentToChart))} onTabChange={setActivePanelTab} backtestData={backtestData} aiData={aiData}/>
+            {/* ידית גרירה לשינוי רוחב — על הקצה הימני של הפאנל */}
+            <div onMouseDown={startResize} onTouchStart={startResize}
+              title="גרור לשינוי רוחב"
+              style={{ position:'absolute',top:0,right:0,width:10,height:'100%',cursor:'ew-resize',zIndex:60,display:'flex',alignItems:'center',justifyContent:'center',background:isResizing?'rgba(0,0,0,0.04)':'transparent',touchAction:'none' }}>
+              <div style={{ width:4,height:46,borderRadius:3,background:isResizing?C.crimson:C.border,transition:'background 0.15s ease' }}/>
+            </div>
           </div>
         )}
       </div>
