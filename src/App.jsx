@@ -387,8 +387,30 @@ function ChartModal({ fund, mainSeries, lines, ranges, range, setRange, onClose 
   );
 }
 
+// ─── רשימת השוואה + צבעים קבועים ───────────────────────────────────────────────
+// רשימת מוצרי ההשוואה נשמרת ב-App (לכל טאב) — הגרפים רק קוראים ומעדכנים אותה,
+// כך שהסרה (×) והוספה (➕ / חיפוש) תמיד עובדות על אותה רשימה.
+function useCompareList(ids, onChange, mainId) {
+  const list = useMemo(() => [...new Set(ids || [])].filter(id => id !== mainId), [ids, mainId]);
+  const setList = upd => onChange && onChange(typeof upd === 'function' ? upd(list) : upd);
+  return [list, setList];
+}
+// לכל מוצר נשמר אותו צבע גם כשמוסיפים/מסירים אחרים וגם במעבר בין טאבים
+const _colorSlots = {};
+function useStableColors(key, ids, palette) {
+  const m = (_colorSlots[key] ??= {});
+  Object.keys(m).forEach(id => { if (!ids.includes(id)) delete m[id]; });
+  ids.forEach(id => {
+    if (m[id] == null) { const used = new Set(Object.values(m)); let k = 0; while (used.has(k)) k++; m[id] = k; }
+  });
+  return id => palette[(m[id] ?? 0) % palette.length];
+}
+
 // ─── Historical Chart (panel) ─────────────────────────────────────────────────
-function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare }) {
+// פלטה אחת לכל הגרפים — אותו מוצר באותו צבע בכל הטאבים
+const CMP_COLORS = ['#D97706','#059669','#7C3AED','#0891B2','#DB2777','#65A30D','#EA580C'];
+const HIST_MAX_CMP = 6;
+function HistoricalChart({ fund, catFundIds, catLabel, histData, compareIds, onCompareChange }) {
   const [range, setRange]         = useState('3y');
   const [customFrom, setCustomFrom] = useState({ y:'', m:'' });
   const [customTo, setCustomTo]     = useState({ y:'', m:'' });
@@ -402,16 +424,9 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
   const fromPeriod = useMemo(()=> customFrom.y && customFrom.m ? customFrom.y + customFrom.m.slice(0,2) : null, [customFrom]);
   const toPeriod   = useMemo(()=> customTo.y   && customTo.m   ? customTo.y   + customTo.m.slice(0,2)   : null, [customTo]);
   const rangeError = useMemo(()=> fromPeriod && toPeriod && fromPeriod >= toPeriod ? 'תאריך ה"מ" חייב להיות לפני תאריך ה"עד"' : null, [fromPeriod, toPeriod]);
-  const [compare, setCompare]   = useState([]);
-
-  // מיזג עם קרנות שנשלחו מבחוץ
-  useEffect(()=>{
-    if(!externalCompare?.length) return;
-    setCompare(prev=>{
-      const toAdd = externalCompare.filter(id=>!prev.includes(id)&&id!==fund.fund_id);
-      return toAdd.length ? [...prev,...toAdd].slice(0,3) : prev;
-    });
-  },[externalCompare]);
+  const [compareAll, setCompare] = useCompareList(compareIds, onCompareChange, fund.fund_id);
+  const compare = useMemo(()=>compareAll.slice(0,HIST_MAX_CMP),[compareAll]);
+  const cmpColor = useStableColors('cmp', compareAll, CMP_COLORS);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQ, setSearchQ]   = useState('');
 
@@ -489,7 +504,7 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
     { id:fund.fund_id||'main', name:fund.name, color:C.crimson, series:mainSeries, main:true },
     ...(avgSeries.length ? [{ id:'__avg', name:catLabel ? `ממוצע מסלולי '${catDisplayName(catLabel)}'` : 'ממוצע קטגוריה', color:'#2563EB', series:avgSeries, dashed:true }] : []),
     ...compareSeries.map((c,ci)=>({ c, ci })).filter(({c})=>c.series.length).map(({c,ci})=>({
-      id:c.id, name:allFunds.find(f=>f.fund_id===c.id)?.name||c.id, color:CC[ci+2]??'#888', series:c.series,
+      id:c.id, name:allFunds.find(f=>f.fund_id===c.id)?.name||c.id, color:cmpColor(c.id), series:c.series,
       onRemove:()=>setCompare(p=>p.filter(id=>id!==c.id)),
     })),
   ], [fund.fund_id, fund.name, mainSeries, avgSeries, compareSeries, catLabel, allFunds]);
@@ -586,7 +601,10 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
         <div style={{ padding:'0 14px 10px',borderTop:`1px solid ${C.border}` }}>
           {!showSearch ? (
             <div style={{ display:'flex',gap:8,alignItems:'center',marginTop:8 }}>
-              <button onClick={()=>setShowSearch(true)} style={{ background:'none',border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:11,padding:'4px 10px',cursor:'pointer',fontFamily:'inherit' }}>+ השוואה למוצר נוסף</button>
+              {compare.length<HIST_MAX_CMP
+                ? <button onClick={()=>setShowSearch(true)} style={{ background:'none',border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:11,padding:'4px 10px',cursor:'pointer',fontFamily:'inherit' }}>+ השוואה למוצר נוסף</button>
+                : <span style={{ fontSize:11,color:C.muted }}>ניתן להשוות עד {HIST_MAX_CMP} מוצרים בגרף זה</span>}
+              {compareAll.length>HIST_MAX_CMP&&<span style={{ fontSize:11,color:'#92400E' }}>⚠️ מוצגים {HIST_MAX_CMP} הראשונים — הסירי מוצר כדי להציג אחר</span>}
               {compare.length>0&&<button onClick={()=>setCompare([])} style={{ background:'none',border:`1px solid ${C.border}`,borderRadius:8,color:C.muted,fontSize:11,padding:'4px 10px',cursor:'pointer',fontFamily:'inherit' }}>איפוס השוואה</button>}
             </div>
           ) : (
@@ -609,7 +627,7 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
                 {showFDDrop && searchResults.length>0&&(
                   <div style={{ position:'absolute',top:'calc(100% + 3px)',right:0,left:0,zIndex:600,background:C.white,border:`1px solid ${C.border}`,borderRadius:7,maxHeight:160,overflowY:'auto',boxShadow:'0 8px 24px rgba(0,0,0,0.12)' }}>
                     {searchResults.map(f=>(
-                      <div key={f.fund_id} onMouseDown={()=>{ if(!compare.includes(f.fund_id)&&compare.length<3) setCompare(p=>[...p,f.fund_id]); setSearchQ(''); setShowFDDrop(false); setShowSearch(false); }} style={{ padding:'6px 10px',fontSize:11.5,cursor:'pointer',borderBottom:`1px solid ${C.border}`,direction:'rtl' }} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background=C.white}>{f.name}</div>
+                      <div key={f.fund_id} onMouseDown={()=>{ if(!compare.includes(f.fund_id)&&compare.length<HIST_MAX_CMP) setCompare(p=>[...p,f.fund_id]); setSearchQ(''); setShowFDDrop(false); setShowSearch(false); }} style={{ padding:'6px 10px',fontSize:11.5,cursor:'pointer',borderBottom:`1px solid ${C.border}`,direction:'rtl' }} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background=C.white}>{f.name}</div>
                     ))}
                   </div>
                 )}
@@ -1179,20 +1197,12 @@ const MIX_PARAMS = [
   { key:'illiquid', label:'% לא סחיר',  color:'#7C3AED' },
 ];
 
-function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds }) {
+function MixChart({ fund, catFundIds, catLabel, histData, allFunds, compareIds, onCompareChange }) {
   const [param, setParam]           = useState('stocks');
   const [showMixModal, setShowMixModal] = useState(false);
   const [mixFrom, setMixFrom]       = useState('');
   const [mixTo, setMixTo]           = useState('');
-  const [extraIds, setExtraIds]     = useState([]);
-
-  useEffect(()=>{
-    if(!externalIds?.length) return;
-    setExtraIds(prev=>{
-      const toAdd = externalIds.filter(id=>!prev.includes(id)&&id!==fund.fund_id);
-      return toAdd.length ? [...prev,...toAdd] : prev;
-    });
-  },[externalIds]);
+  const [extraIds, setExtraIds]     = useCompareList(compareIds, onCompareChange, fund.fund_id);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQ, setSearchQ]       = useState('');
   const [searchProduct, setSearchProduct] = useState(null);
@@ -1200,6 +1210,7 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
   const wrapRef = useRef(null);
 
   const COLORS = ['#E63946','#16A34A','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D','#EA580C'];
+  const mixColor = useStableColors('cmp', extraIds, CMP_COLORS);
 
   // ברירת מחדל לבורר מוצר
   useEffect(()=>{
@@ -1266,7 +1277,7 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
       { id:'main', name:fund.name, color:COLORS[0], isAvg:false,
         series: buildHistSeries(fund.fund_id, param) },
       ...extraFunds.map((f,i)=>({
-        id:f.fund_id, name:f.name, color:COLORS[(i+1)%COLORS.length], isAvg:false,
+        id:f.fund_id, name:f.name, color:mixColor(f.fund_id), isAvg:false,
         series: buildHistSeries(f.fund_id, param)
       })),
       { id:'avg', name:`ממוצע קטגוריה '${catDisplayName(catLabel)||''}'`, color:'#2563EB', isAvg:true,
@@ -1527,21 +1538,13 @@ const riskVal = (data, key) => {
   return m && m.get ? m.get(data) : data[key];
 };
 
-function RiskChart({ fund, backtestData, externalIds }) {
+function RiskChart({ fund, backtestData, compareIds, onCompareChange }) {
   const RC_COLORS = ['#E63946','#16A34A','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D','#EA580C'];
   const [xKey, setXKey] = useState('max_drawdown');
   const [yKey, setYKey] = useState('max_recovery_months');
-  const [extraIds, setExtraIds] = useState([]);
+  const [extraIds, setExtraIds] = useCompareList(compareIds, onCompareChange, fund.fund_id);
   const [hover, setHover] = useState(null);
-
-  // הוספת מוצרים חיצוניים (מהאימוג'י)
-  useEffect(()=>{
-    if(!externalIds?.length) return;
-    setExtraIds(prev=>{
-      const toAdd = externalIds.filter(id=>!prev.includes(id) && id!==fund.fund_id);
-      return toAdd.length ? [...prev,...toAdd] : prev;
-    });
-  },[externalIds, fund.fund_id]);
+  const riskColor = useStableColors('cmp', extraIds, CMP_COLORS);
 
   if(!backtestData) {
     return <div style={{ padding:'40px 20px',textAlign:'center',color:C.muted,fontSize:12 }}>טוען נתוני סיכון…</div>;
@@ -1556,7 +1559,7 @@ function RiskChart({ fund, backtestData, externalIds }) {
     mainRow ? { id:fund.fund_id, name:fund.name, color:RC_COLORS[0], data:mainRow } : null,
     ...extraIds.map((id,i)=>{
       const d = funds[id];
-      return d ? { id, name:d.name, color:RC_COLORS[(i+1)%RC_COLORS.length], data:d } : null;
+      return d ? { id, name:d.name, color:riskColor(id), data:d } : null;
     }),
   ].filter(Boolean);
 
@@ -1833,9 +1836,10 @@ function FlowBarsView({ entries, allPeriods, svgW, chartH, PT, PB, PL, PR, plotW
 }
 
 
-function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds }) {
+function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, compareIds, onCompareChange }) {
   const AC_COLORS = ['#E63946','#16A34A','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D','#EA580C'];
-  const [extraIds, setExtraIds] = useState([]);
+  const [extraIds, setExtraIds] = useCompareList(compareIds, onCompareChange, fund.fund_id);
+  const assetColor = useStableColors('cmp', extraIds, CMP_COLORS);
   const [acFrom, setAcFrom] = useState('');
   const [acTo, setAcTo]     = useState('');
   const [showCatAvg, setShowCatAvg] = useState(true);
@@ -1844,13 +1848,6 @@ function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalI
   const [flowBasis, setFlowBasis] = useState('month'); // 'month' | 'ytd' | '12m'
   const svgRef = useRef(null);
 
-  useEffect(()=>{
-    if(!externalIds?.length) return;
-    setExtraIds(prev=>{
-      const toAdd = externalIds.filter(id=>!prev.includes(id)&&id!==fund.fund_id);
-      return toAdd.length ? [...prev,...toAdd] : prev;
-    });
-  },[externalIds]);
 
   const inRange = (period) => (!acFrom || period>=acFrom) && (!acTo || period<=acTo);
 
@@ -1921,7 +1918,7 @@ function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalI
   const allEntries = useMemo(()=>{
     const rows = [{ id:fund.fund_id, name:fund.name, color:AC_COLORS[0], series:buildAssetsSeries(fund.fund_id) }];
     extraFunds.forEach((f,i)=>{
-      rows.push({ id:f.fund_id, name:f.name, color:AC_COLORS[(i+1)%AC_COLORS.length], series:buildAssetsSeries(f.fund_id) });
+      rows.push({ id:f.fund_id, name:f.name, color:assetColor(f.fund_id), series:buildAssetsSeries(f.fund_id) });
     });
     if(showCatAvg && catFundIds?.length){
       rows.push({ id:'__catavg__', name:`ממוצע קטגוריה '${catDisplayName(catLabel)||''}'`, color:'#94A3B8', isAvg:true, series:buildCatAvgSeries() });
@@ -1933,7 +1930,7 @@ function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalI
   const flowEntries = useMemo(()=>{
     const rows = [{ id:fund.fund_id, name:fund.name, color:AC_COLORS[0], series:buildFlowSeries(fund.fund_id) }];
     extraFunds.forEach((f,i)=>{
-      rows.push({ id:f.fund_id, name:f.name, color:AC_COLORS[(i+1)%AC_COLORS.length], series:buildFlowSeries(f.fund_id) });
+      rows.push({ id:f.fund_id, name:f.name, color:assetColor(f.fund_id), series:buildFlowSeries(f.fund_id) });
     });
     return rows.filter(r=>r.series.length>0);
   },[fund,extraFunds,flowBasis,histData]);
@@ -2143,7 +2140,7 @@ function AumBreakdownTable({ fund, histData }){
   );
 }
 
-function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, allFunds, externalCompare, onTabChange, backtestData, aiData }) {
+function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, allFunds, compareLists, onCompareChange, onTabChange, backtestData, aiData }) {
   if(!fund) return null;
   const [activeTab, setActiveTab] = useState('history');
   const handleTabChange = (id) => { setActiveTab(id); onTabChange&&onTabChange(id); };
@@ -2210,20 +2207,20 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
         ))}
       </div>
       <div style={{ flex:1,overflowY:'auto' }}>
-        {activeTab==='history'&&<div><HistoricalChart fund={fundWithAll} catFundIds={catFundIds} catLabel={catLabel} histData={histData} externalCompare={externalCompare}/>
+        {activeTab==='history'&&<div><HistoricalChart fund={fundWithAll} catFundIds={catFundIds} catLabel={catLabel} histData={histData} compareIds={compareLists?.history} onCompareChange={ids=>onCompareChange?.('history',ids)}/>
 
       <AIAnalysisBlock analysis={aiData?.[fund?.fund_id]?.analysis}/></div>}
-        {activeTab==='mix'&&<div><MixChart fund={fund} catFundIds={catFundIds} catLabel={catLabel} histData={histData} allFunds={allFunds} externalIds={externalCompare}/>
+        {activeTab==='mix'&&<div><MixChart fund={fund} catFundIds={catFundIds} catLabel={catLabel} histData={histData} allFunds={allFunds} compareIds={compareLists?.mix} onCompareChange={ids=>onCompareChange?.('mix',ids)}/>
 
       <AIAnalysisBlock analysis={aiData?.[fund?.fund_id]?.analysis}/></div>}
         {activeTab==='assets'&&(
           <>
-            <AssetsChart fund={fund} catFundIds={catFundIds} catLabel={catLabel} histData={histData} allFunds={allFunds} externalIds={externalCompare}/>
+            <AssetsChart fund={fund} catFundIds={catFundIds} catLabel={catLabel} histData={histData} allFunds={allFunds} compareIds={compareLists?.assets} onCompareChange={ids=>onCompareChange?.('assets',ids)}/>
             <AumBreakdownTable fund={fund} histData={histData}/>
           </>
         )}
         {activeTab==='risk'&&(
-          <RiskChart fund={fund} backtestData={backtestData} externalIds={externalCompare}/>
+          <RiskChart fund={fund} backtestData={backtestData} compareIds={compareLists?.risk} onCompareChange={ids=>onCompareChange?.('risk',ids)}/>
         )}
       </div>
     </div>
@@ -2562,7 +2559,7 @@ export default function App() {
         )}
         {panelOpen&&(
           <div style={{ position:'fixed',top:56,left:0,width:panelWpx,height:'calc(100vh - 56px)',overflow:'hidden',zIndex:50,boxShadow:'4px 0 20px rgba(0,0,0,0.15)',transition:isResizing?'none':'width 0.2s ease' }}>
-            <FundDetail key={selFund?.fund_id} fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);setVirtualWeightedAvg(null);}} catAvg={catAvg} catFundIds={catFundIds} catLabel={catLabel} histData={virtualWeightedAvg?{...histData,__weighted_avg__:virtualWeightedAvg.points}:(histData??{})} allFunds={virtualWeightedAvg?[...allFunds,{fund_id:'__weighted_avg__',name:virtualWeightedAvg.name}]:allFunds} externalCompare={activePanelTab==='mix'?sentToMix:(activePanelTab==='risk'?sentToRisk:(activePanelTab==='assets'?sentToAssets:sentToChart))} onTabChange={setActivePanelTab} backtestData={backtestData} aiData={aiData}/>
+            <FundDetail key={selFund?.fund_id} fund={selFund} onClose={()=>{setSelFund(null);setSelCatId(null);setVirtualWeightedAvg(null);}} catAvg={catAvg} catFundIds={catFundIds} catLabel={catLabel} histData={virtualWeightedAvg?{...histData,__weighted_avg__:virtualWeightedAvg.points}:(histData??{})} allFunds={virtualWeightedAvg?[...allFunds,{fund_id:'__weighted_avg__',name:virtualWeightedAvg.name}]:allFunds} compareLists={{ history:sentToChart, mix:sentToMix, assets:sentToAssets, risk:sentToRisk }} onCompareChange={(tab,ids)=>{ setSentToChart(ids); setSentToMix(ids); setSentToAssets(ids); setSentToRisk(ids); }} onTabChange={setActivePanelTab} backtestData={backtestData} aiData={aiData}/>
             {/* ידית גרירה לשינוי רוחב — על הקצה הימני של הפאנל */}
             <div onMouseDown={startResize} onTouchStart={startResize}
               title="גרור לשינוי רוחב"
