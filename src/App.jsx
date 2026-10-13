@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useId } from "react";
 import { CATEGORIES, getFundsForCategory, classifyFund } from "./utils/classifier";
 import { PRODUCT_LABELS, getAllFunds, calcAverages, getSheets, getFundsBySheet, loadData, getHistory } from "./utils/dataLoader";
 import { computeSeries, computeAvgSeries, availableRanges, fmtPeriod } from "./utils/historyLoader";
@@ -164,15 +164,199 @@ function Tooltip({ text }) {
   );
 }
 
-// ─── Chart Modal ──────────────────────────────────────────────────────────────
-function ChartModal({ fund, mainSeries, avgSeries, compareSeries, allFunds, catLabel, ranges, range, setRange, minV, maxV, valRange, onClose }) {
-  const MW=780, MH=340, MPAD={t:16,r:14,b:32,l:52};
-  const mcW=MW-MPAD.l-MPAD.r, mcH=MH-MPAD.t-MPAD.b;
-  const mxFor = (i,tot) => MPAD.l+(i/Math.max(tot-1,1))*mcW;
-  const myFor = v => MPAD.t+mcH-((v-minV)/valRange)*mcH;
-  const mPath = series => series.map((p,i) => `${i===0?'M':'L'}${mxFor(i,series.length).toFixed(1)},${myFor(p.cumRet).toFixed(1)}`).join(' ');
-  const myTicks = [0,0.25,0.5,0.75,1].map(f=>({ v:Math.round((minV+(maxV-minV)*f)*10)/10, y:myFor(minV+(maxV-minV)*f) }));
+// ─── Cumulative Return Chart (shared by panel + modal) ───────────────────────
+// עקומה חלקה (monotone cubic) — לא חורגת מעבר לנקודות הנתונים
+function smoothPath(pts) {
+  const n = pts.length;
+  if (!n) return '';
+  const f = v => v.toFixed(1);
+  if (n === 1) return `M${f(pts[0].x)},${f(pts[0].y)}`;
+  const dx = [], m = [];
+  for (let i = 0; i < n-1; i++) { dx[i] = pts[i+1].x - pts[i].x; m[i] = (pts[i+1].y - pts[i].y) / (dx[i] || 1); }
+  const t = [m[0]];
+  for (let i = 1; i < n-1; i++) t[i] = m[i-1]*m[i] <= 0 ? 0 : (m[i-1] + m[i]) / 2;
+  t[n-1] = m[n-2];
+  for (let i = 0; i < n-1; i++) {
+    if (m[i] === 0) { t[i] = 0; t[i+1] = 0; continue; }
+    const a = t[i]/m[i], b = t[i+1]/m[i], s = a*a + b*b;
+    if (s > 9) { const k = 3/Math.sqrt(s); t[i] = k*a*m[i]; t[i+1] = k*b*m[i]; }
+  }
+  let d = `M${f(pts[0].x)},${f(pts[0].y)}`;
+  for (let i = 0; i < n-1; i++) {
+    const h = dx[i] / 3;
+    d += ` C${f(pts[i].x+h)},${f(pts[i].y+t[i]*h)} ${f(pts[i+1].x-h)},${f(pts[i+1].y-t[i+1]*h)} ${f(pts[i+1].x)},${f(pts[i+1].y)}`;
+  }
+  return d;
+}
 
+// בוחר את מרווח הרשת ההדוק ביותר (5–8 קווים) כדי לא לבזבז שטח בגרף
+function niceScale(min, max) {
+  return [5,6,7,8].map(c => niceScaleN(min, max, c)).reduce((a,b) => (b.hi-b.lo) < (a.hi-a.lo) ? b : a);
+}
+function niceScaleN(min, max, count) {
+  const raw = ((max - min) || 1) / (count - 1);
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const norm = raw / mag;
+  const step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10) * mag;
+  const lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step;
+  const ticks = [];
+  for (let v = lo; v <= hi + step/2; v += step) ticks.push(Math.round(v * 1e6) / 1e6);
+  const dec = Number.isInteger(step) ? 0 : Number.isInteger(step*10) ? 1 : 2;
+  return { lo, hi, ticks, dec };
+}
+
+const signedPct = v => `${v>0?'+':''}${v.toFixed(2)}%`;
+const fullPeriod = p => `${HE_MONTHS[+p.slice(4,6)]} ${p.slice(0,4)}`;
+
+// גרף קווי לאורך זמן (תשואה מצטברת / תמהיל / נכסים)
+// lines: [{ id, name, color, series:[{period,<valueKey>}], main?, dashed?, onRemove? }]
+function TrendChart({ lines, W=470, H=200, compact=true, valueKey='cumRet', fmtVal=signedPct, fmtTick=null, signColors=true, padL=null }) {
+  const [hover, setHover] = useState(null);
+  const svgRef = useRef(null);
+  const uid = useId().replace(/:/g,'');
+
+  const fs  = compact ? 9.5 : 11;
+  const PAD = compact ? { t:18, r:12, b:26, l:padL ?? 40 } : { t:24, r:16, b:34, l:padL ?? 52 };
+  const cW = W-PAD.l-PAD.r, cH = H-PAD.t-PAD.b;
+
+  // ציר X לפי תאריך (איחוד כל התקופות) — כל הקווים מיושרים לאותו חודש
+  const periods = useMemo(() => [...new Set(lines.flatMap(l => l.series.map(p => p.period)))].sort(), [lines]);
+  const pIdx    = useMemo(() => new Map(periods.map((p,i) => [p,i])), [periods]);
+  const valMaps = useMemo(() => lines.map(l => new Map(l.series.map(p => [p.period, p[valueKey]]))), [lines, valueKey]);
+
+  const vals = lines.flatMap(l => l.series.map(p => p[valueKey]));
+  const valColor = v => signColors ? (v>=0 ? C.pos : C.neg) : C.dark;
+  const { lo, hi, ticks, dec } = niceScale(Math.min(0, ...vals), Math.max(0, ...vals));
+  const xAt = p => PAD.l + (periods.length > 1 ? pIdx.get(p) / (periods.length-1) : 0.5) * cW;
+  const yAt = v => PAD.t + cH - ((v - lo) / ((hi - lo) || 1)) * cH;
+  const bottom = PAD.t + cH;
+
+  const xStep = Math.max(1, Math.ceil(periods.length / (compact ? 6 : 9)));
+  const xLabels = periods.filter((_,i) => i % xStep === 0);
+
+  function onMove(e) {
+    const r = svgRef.current?.getBoundingClientRect();
+    if (!r || !periods.length) return;
+    const x = (e.clientX - r.left) * (W / r.width);
+    const i = Math.round(((x - PAD.l) / cW) * (periods.length - 1));
+    setHover(Math.max(0, Math.min(periods.length - 1, i)));
+  }
+
+  const hp = hover != null && hover < periods.length ? periods[hover] : null;
+  const hx = hp ? xAt(hp) : null;
+  const hoverRows = hp ? lines.map((l,i) => ({ l, v: valMaps[i].get(hp) })).filter(r => r.v != null).sort((a,b) => b.v - a.v) : [];
+  const drawOrder = [...lines.filter(l => !l.main), ...lines.filter(l => l.main)];
+  const font = 'Assistant,Heebo,sans-serif';
+
+  return (
+    <div style={{ direction:'rtl' }}>
+      {/* מקרא + תשואה מצטברת לכל קו */}
+      <div style={{ display:'flex', flexWrap:'wrap', gap:compact?'4px 12px':'6px 18px', padding:compact?'2px 2px 6px':'2px 4px 10px', alignItems:'center' }}>
+        {lines.map(l => {
+          const last = l.series[l.series.length-1]?.[valueKey];
+          return (
+            <span key={l.id} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:compact?11:13, color:C.dark, maxWidth:'100%' }}>
+              {l.dashed
+                ? <svg width="14" height="8" style={{ flexShrink:0 }}><line x1="0" y1="4" x2="14" y2="4" stroke={l.color} strokeWidth="2" strokeDasharray="4 2.5" strokeLinecap="round"/></svg>
+                : <span style={{ width:8, height:8, borderRadius:'50%', background:l.color, flexShrink:0 }}/>}
+              <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:compact?200:300, fontWeight:l.main?700:500 }} title={l.name}>{l.name}</span>
+              {last!=null && <span style={{ fontWeight:800, color:valColor(last), direction:'ltr', fontVariantNumeric:'tabular-nums' }}>{fmtVal(last)}</span>}
+              {l.onRemove && <button onClick={l.onRemove} title="הסר מההשוואה" style={{ background:'none', border:'none', cursor:'pointer', color:C.muted, fontSize:13, padding:0, lineHeight:1, fontWeight:700 }}>×</button>}
+            </span>
+          );
+        })}
+      </div>
+
+      <div style={{ position:'relative' }}>
+        <svg ref={svgRef} width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display:'block', overflow:'visible', cursor:'crosshair', touchAction:'pan-y' }}
+          onPointerMove={onMove} onPointerDown={onMove} onPointerLeave={()=>setHover(null)}>
+          <defs>
+            {lines.map((l,i) => (
+              <linearGradient key={l.id} id={`${uid}g${i}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={l.color} stopOpacity={l.main ? 0.20 : 0.07}/>
+                <stop offset="100%" stopColor={l.color} stopOpacity="0"/>
+              </linearGradient>
+            ))}
+          </defs>
+
+          <text x={PAD.l+cW/2} y={PAD.t+cH/2} textAnchor="middle" dominantBaseline="middle" fontSize={compact?24:34} fontWeight="800" fill={C.crimson} opacity="0.05" fontFamily={font} style={{ pointerEvents:'none', userSelect:'none' }}>Progemel-net</text>
+          {getLatestUpdateLabel() && <text x={PAD.l+cW} y={PAD.t-8} textAnchor="start" fontSize={fs} fill={C.muted} opacity="0.8" fontWeight="600" fontFamily={font}>מעודכן ל{getLatestUpdateLabel()}</text>}
+
+          {/* רשת אופקית */}
+          {ticks.map(t => (
+            <g key={t}>
+              <line x1={PAD.l} y1={yAt(t)} x2={PAD.l+cW} y2={yAt(t)} stroke={t===0?'#CFC8C1':'#EFEBE7'} strokeWidth="1" vectorEffect="non-scaling-stroke"/>
+              <text x={PAD.l-7} y={yAt(t)} dominantBaseline="middle" textAnchor="end" direction="ltr" fontSize={fs} fill={C.muted} fontFamily={font} style={{ fontVariantNumeric:'tabular-nums' }}>{fmtTick ? fmtTick(t) : `${t.toFixed(dec)}%`}</text>
+            </g>
+          ))}
+
+          {/* תוויות ציר X */}
+          {xLabels.map(p => (
+            <text key={p} x={xAt(p)} y={bottom + fs + 7} textAnchor="middle" fontSize={fs} fill={C.muted} fontFamily={font}>{fmtPeriod(p)}</text>
+          ))}
+
+          {/* שטחים מתחת לקווים */}
+          {drawOrder.map(l => {
+            if (l.dashed || l.series.length < 2) return null;
+            const pts = l.series.map(p => ({ x:xAt(p.period), y:yAt(p[valueKey]) }));
+            const gi = lines.indexOf(l);
+            return <path key={'a'+l.id} d={`${smoothPath(pts)} L${pts[pts.length-1].x.toFixed(1)},${bottom} L${pts[0].x.toFixed(1)},${bottom} Z`} fill={`url(#${uid}g${gi})`} stroke="none"/>;
+          })}
+
+          {/* קווים */}
+          {drawOrder.map(l => {
+            const pts = l.series.map(p => ({ x:xAt(p.period), y:yAt(p[valueKey]) }));
+            return <path key={'l'+l.id} d={smoothPath(pts)} fill="none" stroke={l.color} strokeWidth={l.main ? 2 : 1.5}
+              strokeDasharray={l.dashed ? '5 4' : undefined} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" opacity={l.main ? 1 : 0.9}/>;
+          })}
+
+          {/* ריחוף: קו אנכי, נקודות, תווית תאריך */}
+          {hp && (
+            <g style={{ pointerEvents:'none' }}>
+              <line x1={hx} y1={PAD.t} x2={hx} y2={bottom} stroke="#9CA3AF" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke"/>
+              {lines.map((l,i) => {
+                const v = valMaps[i].get(hp);
+                return v == null ? null : <circle key={l.id} cx={hx} cy={yAt(v)} r={compact?3.5:4.5} fill={l.color} stroke={C.white} strokeWidth="1.5" vectorEffect="non-scaling-stroke"/>;
+              })}
+              {(() => {
+                const pw = compact ? 52 : 70, ph = fs + 9;
+                const px = Math.max(PAD.l, Math.min(PAD.l + cW - pw, hx - pw/2));
+                return (
+                  <g>
+                    <rect x={px} y={bottom + 3} width={pw} height={ph} rx={ph/2} fill={C.dark}/>
+                    <text x={px + pw/2} y={bottom + 3 + ph/2} dominantBaseline="central" textAnchor="middle" fontSize={fs} fontWeight="700" fill={C.white} fontFamily={font}>{fmtPeriod(hp)}</text>
+                  </g>
+                );
+              })()}
+            </g>
+          )}
+        </svg>
+
+        {/* כרטיס ריחוף — ערכי כל הקווים בתאריך, ממוינים */}
+        {hp && hoverRows.length > 0 && (() => {
+          const flip = hx > W * 0.55;
+          return (
+            <div style={{ position:'absolute', top:compact?22:30, left:`calc(${(hx/W*100).toFixed(2)}% ${flip?'-':'+'} 12px)`, transform:flip?'translateX(-100%)':'none',
+              background:'rgba(255,255,255,0.97)', border:'1px solid #E7E2DD', borderRadius:10, boxShadow:'0 10px 28px rgba(26,26,26,0.12)',
+              padding:compact?'6px 9px':'8px 12px', fontSize:compact?11:12.5, pointerEvents:'none', zIndex:100, direction:'rtl', width:'max-content', minWidth:compact?130:160, maxWidth:compact?290:340 }}>
+              <div style={{ fontWeight:700, color:C.dark, marginBottom:4, paddingBottom:4, borderBottom:'1px solid #F0ECE8' }}>{fullPeriod(hp)}</div>
+              {hoverRows.map(({ l, v }) => (
+                <div key={l.id} style={{ display:'flex', alignItems:'center', gap:6, lineHeight:1.75 }}>
+                  <span style={{ width:7, height:7, borderRadius:'50%', background:l.color, flexShrink:0 }}/>
+                  <span style={{ flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:C.mid }}>{l.name}</span>
+                  <span style={{ fontWeight:700, color:valColor(v), direction:'ltr', fontVariantNumeric:'tabular-nums', marginRight:8 }}>{fmtVal(v)}</span>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+      </div>
+    </div>
+  );
+}
+
+// ─── Chart Modal ──────────────────────────────────────────────────────────────
+function ChartModal({ fund, mainSeries, lines, ranges, range, setRange, onClose }) {
   return (
     <div onClick={onClose} className="pgn-print-overlay" style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.65)',zIndex:10000,display:'flex',alignItems:'center',justifyContent:'center' }}>
       <div onClick={e=>e.stopPropagation()} className="pgn-print-area" style={{ background:C.white,borderRadius:14,width:'min(94vw, 860px)',boxShadow:'0 24px 64px rgba(0,0,0,0.4)',overflow:'hidden',direction:'rtl' }}>
@@ -195,47 +379,8 @@ function ChartModal({ fund, mainSeries, avgSeries, compareSeries, allFunds, catL
             return <span style={{ marginRight:'auto',display:'inline-flex',alignItems:'center',gap:5,background:C.crimson,color:C.white,borderRadius:8,padding:'4px 14px',fontSize:13,fontWeight:700 }}>תשואה מצטברת בתקופה: {cum>0?'+':''}{cum.toFixed(2)}%</span>;
           })()}
         </div>
-        <div style={{ padding:'14px 18px 10px' }}>
-          <svg width="100%" viewBox={`0 0 ${MW} ${MH}`} style={{ display:'block',overflow:'visible' }}>
-            <text x={MPAD.l+mcW/2} y={MH/2} textAnchor="middle" fontSize="34" fontWeight="800" fill={C.crimson} opacity="0.07" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none',userSelect:'none' }}>Progemel-net</text>
-            {getLatestUpdateLabel()&&<text x={MPAD.l+mcW} y={12} textAnchor="end" fontSize="10.5" fill={C.muted} opacity="0.85" fontWeight="600" fontFamily="Assistant,Heebo,sans-serif">מעודכן ל{getLatestUpdateLabel()}</text>}
-            <line x1={MPAD.l} y1={myFor(0)} x2={MPAD.l+mcW} y2={myFor(0)} stroke={C.border} strokeWidth="1" strokeDasharray="3 3"/>
-            {myTicks.map(t=>(
-              <g key={t.v}>
-                <line x1={MPAD.l-4} y1={t.y} x2={MPAD.l} y2={t.y} stroke={C.border} strokeWidth="1"/>
-                <text x={MPAD.l-6} y={t.y+4} textAnchor="end" fontSize="10" fill={C.muted} fontFamily="Assistant,Heebo,sans-serif">{t.v>0?'+':''}{t.v.toFixed(1)}%</text>
-              </g>
-            ))}
-            {avgSeries.length>0 && <path d={mPath(avgSeries)} fill="none" stroke="#2563EB" strokeWidth="2.5" strokeDasharray="8 4" opacity="0.9"/>}
-            {(compareSeries||[]).map((c,ci)=>c.series.length>0&&<path key={c.id} d={mPath(c.series)} fill="none" stroke={['#D97706','#059669','#7C3AED'][ci]??'#888'} strokeWidth="2" opacity="0.8"/>)}
-            <path d={mPath(mainSeries)} fill="none" stroke={C.crimson} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-            {mainSeries.filter((_,i)=>{ const step=mainSeries.length>60?12:mainSeries.length>24?6:3; return i%step===0||i===mainSeries.length-1; }).map(p=>{
-              const i=mainSeries.indexOf(p);
-              return <text key={p.period} x={mxFor(i,mainSeries.length)} y={MH-4} textAnchor="middle" fontSize="9.5" fill={C.muted} fontFamily="Assistant,Heebo,sans-serif">{fmtPeriod(p.period)}</text>;
-            })}
-          </svg>
-          <div style={{ display:'flex',gap:16,padding:'6px 0 4px',alignItems:'center' }}>
-            <span style={{ display:'flex',alignItems:'center',gap:5,fontSize:12,color:C.dark }}>
-              <svg width="22" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke={C.crimson} strokeWidth="3"/></svg>
-              {fund.name}
-            </span>
-            {avgSeries.length>0 && (
-              <span style={{ display:'flex',alignItems:'center',gap:5,fontSize:12,color:'#2563EB',fontWeight:600 }}>
-                <svg width="22" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#2563EB" strokeWidth="2.5" strokeDasharray="6 3"/></svg>
-                {catLabel ? `ממוצע מסלולי '${catDisplayName(catLabel)}'` : 'ממוצע קטגוריה'}
-              </span>
-            )}
-            {(compareSeries||[]).map((c,ci)=>{
-              const cf=allFunds?.find(f=>f.fund_id===c.id);
-              const stroke=['#D97706','#059669','#7C3AED'][ci]??'#888';
-              return c.series.length>0&&(
-                <span key={c.id} style={{ display:'flex',alignItems:'center',gap:5,fontSize:12,color:stroke,fontWeight:600 }}>
-                  <svg width="22" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke={stroke} strokeWidth="2"/></svg>
-                  {cf?.name||c.id}
-                </span>
-              );
-            })}
-          </div>
+        <div style={{ padding:'14px 18px 12px' }}>
+          <TrendChart lines={lines.map(({ onRemove, ...l })=>l)} W={780} H={360} compact={false}/>
         </div>
       </div>
     </div>
@@ -269,8 +414,6 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
   },[externalCompare]);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQ, setSearchQ]   = useState('');
-  const [hoverIdx, setHoverIdx] = useState(null);
-  const svgRef = useRef(null);
 
   const fundPoints = useMemo(() => fund.fund_id ? histData[fund.fund_id]??[] : [], [fund.fund_id, histData]);
   const ranges = useMemo(() => availableRanges(fundPoints), [fundPoints]);
@@ -341,35 +484,15 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
     return pool.filter(f=>words.every(w=>f.name.includes(w))).slice(0,10);
   }, [searchQ, productSearchFunds, fund.fund_id]);
 
-  if(!mainSeries.length) return (
-    <div style={{ padding:'28px 20px',textAlign:'center',color:C.muted,fontSize:13 }}>
-      <div style={{ fontSize:24,marginBottom:8 }}>📊</div>אין מספיק נתונים היסטוריים להצגת גרף
-    </div>
-  );
-
-  const W=470, H=170, PAD={t:12,r:10,b:28,l:44};
-  const cW=W-PAD.l-PAD.r, cH=H-PAD.t-PAD.b;
-  const allSeries=[mainSeries,avgSeries,...compareSeries.map(c=>c.series)].filter(s=>s.length);
-  const allVals=allSeries.flatMap(s=>s.map(p=>p.cumRet));
-  const minV=Math.min(...allVals,0), maxV=Math.max(...allVals,0);
-  const valRange=maxV-minV||1;
-
-  const xFor = (i,tot) => PAD.l+(i/Math.max(tot-1,1))*cW;
-  const yFor = v => PAD.t+cH-((v-minV)/valRange)*cH;
-  const sPath = series => series.map((p,i)=>`${i===0?'M':'L'}${xFor(i,series.length).toFixed(1)},${yFor(p.cumRet).toFixed(1)}`).join(' ');
-
-  function handleMM(e) {
-    const svg=svgRef.current; if(!svg) return;
-    const rect=svg.getBoundingClientRect();
-    const mx=(e.clientX-rect.left)*(W/rect.width)-PAD.l;
-    setHoverIdx(Math.max(0,Math.min(Math.round((mx/cW)*(mainSeries.length-1)),mainSeries.length-1)));
-  }
-
-  const hp=hoverIdx!=null?mainSeries[hoverIdx]:null;
-  const hx=hp?xFor(hoverIdx,mainSeries.length):null;
-  const hy=hp?yFor(hp.cumRet):null;
-  const yTicks=[minV,(minV+maxV)/2,maxV].map(v=>({ v:Math.round(v*10)/10, y:yFor(v) }));
   const CC=['#8B1A3A','#2563EB','#D97706','#059669','#7C3AED'];
+  const lines = useMemo(()=>[
+    { id:fund.fund_id||'main', name:fund.name, color:C.crimson, series:mainSeries, main:true },
+    ...(avgSeries.length ? [{ id:'__avg', name:catLabel ? `ממוצע מסלולי '${catDisplayName(catLabel)}'` : 'ממוצע קטגוריה', color:'#2563EB', series:avgSeries, dashed:true }] : []),
+    ...compareSeries.map((c,ci)=>({ c, ci })).filter(({c})=>c.series.length).map(({c,ci})=>({
+      id:c.id, name:allFunds.find(f=>f.fund_id===c.id)?.name||c.id, color:CC[ci+2]??'#888', series:c.series,
+      onRemove:()=>setCompare(p=>p.filter(id=>id!==c.id)),
+    })),
+  ], [fund.fund_id, fund.name, mainSeries, avgSeries, compareSeries, catLabel, allFunds]);
 
   // Lock body scroll and hide sticky elements when modal open
   useEffect(() => {
@@ -392,9 +515,15 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
     };
   }, [showModal]);
 
+  if(!mainSeries.length) return (
+    <div style={{ padding:'28px 20px',textAlign:'center',color:C.muted,fontSize:13 }}>
+      <div style={{ fontSize:24,marginBottom:8 }}>📊</div>אין מספיק נתונים היסטוריים להצגת גרף
+    </div>
+  );
+
   return (
     <>
-      {showModal && <ChartModal fund={fund} mainSeries={mainSeries} avgSeries={avgSeries} compareSeries={compareSeries} allFunds={allFunds} catLabel={catLabel} ranges={ranges} range={range} setRange={setRange} minV={minV} maxV={maxV} valRange={valRange} onClose={()=>setShowModal(false)}/>}
+      {showModal && <ChartModal fund={fund} mainSeries={mainSeries} lines={lines} ranges={ranges} range={range} setRange={setRange} onClose={()=>setShowModal(false)}/>}
       <div style={{ padding:'0 0 4px' }}>
         <div style={{ display:'flex',gap:4,padding:'10px 14px 8px',borderBottom:`1px solid ${C.border}`,alignItems:'center' }}>
           <span style={{ fontSize:11,color:C.muted,marginLeft:6 }}>טווח:</span>
@@ -450,56 +579,8 @@ function HistoricalChart({ fund, catFundIds, catLabel, histData, externalCompare
             })()}
           </div>
         )}
-        <div style={{ padding:'8px 14px 4px',position:'relative' }}>
-          <svg ref={svgRef} width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display:'block',overflow:'visible',cursor:'crosshair' }} onMouseMove={handleMM} onMouseLeave={()=>setHoverIdx(null)}>
-            <text x={W/2} y={H/2} textAnchor="middle" fontSize="24" fontWeight="800" fill={C.crimson} opacity="0.07" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none',userSelect:'none' }}>Progemel-net</text>
-            {getLatestUpdateLabel()&&<text x={W-4} y={11} textAnchor="end" fontSize="9" fill={C.muted} opacity="0.85" fontWeight="600" fontFamily="Assistant,Heebo,sans-serif">מעודכן ל{getLatestUpdateLabel()}</text>}
-            <line x1={PAD.l} y1={yFor(0)} x2={PAD.l+cW} y2={yFor(0)} stroke={C.border} strokeWidth="1" strokeDasharray="3 3"/>
-            {yTicks.map(t=>(
-              <g key={t.v}>
-                <line x1={PAD.l-3} y1={t.y} x2={PAD.l} y2={t.y} stroke={C.border} strokeWidth="1"/>
-                <text x={PAD.l-5} y={t.y+4} textAnchor="end" fontSize="8.5" fill={C.muted} fontFamily="Assistant,Heebo,sans-serif">{t.v>0?'+':''}{t.v.toFixed(1)}%</text>
-              </g>
-            ))}
-            {avgSeries.length>0 && <path d={sPath(avgSeries)} fill="none" stroke="#2563EB" strokeWidth="2" strokeDasharray="6 3" opacity="0.85"/>}
-            {compareSeries.map((c,ci)=>c.series.length>0&&<path key={c.id} d={sPath(c.series)} fill="none" stroke={CC[ci+2]??'#888'} strokeWidth="1.5" opacity="0.7"/>)}
-            <path d={sPath(mainSeries)} fill="none" stroke={C.crimson} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-            {mainSeries.filter((_,i)=>{ const s=mainSeries.length>60?12:mainSeries.length>24?6:3; return i%s===0||i===mainSeries.length-1; }).map(p=>{
-              const i=mainSeries.indexOf(p);
-              return <text key={p.period} x={xFor(i,mainSeries.length)} y={H-6} textAnchor="middle" fontSize="8" fill={C.muted} fontFamily="Assistant,Heebo,sans-serif">{fmtPeriod(p.period)}</text>;
-            })}
-            {hp&&<><line x1={hx} y1={PAD.t} x2={hx} y2={PAD.t+cH} stroke={C.crimson} strokeWidth="1" strokeDasharray="3 2" opacity="0.5"/><circle cx={hx} cy={hy} r="4" fill={C.crimson} stroke={C.white} strokeWidth="1.5"/></>}
-          </svg>
-          {hp&&(
-            <div style={{ position:'absolute',top:Math.max(8,(hy/H)*100-20)+'%',right:hx/W>0.6?(100-hx/W*100+2)+'%':'auto',left:hx/W<=0.6?(hx/W*100+1)+'%':'auto',background:C.dark,color:C.white,borderRadius:7,padding:'5px 9px',fontSize:11,pointerEvents:'none',zIndex:100,boxShadow:'0 4px 14px rgba(0,0,0,0.3)',direction:'rtl',lineHeight:1.7 }}>
-              <div style={{ fontWeight:700 }}>{hp.label}</div>
-              <div style={{ color:hp.cumRet>=0?'#6EE7A0':'#FCA5A5' }}>מצטבר: {hp.cumRet>0?'+':''}{hp.cumRet.toFixed(2)}%</div>
-            </div>
-          )}
-        </div>
-
-        <div style={{ padding:'4px 14px 8px',display:'flex',gap:10,flexWrap:'wrap',alignItems:'center' }}>
-          <span style={{ display:'flex',alignItems:'center',gap:4,fontSize:10.5,color:C.dark }}>
-            <svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke={C.crimson} strokeWidth="2.5"/></svg>
-            {fund.name}
-          </span>
-          {avgSeries.length>0&&(
-            <span style={{ display:'flex',alignItems:'center',gap:4,fontSize:10.5,color:'#2563EB',fontWeight:600 }}>
-              <svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#2563EB" strokeWidth="2" strokeDasharray="6 3"/></svg>
-              {catLabel ? `ממוצע מסלולי '${catDisplayName(catLabel)}'` : 'ממוצע קטגוריה'}
-            </span>
-          )}
-          {compareSeries.map((c,ci)=>{
-            const cf=allFunds.find(f=>f.fund_id===c.id);
-            const stroke=CC[ci+2]??'#888';
-            return c.series.length>0&&(
-              <span key={c.id} style={{ display:'flex',alignItems:'center',gap:4,fontSize:10.5,color:stroke,fontWeight:600 }}>
-                <svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke={stroke} strokeWidth="1.5"/></svg>
-                {cf?.name||c.id}
-                <button onClick={()=>setCompare(p=>p.filter(id=>id!==c.id))} style={{ background:'none',border:'none',cursor:'pointer',color:stroke,fontSize:12,padding:0,lineHeight:1,marginRight:1,fontWeight:700 }}>×</button>
-              </span>
-            );
-          })}
+        <div style={{ padding:'10px 14px 8px' }}>
+          <TrendChart lines={lines} W={470} H={200}/>
         </div>
 
         <div style={{ padding:'0 14px 10px',borderTop:`1px solid ${C.border}` }}>
@@ -1227,99 +1308,15 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
     return [...years].sort();
   },[allEntries]);
 
-  // מקסימום ערך (לצורך קנה מידה אנכי)
   const inRange = (period) => (!mixFrom || period>=mixFrom) && (!mixTo || period<=mixTo);
-  const maxVal = useMemo(()=>{
-    let m = 0;
-    allEntries.forEach(e=>e.series.forEach(pt=>{ if(inRange(pt.period) && pt.val>m) m=pt.val; }));
-    return Math.max(10, Math.ceil(m/10)*10);
-  },[allEntries, mixFrom, mixTo]);
 
-  const chartH = 190, PT = 18, PB = 30, PL = 38, PR = 14;
-  const svgW = 620, svgH = chartH + PT + PB;
-  const plotW = svgW - PL - PR;
-
-  // ממפה period ל-X, value ל-Y
-  const xFor = (period) => {
-    if(allPeriods.length<=1) return PL + plotW/2;
-    const idx = allPeriods.indexOf(period);
-    return PL + (idx/(allPeriods.length-1))*plotW;
-  };
-  const yFor = (val) => PT + chartH - (val/maxVal)*chartH;
-
-  // בונה path string מסדרת נקודות
-  const pathFor = (series) => {
-    const pts = series.filter(pt=>inRange(pt.period));
-    if(!pts.length) return '';
-    return pts.map((pt,i)=>`${i===0?'M':'L'}${xFor(pt.period).toFixed(1)},${yFor(pt.val).toFixed(1)}`).join(' ');
-  };
-
-  // תוויות ציר X (שנים) — קח כל תקופה שמסתיימת ב-01 (ינואר) או הראשונה/אחרונה
-  const xLabels = useMemo(()=>{
-    const labels = [];
-    const n = allPeriods.length;
-    if(n===0) return labels;
-    // טווח קצר (עד ~24 חודשים) — הצג חודש/שנה. אחרת — שנים בלבד.
-    const shortRange = n <= 24;
-    if(shortRange){
-      // הצג תווית כל חודש-חודשיים לפי צפיפות
-      const step = n<=12 ? 1 : 2;
-      allPeriods.forEach((p,i)=>{
-        if(i % step === 0 || i===n-1){
-          const mm = p.slice(4,6), yy = p.slice(2,4);
-          labels.push({ period:p, label:`${mm}/${yy}` });
-        }
-      });
-    } else {
-      // תווית אחת לכל שנה (בתחילתה). אם יש הרבה שנים — כל שנה שנייה
-      // כדי שהתוויות לא ידרסו זו את זו, תוך שמירה על פונט גדול וקריא.
-      const firstOfYear = [];
-      let lastYear = '';
-      allPeriods.forEach((p)=>{
-        const year = p.slice(0,4);
-        if(year!==lastYear){
-          firstOfYear.push({ period:p, year });
-          lastYear = year;
-        }
-      });
-      const stepY = firstOfYear.length > 10 ? 2 : 1;
-      firstOfYear.forEach((it, idx)=>{
-        if(idx % stepY === 0){
-          labels.push({ period:it.period, label:it.year });
-        }
-      });
-    }
-    return labels;
-  },[allPeriods]);
-
-  // ── פיזור תוויות ערך-סופי אנכית כדי שלא ידרסו זו את זו ──
-  const endLabels = useMemo(()=>{
-    const items = allEntries.map(e=>{
-      const inr = e.series.filter(pt=>inRange(pt.period));
-      const last = inr[inr.length-1];
-      return last ? { id:e.id, color:e.color, val:last.val, period:last.period, y:yFor(last.val) } : null;
-    }).filter(Boolean).sort((a,b)=>a.y-b.y);
-    // דחיפה אנכית: מרווח מינימלי 11px בין תוויות
-    const MIN=11;
-    for(let i=1;i<items.length;i++){
-      if(items[i].y - items[i-1].y < MIN) items[i].y = items[i-1].y + MIN;
-    }
-    return items;
-  },[allEntries, maxVal]);
-
-  // ── Tooltip בהרחפה ──
-  const [hoverPeriod, setHoverPeriod] = useState(null);
-  const svgMainRef = useRef(null);
-  const handleMixHover = (e, isModal) => {
-    const svg = e.currentTarget;
-    const rect = svg.getBoundingClientRect();
-    const relX = (e.clientX - rect.left) / rect.width * svgW;
-    // מצא את התקופה הקרובה ביותר ל-X
-    if(allPeriods.length===0) return;
-    let best=allPeriods[0], bestD=Infinity;
-    allPeriods.forEach(p=>{ const d=Math.abs(xFor(p)-relX); if(d<bestD){bestD=d;best=p;} });
-    setHoverPeriod(best);
-  };
+  // קווים לגרף: מסוננים לטווח הנבחר
+  const mixLines = useMemo(()=>allEntries.map(e=>({
+    id:e.id, name:e.name, color:e.color, main:e.id==='main', dashed:e.isAvg,
+    series:e.series.filter(pt=>inRange(pt.period)),
+    onRemove:(e.id!=='main'&&e.id!=='avg') ? ()=>setExtraIds(p=>p.filter(id=>id!==e.id)) : undefined,
+  })).filter(l=>l.series.length),[allEntries, mixFrom, mixTo]);
+  const fmtMixVal = v => `${v.toFixed(1)}%`;
 
   return (
     <div style={{ direction:'rtl' }}>
@@ -1352,52 +1349,8 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
               {allPeriods.length===0 ? (
                 <div style={{ padding:'40px',textAlign:'center',color:C.muted }}>אין נתוני תמהיל היסטוריים</div>
               ) : (
-              <><svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ display:'block',overflow:'visible',cursor:'crosshair' }} onMouseMove={handleMixHover} onMouseLeave={()=>setHoverPeriod(null)}>
-                <text x={svgW/2} y={svgH/2} textAnchor="middle" fontSize="32" fontWeight="800" fill={C.crimson} opacity="0.07" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none',userSelect:'none' }}>Progemel-net</text>
-                {getLatestUpdateLabel()&&<text x={svgW-PR} y={12} textAnchor="end" fontSize="10.5" fill={C.muted} opacity="0.85" fontWeight="600" fontFamily="Assistant,Heebo,sans-serif">מעודכן ל{getLatestUpdateLabel()}</text>}
-                {[0,0.25,0.5,0.75,1].map(f=>{
-                  const val=maxVal*(1-f), y=PT+chartH*f;
-                  return <g key={f}>
-                    <line x1={PL} y1={y} x2={svgW-PR} y2={y} stroke={C.border} strokeWidth="0.5" strokeDasharray="2 3" opacity="0.6"/>
-                    <text x={PL-5} y={y+3.5} textAnchor="end" fontSize="11.5" fill={C.muted}>{val.toFixed(0)}%</text>
-                  </g>;
-                })}
-                {xLabels.map(l=>(
-                  <text key={l.period} x={xFor(l.period)} y={PT+chartH+18} textAnchor="middle" fontSize="11.5" fill={C.muted}>{l.label}</text>
-                ))}
-                {allEntries.map(entry=>(
-                  <path key={entry.id} d={pathFor(entry.series)} fill="none" stroke={entry.color} strokeWidth={entry.isAvg?2:2.6} strokeDasharray={entry.isAvg?'5 3':'none'} opacity={entry.isAvg?0.75:0.95} strokeLinejoin="round" strokeLinecap="round"/>
-                ))}
-                {hoverPeriod&&inRange(hoverPeriod)&&(()=>{
-                  const hx=xFor(hoverPeriod);
-                  return <g style={{ pointerEvents:'none' }}>
-                    <line x1={hx} y1={PT} x2={hx} y2={PT+chartH} stroke={C.muted} strokeWidth="1" strokeDasharray="3 3" opacity="0.5"/>
-                    {allEntries.map(entry=>{ const pt=entry.series.find(p=>p.period===hoverPeriod); if(!pt) return null; return <circle key={'hv-'+entry.id} cx={hx} cy={yFor(pt.val)} r="4" fill={entry.color} stroke="#fff" strokeWidth="1.5"/>; })}
-                  </g>;
-                })()}
-                {endLabels.map(el=>(
-                  <g key={'end-'+el.id} style={{ pointerEvents:'none' }}>
-                    <circle cx={xFor(el.period)} cy={yFor(el.val)} r="3" fill={el.color}/>
-                    <line x1={xFor(el.period)} y1={yFor(el.val)} x2={xFor(el.period)-7} y2={el.y} stroke={el.color} strokeWidth="0.5" opacity="0.5"/>
-                    <text x={xFor(el.period)-9} y={el.y+3} textAnchor="end" fontSize="10" fontWeight="700" fill={el.color}>{el.val.toFixed(1)}%</text>
-                  </g>
-                ))}
-              </svg>
-              {hoverPeriod&&inRange(hoverPeriod)&&(
-                <div style={{ display:'flex',flexWrap:'wrap',gap:'4px 14px',padding:'8px 12px',margin:'8px 0 0',background:C.dark,borderRadius:6,fontSize:12 }}>
-                  <span style={{ color:C.white,fontWeight:700 }}>{hoverPeriod.slice(4,6)}/{hoverPeriod.slice(0,4)}</span>
-                  {allEntries.map(entry=>{ const pt=entry.series.find(p=>p.period===hoverPeriod); if(!pt) return null; return <span key={'tt-'+entry.id} style={{ color:entry.color,fontWeight:600 }}>{pt.val.toFixed(1)}%</span>; })}
-                </div>
-              )}</>
+              <TrendChart lines={mixLines.map(({ onRemove, ...l })=>l)} W={780} H={360} compact={false} valueKey="val" fmtVal={fmtMixVal} signColors={false}/>
               )}
-            </div>
-            <div style={{ padding:'8px 16px 14px',display:'flex',gap:10,flexWrap:'wrap',borderTop:`1px solid ${C.border}` }}>
-              {allEntries.map(e=>(
-                <span key={e.id} style={{ display:'flex',alignItems:'center',gap:4,fontSize:11,color:e.color,fontWeight:600 }}>
-                  <span style={{ width:10,height:10,borderRadius:2,background:e.color,display:'inline-block' }}/>
-                  {e.name}
-                </span>
-              ))}
             </div>
           </div>
         </div>
@@ -1437,74 +1390,8 @@ function MixChart({ fund, catFundIds, catLabel, histData, allFunds, externalIds 
             אין נתוני תמהיל היסטוריים למוצר זה
           </div>
         ) : (
-        <><svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ display:'block',overflow:'visible',cursor:'crosshair' }} onMouseMove={handleMixHover} onMouseLeave={()=>setHoverPeriod(null)}>
-          {/* כתב מים */}
-          <text x={svgW/2} y={svgH/2} textAnchor="middle" fontSize="24" fontWeight="800" fill={C.crimson} opacity="0.07" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none',userSelect:'none' }}>Progemel-net</text>
-          {getLatestUpdateLabel()&&<text x={svgW-PR} y={11} textAnchor="end" fontSize="9" fill={C.muted} opacity="0.85" fontWeight="600" fontFamily="Assistant,Heebo,sans-serif">מעודכן ל{getLatestUpdateLabel()}</text>}
-          {[0,0.25,0.5,0.75,1].map(f=>{
-            const val=maxVal*(1-f), y=PT+chartH*f;
-            return <g key={f}>
-              <line x1={PL} y1={y} x2={svgW-PR} y2={y} stroke={C.border} strokeWidth="0.5" strokeDasharray="2 3" opacity="0.6"/>
-              <text x={PL-5} y={y+3.5} textAnchor="end" fontSize="11" fill={C.muted}>{val.toFixed(0)}%</text>
-            </g>;
-          })}
-          {xLabels.map(l=>(
-            <text key={l.period} x={xFor(l.period)} y={PT+chartH+16} textAnchor="middle" fontSize="11" fill={C.muted}>{l.label}</text>
-          ))}
-          {allEntries.map(entry=>(
-            <path key={entry.id} d={pathFor(entry.series)} fill="none"
-              stroke={entry.color} strokeWidth={entry.isAvg?1.8:2.2}
-              strokeDasharray={entry.isAvg?'5 3':'none'}
-              opacity={entry.isAvg?0.75:0.95}
-              strokeLinejoin="round" strokeLinecap="round"/>
-          ))}
-          {/* קו הרחפה + נקודות */}
-          {hoverPeriod&&(()=>{
-            const hx=xFor(hoverPeriod);
-            return <g style={{ pointerEvents:'none' }}>
-              <line x1={hx} y1={PT} x2={hx} y2={PT+chartH} stroke={C.muted} strokeWidth="1" strokeDasharray="3 3" opacity="0.5"/>
-              {allEntries.map(entry=>{
-                const pt=entry.series.find(p=>p.period===hoverPeriod);
-                if(!pt) return null;
-                return <circle key={'hv-'+entry.id} cx={hx} cy={yFor(pt.val)} r="3.5" fill={entry.color} stroke="#fff" strokeWidth="1"/>;
-              })}
-            </g>;
-          })()}
-          {/* ערכים סופיים מפוזרים אנכית (ללא דריסה) */}
-          {endLabels.map(el=>(
-            <g key={'end-'+el.id} style={{ pointerEvents:'none' }}>
-              <circle cx={xFor(el.period)} cy={yFor(el.val)} r="2.5" fill={el.color}/>
-              <line x1={xFor(el.period)} y1={yFor(el.val)} x2={xFor(el.period)-6} y2={el.y} stroke={el.color} strokeWidth="0.5" opacity="0.5"/>
-              <text x={xFor(el.period)-8} y={el.y+3} textAnchor="end" fontSize="8.5" fontWeight="700" fill={el.color}>{el.val.toFixed(1)}%</text>
-            </g>
-          ))}
-        </svg>
-        {/* Tooltip בהרחפה */}
-        {hoverPeriod&&(
-          <div style={{ display:'flex',flexWrap:'wrap',gap:'4px 12px',padding:'6px 10px',margin:'4px 14px 0',background:C.dark,borderRadius:6,fontSize:11 }}>
-            <span style={{ color:C.white,fontWeight:700 }}>{hoverPeriod.slice(4,6)}/{hoverPeriod.slice(0,4)}</span>
-            {allEntries.map(entry=>{
-              const pt=entry.series.find(p=>p.period===hoverPeriod);
-              if(!pt) return null;
-              return <span key={'tt-'+entry.id} style={{ color:entry.color,fontWeight:600 }}>{pt.val.toFixed(1)}%</span>;
-            })}
-          </div>
-        )}</>
+        <TrendChart lines={mixLines} W={470} H={210} valueKey="val" fmtVal={fmtMixVal} signColors={false}/>
         )}
-      </div>
-
-      {/* מקרא */}
-      <div style={{ padding:'4px 14px 8px',display:'flex',gap:10,flexWrap:'wrap',alignItems:'center',borderTop:`1px solid ${C.border}` }}>
-        {allEntries.map(e=>(
-          <span key={e.id} style={{ display:'flex',alignItems:'center',gap:4,fontSize:10.5,color:e.color,fontWeight:e.isAvg?700:600 }}>
-            <span style={{ width:10,height:10,borderRadius:2,background:e.color,display:'inline-block',opacity:e.isAvg?0.6:0.85 }}/>
-            {e.name}
-            {e.id!=='main'&&e.id!=='avg'&&(
-              <button onClick={()=>setExtraIds(p=>p.filter(id=>id!==e.id))}
-                style={{ background:'none',border:'none',cursor:'pointer',color:e.color,fontSize:13,padding:0,fontWeight:700,lineHeight:1 }}>×</button>
-            )}
-          </span>
-        ))}
       </div>
 
       {/* הוספת מוצר להשוואה */}
@@ -1678,7 +1565,7 @@ function RiskChart({ fund, backtestData, externalIds }) {
   }
 
   // גיאומטריית הגרף
-  const svgW = 620, chartH = 240, PT = 20, PB = 44, PL = 56, PR = 20;
+  const svgW = 620, chartH = 240, PT = 20, PB = 48, PL = 74, PR = 20;
   const svgH = chartH + PT + PB;
   const plotW = svgW - PL - PR;
 
@@ -1756,41 +1643,46 @@ function RiskChart({ fund, backtestData, externalIds }) {
       {/* הגרף */}
       <div style={{ padding:'6px 14px' }}>
         <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ display:'block',overflow:'visible' }}>
-          <text x={svgW/2} y={svgH/2} textAnchor="middle" fontSize="24" fontWeight="800" fill={C.crimson} opacity="0.06" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none' }}>Progemel-net</text>
+          <text x={svgW/2} y={svgH/2} textAnchor="middle" fontSize="24" fontWeight="800" fill={C.crimson} opacity="0.05" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none' }}>Progemel-net</text>
           {[0,0.25,0.5,0.75,1].map(f=>{
             const val=yLo+(yHi-yLo)*(1-f), y=PT+chartH*f;
             return <g key={'gy'+f}>
-              <line x1={PL} y1={y} x2={svgW-PR} y2={y} stroke={C.border} strokeWidth="0.5" strokeDasharray="2 3" opacity="0.6"/>
-              <text x={PL-6} y={y+3.5} textAnchor="end" fontSize="10" fill={C.muted}>{yMetric.fmt(val)}</text>
+              <line x1={PL} y1={y} x2={svgW-PR} y2={y} stroke="#EFEBE7" strokeWidth="1" vectorEffect="non-scaling-stroke"/>
+              <text x={PL-6} y={y} dominantBaseline="middle" textAnchor="end" direction="ltr" fontSize="12.5" fill={C.muted} fontFamily="Assistant,Heebo,sans-serif">{yMetric.fmt(val)}</text>
             </g>;
           })}
           {[0,0.25,0.5,0.75,1].map(f=>{
             const val=xLo+(xHi-xLo)*f, x=PL+plotW*f;
-            return <text key={'gx'+f} x={x} y={PT+chartH+16} textAnchor="middle" fontSize="10" fill={C.muted}>{xMetric.fmt(val)}</text>;
+            return <g key={'gx'+f}>
+              <line x1={x} y1={PT} x2={x} y2={PT+chartH} stroke="#F4F1EE" strokeWidth="1" vectorEffect="non-scaling-stroke"/>
+              <text x={x} y={PT+chartH+18} textAnchor="middle" fontSize="12.5" fill={C.muted} fontFamily="Assistant,Heebo,sans-serif">{xMetric.fmt(val)}</text>
+            </g>;
           })}
-          <text x={PL+plotW/2} y={svgH-6} textAnchor="middle" fontSize="11" fontWeight="700" fill={C.dark}>{xMetric.label}</text>
-          <text x={14} y={PT+chartH/2} textAnchor="middle" fontSize="11" fontWeight="700" fill={C.dark} transform={`rotate(-90 14 ${PT+chartH/2})`}>{yMetric.label}</text>
+          <text x={PL+plotW/2} y={svgH-6} textAnchor="middle" fontSize="13.5" fontWeight="600" fill={C.mid} fontFamily="Assistant,Heebo,sans-serif">{xMetric.label}</text>
+          <text x={12} y={PT+chartH/2} textAnchor="middle" fontSize="13.5" fontWeight="600" fill={C.mid} fontFamily="Assistant,Heebo,sans-serif" transform={`rotate(-90 14 ${PT+chartH/2})`}>{yMetric.label}</text>
           {allRows.map(r=>{
             const xv=riskVal(r.data,xKey), yv=riskVal(r.data,yKey);
             if(xv==null||yv==null) return null;
+            const on = hover&&hover.id===r.id;
             return <g key={r.id} onMouseEnter={()=>setHover(r)} onMouseLeave={()=>setHover(null)} style={{ cursor:'pointer' }}>
-              <circle cx={xFor(xv)} cy={yFor(yv)} r={hover&&hover.id===r.id?8:6} fill={r.color} stroke="#fff" strokeWidth="2" opacity="0.9"/>
+              <circle cx={xFor(xv)} cy={yFor(yv)} r={on?16:12} fill={r.color} opacity={on?0.18:0.12}/>
+              <circle cx={xFor(xv)} cy={yFor(yv)} r={on?7:5.5} fill={r.color} stroke="#fff" strokeWidth="2"/>
             </g>;
           })}
           {hover&&(()=>{
             const xv=riskVal(hover.data,xKey), yv=riskVal(hover.data,yKey);
             const px=xFor(xv), py=yFor(yv);
-            const boxW=240, boxH=22+RISK_METRICS.length*17;
+            const boxW=310, boxH=34+RISK_METRICS.length*21;
             const bx=Math.min(Math.max(px-boxW/2,4),svgW-boxW-4);
             const by=py-boxH-12>0?py-boxH-12:py+14;
             return <g style={{ pointerEvents:'none' }}>
               <foreignObject x={bx} y={by} width={boxW} height={boxH}>
-                <div xmlns="http://www.w3.org/1999/xhtml" style={{ direction:'rtl',background:C.dark,opacity:0.96,borderRadius:6,padding:'6px 9px',fontFamily:'Assistant,Heebo,sans-serif',boxSizing:'border-box',width:'100%',height:'100%' }}>
-                  <div style={{ color:'#fff',fontWeight:700,fontSize:10.5,marginBottom:3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis' }}>{hover.name}</div>
+                <div xmlns="http://www.w3.org/1999/xhtml" style={{ direction:'rtl',background:'rgba(255,255,255,0.97)',border:'1px solid #E7E2DD',borderRadius:10,padding:'6px 10px',fontFamily:'Assistant,Heebo,sans-serif',boxSizing:'border-box',width:'100%',height:'100%' }}>
+                  <div style={{ display:'flex',alignItems:'center',gap:6,color:C.dark,fontWeight:700,fontSize:13.5,marginBottom:3,paddingBottom:3,borderBottom:'1px solid #F0ECE8',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis' }}><span style={{ width:7,height:7,borderRadius:'50%',background:hover.color,flexShrink:0 }}/>{hover.name}</div>
                   {RISK_METRICS.map(m=>(
-                    <div key={m.key} style={{ fontSize:9.5,color:'#E5E7EB',lineHeight:1.5,display:'flex',justifyContent:'space-between',gap:8 }}>
+                    <div key={m.key} style={{ fontSize:12.5,color:C.mid,lineHeight:1.6,display:'flex',justifyContent:'space-between',gap:8 }}>
                       <span>{m.label}</span>
-                      <span style={{ color:hover.color,fontWeight:700 }}>{m.fmt(riskVal(hover.data,m.key))}</span>
+                      <span style={{ color:C.dark,fontWeight:700 }}>{m.fmt(riskVal(hover.data,m.key))}</span>
                     </div>
                   ))}
                 </div>
@@ -1883,13 +1775,17 @@ function FlowBarsView({ entries, allPeriods, svgW, chartH, PT, PB, PL, PR, plotW
   return (
     <>
     <svg ref={svgRef} width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ display:'block',overflow:'visible',cursor:'crosshair' }} onMouseMove={handleHoverBar} onMouseLeave={()=>setHoverPeriod(null)}>
-      <text x={svgW/2} y={svgH/2} textAnchor="middle" fontSize="24" fontWeight="800" fill={C.crimson} opacity="0.06" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none' }}>Progemel-net</text>
+      <text x={svgW/2} y={svgH/2} textAnchor="middle" fontSize="24" fontWeight="800" fill={C.crimson} opacity="0.05" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none' }}>Progemel-net</text>
+      {/* רצועת ריחוף */}
+      {hoverPeriod&&periodsSet.has(hoverPeriod)&&(
+        <rect x={xForBar(hoverPeriod)-Math.max(nSeries*barW,6)/2-3} y={PT} width={Math.max(nSeries*barW,6)+6} height={chartH} rx="4" fill="#F3EFEB" style={{ pointerEvents:'none' }}/>
+      )}
       {/* קווי רשת אופקיים */}
       {[-1,-0.5,0,0.5,1].map(f=>{
         const val=maxAbs*f, y=zeroY-(f*chartH/2);
         return <g key={'g'+f}>
-          <line x1={PL} y1={y} x2={svgW-PR} y2={y} stroke={f===0?C.mid:C.border} strokeWidth={f===0?1:0.5} strokeDasharray={f===0?'none':'2 3'} opacity={f===0?0.6:0.5}/>
-          <text x={PL-6} y={y+3.5} textAnchor="end" fontSize="9.5" fill={C.muted}>{val>0?'+':''}{fmtM(val)}</text>
+          <line x1={PL} y1={y} x2={svgW-PR} y2={y} stroke={f===0?'#CFC8C1':'#EFEBE7'} strokeWidth="1" vectorEffect="non-scaling-stroke"/>
+          <text x={PL-6} y={y} dominantBaseline="middle" textAnchor="end" direction="ltr" fontSize="12.5" fill={C.muted} fontFamily="Assistant,Heebo,sans-serif">{val>0?'+':''}{fmtM(val)}</text>
         </g>;
       })}
       {/* עמודות */}
@@ -1906,28 +1802,28 @@ function FlowBarsView({ entries, allPeriods, svgW, chartH, PT, PB, PL, PR, plotW
           // מוצר בודד: ירוק חיובי / אדום שלילי. השוואה: צבע קבוע לכל מוצר
           const barColor = nSeries>1 ? entry.color : (pt.val>=0 ? '#16A34A' : '#DC2626');
           return <rect key={entry.id+period} x={x} y={y} width={Math.max(1,barW-1)} height={Math.max(0.5,h)}
-            fill={barColor} opacity={isHover?1:(nSeries>1?0.8:0.85)} rx="1"/>;
+            fill={barColor} opacity={hoverPeriod&&periodsSet.has(hoverPeriod) ? (isHover?1:0.4) : 0.85} rx={Math.min(2.5,barW/3)}/>;
         });
       })}
       {/* תוויות X */}
       {shownLabels.map(l=>(
-        <text key={l.period} x={xForBar(l.period)} y={PT+chartH+16} textAnchor="middle" fontSize="11" fill={C.muted}>{l.label}</text>
+        <text key={l.period} x={xForBar(l.period)} y={PT+chartH+18} textAnchor="middle" fontSize="12.5" fill={C.muted} fontFamily="Assistant,Heebo,sans-serif">{l.label}</text>
       ))}
     </svg>
     {/* Tooltip מפורט */}
     {hoverPeriod&&inRange(hoverPeriod)&&(
-      <div style={{ padding:'8px 12px',margin:'8px 0 0',background:C.dark,borderRadius:6,fontSize:11.5 }}>
-        <div style={{ color:C.white,fontWeight:700,marginBottom:4 }}>{hoverPeriod.slice(4,6)}/{hoverPeriod.slice(0,4)} · גיוס {basisLabel}</div>
+      <div style={{ padding:'8px 12px',margin:'8px 0 0',background:'rgba(255,255,255,0.97)',border:'1px solid #E7E2DD',borderRadius:10,boxShadow:'0 10px 28px rgba(26,26,26,0.10)',fontSize:11.5 }}>
+        <div style={{ color:C.dark,fontWeight:700,marginBottom:6,paddingBottom:4,borderBottom:'1px solid #F0ECE8' }}>{fullPeriod(hoverPeriod)} · גיוס {basisLabel}</div>
         {entries.map(entry=>{
           const pt=entry.series.find(p=>p.period===hoverPeriod);
           if(!pt||!pt.meta) return null;
           const m=pt.meta;
           const flowPct = m.prev>0 ? (m.net/m.prev*100) : 0;
-          return <div key={entry.id} style={{ display:'flex',flexDirection:'column',gap:1,marginBottom:5,paddingBottom:5,borderBottom:`1px solid rgba(255,255,255,0.1)` }}>
-            <span style={{ color:entry.color,fontWeight:700 }}>{entry.name.length>28?entry.name.slice(0,28)+'…':entry.name}</span>
-            <span style={{ color:'#E5E7EB',fontSize:10.5 }}>סך שינוי בנכסים: {m.totalChange>=0?'+':''}{fmtM(m.totalChange)}</span>
-            <span style={{ color:'#93C5FD',fontSize:10.5 }}>מתוכו מתשואה: {m.returnEffect>=0?'+':''}{fmtM(m.returnEffect)}</span>
-            <span style={{ color:pt.val>=0?'#86EFAC':'#FCA5A5',fontSize:11,fontWeight:700 }}>גיוס/פדיון נטו: {pt.val>=0?'+':''}{fmtM(pt.val)} ({flowPct>=0?'+':''}{flowPct.toFixed(2)}% מהנכסים)</span>
+          return <div key={entry.id} style={{ display:'flex',flexDirection:'column',gap:1,marginBottom:5,paddingBottom:5,borderBottom:'1px solid #F0ECE8' }}>
+            <span style={{ display:'flex',alignItems:'center',gap:6,color:C.dark,fontWeight:700 }}><span style={{ width:7,height:7,borderRadius:'50%',background:entry.color,flexShrink:0 }}/>{entry.name.length>28?entry.name.slice(0,28)+'…':entry.name}</span>
+            <span style={{ color:C.mid,fontSize:10.5 }}>סך שינוי בנכסים: {m.totalChange>=0?'+':''}{fmtM(m.totalChange)}</span>
+            <span style={{ color:'#2563EB',fontSize:10.5 }}>מתוכו מתשואה: {m.returnEffect>=0?'+':''}{fmtM(m.returnEffect)}</span>
+            <span style={{ color:pt.val>=0?C.pos:C.neg,fontSize:11,fontWeight:700 }}>גיוס/פדיון נטו: {pt.val>=0?'+':''}{fmtM(pt.val)} ({flowPct>=0?'+':''}{flowPct.toFixed(2)}% מהנכסים)</span>
           </div>;
         })}
       </div>
@@ -2057,35 +1953,12 @@ function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalI
     return [...years].sort();
   },[allEntries]);
 
-  const chartH=200, PT=16, PB=40, PL=64, PR=16;
+  const chartH=200, PT=16, PB=40, PL=84, PR=16;
   const svgW=620, svgH=chartH+PT+PB;
   const plotW=svgW-PL-PR;
 
-  const maxVal = useMemo(()=>{
-    let m=0;
-    allEntries.forEach(e=>e.series.forEach(pt=>{ if(inRange(pt.period)&&pt.val>m) m=pt.val; }));
-    return m>0 ? m*1.1 : 100;
-  },[allEntries,acFrom,acTo]);
-
   const periodsIdx = useMemo(()=>{ const m={}; allPeriods.forEach((p,i)=>m[p]=i); return m; },[allPeriods]);
   const xFor = (period) => allPeriods.length<2 ? PL+plotW/2 : PL + (periodsIdx[period]/(allPeriods.length-1))*plotW;
-  const yFor = (val) => PT + chartH - (val/maxVal)*chartH;
-
-  const pathFor = (series) => {
-    const pts = series.filter(pt=>inRange(pt.period) && periodsIdx[pt.period]!=null);
-    if(!pts.length) return '';
-    return pts.map((pt,i)=>`${i===0?'M':'L'}${xFor(pt.period).toFixed(1)},${yFor(pt.val).toFixed(1)}`).join(' ');
-  };
-
-  const xLabels = useMemo(()=>{
-    const labels=[]; const n=allPeriods.length; if(!n) return labels;
-    const firstOfYear=[]; let last='';
-    allPeriods.forEach(p=>{ const y=p.slice(0,4); if(y!==last){ firstOfYear.push({period:p,year:y}); last=y; } });
-    const step = firstOfYear.length>10 ? 2 : 1;
-    firstOfYear.forEach((it,idx)=>{ if(idx%step===0) labels.push({period:it.period,label:it.year}); });
-    return labels;
-  },[allPeriods]);
-
   const fmtM = v => v>=1000 ? (v/1000).toFixed(1)+' מיליארד' : v.toFixed(0)+' מ\'';
 
   const handleHover = (e) => {
@@ -2097,16 +1970,12 @@ function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalI
     setHoverPeriod(nearest);
   };
 
-  const endLabels = useMemo(()=>{
-    const items = allEntries.map(e=>{
-      const inr=e.series.filter(pt=>inRange(pt.period));
-      const last=inr[inr.length-1];
-      return last ? { id:e.id,color:e.color,val:last.val,period:last.period,y:yFor(last.val) } : null;
-    }).filter(Boolean).sort((a,b)=>a.y-b.y);
-    const MIN=12;
-    for(let i=1;i<items.length;i++){ if(items[i].y-items[i-1].y<MIN) items[i].y=items[i-1].y+MIN; }
-    return items;
-  },[allEntries,maxVal,acFrom,acTo]);
+  // קווים לגרף הנכסים: מסוננים לטווח הנבחר
+  const assetLines = useMemo(()=>allEntries.map(e=>({
+    id:e.id, name:e.name, color:e.color, main:e.id===fund.fund_id, dashed:!!e.isAvg,
+    series:e.series.filter(pt=>inRange(pt.period)),
+    onRemove:(!e.isAvg && e.id!==fund.fund_id) ? ()=>setExtraIds(prev=>prev.filter(id=>id!==e.id)) : undefined,
+  })).filter(l=>l.series.length),[allEntries,acFrom,acTo,fund.fund_id]);
 
   return (
     <div style={{ direction:'rtl' }}>
@@ -2143,48 +2012,12 @@ function AssetsChart({ fund, catFundIds, catLabel, histData, allFunds, externalI
         ) : (allPeriods.length===0 ? (
           <div style={{ padding:'40px',textAlign:'center',color:C.muted,fontSize:12 }}>אין נתוני נכסים להצגה</div>
         ) : (
-          <>
-          <svg ref={svgRef} width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ display:'block',overflow:'visible',cursor:'crosshair' }} onMouseMove={handleHover} onMouseLeave={()=>setHoverPeriod(null)}>
-            <text x={svgW/2} y={svgH/2} textAnchor="middle" fontSize="24" fontWeight="800" fill={C.crimson} opacity="0.06" fontFamily="Assistant,Heebo,sans-serif" style={{ pointerEvents:'none' }}>Progemel-net</text>
-            {[0,0.25,0.5,0.75,1].map(f=>{
-              const val=maxVal*(1-f), y=PT+chartH*f;
-              return <g key={'gy'+f}>
-                <line x1={PL} y1={y} x2={svgW-PR} y2={y} stroke={C.border} strokeWidth="0.5" strokeDasharray="2 3" opacity="0.6"/>
-                <text x={PL-6} y={y+3.5} textAnchor="end" fontSize="10" fill={C.muted}>{fmtM(val)}</text>
-              </g>;
-            })}
-            {xLabels.map(l=>(
-              <text key={l.period} x={xFor(l.period)} y={PT+chartH+16} textAnchor="middle" fontSize="11" fill={C.muted}>{l.label}</text>
-            ))}
-            {allEntries.map(entry=>(
-              <path key={entry.id} d={pathFor(entry.series)} fill="none" stroke={entry.color} strokeWidth={entry.isAvg?2:2.6} strokeDasharray={entry.isAvg?'5 3':'none'} opacity={entry.isAvg?0.75:0.95} strokeLinejoin="round" strokeLinecap="round"/>
-            ))}
-            {hoverPeriod&&inRange(hoverPeriod)&&(()=>{
-              const hx=xFor(hoverPeriod);
-              return <g style={{ pointerEvents:'none' }}>
-                <line x1={hx} y1={PT} x2={hx} y2={PT+chartH} stroke={C.muted} strokeWidth="1" strokeDasharray="3 3" opacity="0.5"/>
-                {allEntries.map(entry=>{ const pt=entry.series.find(p=>p.period===hoverPeriod); if(!pt) return null; return <circle key={'hv-'+entry.id} cx={hx} cy={yFor(pt.val)} r="4" fill={entry.color} stroke="#fff" strokeWidth="1.5"/>; })}
-              </g>;
-            })()}
-            {endLabels.map(el=>(
-              <g key={'end-'+el.id} style={{ pointerEvents:'none' }}>
-                <circle cx={xFor(el.period)} cy={yFor(el.val)} r="3" fill={el.color}/>
-                <text x={xFor(el.period)-9} y={el.y+3} textAnchor="end" fontSize="10" fontWeight="700" fill={el.color}>{fmtM(el.val)}</text>
-              </g>
-            ))}
-          </svg>
-          {hoverPeriod&&inRange(hoverPeriod)&&(
-            <div style={{ display:'flex',flexWrap:'wrap',gap:'4px 14px',padding:'8px 12px',margin:'8px 0 0',background:C.dark,borderRadius:6,fontSize:12 }}>
-              <span style={{ color:C.white,fontWeight:700 }}>{hoverPeriod.slice(4,6)}/{hoverPeriod.slice(0,4)}</span>
-              {allEntries.map(entry=>{ const pt=entry.series.find(p=>p.period===hoverPeriod); if(!pt) return null; return <span key={'tt-'+entry.id} style={{ color:entry.color,fontWeight:600 }}>{fmtM(pt.val)}</span>; })}
-            </div>
-          )}
-          </>
+          <TrendChart lines={assetLines} W={470} H={210} valueKey="val" fmtVal={v=>fmtM(v)+' ₪'} fmtTick={fmtM} signColors={false} padL={58}/>
         ))}
       </div>
 
       <div style={{ padding:'4px 14px 10px',display:'flex',gap:10,flexWrap:'wrap',alignItems:'center',borderTop:`1px solid ${C.border}` }}>
-        {allEntries.map(entry=>(
+        {viewType==='flows' && flowEntries.map(entry=>(
           <div key={entry.id} style={{ display:'flex',alignItems:'center',gap:4,fontSize:10.5 }}>
             <span style={{ width:12,height:3,background:entry.color,display:'inline-block',borderRadius:2 }}/>
             <span style={{ color:C.dark }}>{entry.name.length>24?entry.name.slice(0,24)+'…':entry.name}</span>
