@@ -1492,12 +1492,14 @@ function AIAnalysisBlock({ analysis }) {
 // ─── מדד מומנטום: גיוס נטו אבסולוטי (₪) ב-3 החודשים האחרונים ─────────────────
 // סך הגיוס נטו בשקלים (בנטרול תשואה) ב-N החודשים האחרונים. יחידות: מיליוני ₪ (כמו assets).
 function netFlow3mAbs(fundId, months=3) {
-  const pts = (getHistory(fundId)||[]).filter(p=>p.assets!=null);
+  const all = getHistory(fundId)||[];
+  const div = all.length && all[all.length-1].product==='פנסיה' ? 1000 : 1; // פנסיה שמורה באלפי ₪
+  const pts = all.filter(p=>p.assets!=null);
   if(pts.length < months+1) return null;
   const slice = pts.slice(-(months+1));
   let net = 0;
   for(let i=1;i<slice.length;i++){
-    const prev=slice[i-1].assets, cur=slice[i].assets, ret=slice[i].ret||0;
+    const prev=slice[i-1].assets/div, cur=slice[i].assets/div, ret=slice[i].ret||0;
     if(prev==null||cur==null||prev<=0) return null;
     net += cur - prev - prev*(ret/100);
   }
@@ -1548,6 +1550,9 @@ function RiskChart({ fund, backtestData, compareIds, onCompareChange }) {
 
   if(!backtestData) {
     return <div style={{ padding:'40px 20px',textAlign:'center',color:C.muted,fontSize:12 }}>טוען נתוני סיכון…</div>;
+  }
+  if(backtestData.loadError) {
+    return <div style={{ padding:'40px 20px',textAlign:'center',color:C.muted,fontSize:12 }}>לא ניתן לטעון כרגע את נתוני הסיכון. נסו לרענן את העמוד.</div>;
   }
 
   const funds = backtestData.funds || {};
@@ -2207,9 +2212,7 @@ function FundDetail({ fund, onClose, catAvg, catFundIds, catLabel, histData, all
         ))}
       </div>
       <div style={{ flex:1,overflowY:'auto' }}>
-        {activeTab==='history'&&<div><HistoricalChart fund={fundWithAll} catFundIds={catFundIds} catLabel={catLabel} histData={histData} compareIds={compareLists?.history} onCompareChange={ids=>onCompareChange?.('history',ids)}/>
-
-      <AIAnalysisBlock analysis={aiData?.[fund?.fund_id]?.analysis}/></div>}
+        {activeTab==='history'&&<div><HistoricalChart fund={fundWithAll} catFundIds={catFundIds} catLabel={catLabel} histData={histData} compareIds={compareLists?.history} onCompareChange={ids=>onCompareChange?.('history',ids)}/></div>}
         {activeTab==='mix'&&<div><MixChart fund={fund} catFundIds={catFundIds} catLabel={catLabel} histData={histData} allFunds={allFunds} compareIds={compareLists?.mix} onCompareChange={ids=>onCompareChange?.('mix',ids)}/>
 
       <AIAnalysisBlock analysis={aiData?.[fund?.fund_id]?.analysis}/></div>}
@@ -2411,7 +2414,8 @@ export default function App() {
   // טוען backtest.json (נתוני סיכון היסטוריים) — נטען פעם אחת
   const [backtestData, setBacktestData] = useState(null);
   useEffect(()=>{
-    fetch('/backtest.json').then(r=>r.json()).then(setBacktestData).catch(console.error);
+    fetch('/backtest.json').then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }).then(setBacktestData)
+      .catch(e=>{ console.error(e); setBacktestData({ funds:{}, assumptions:[], loadError:true }); });
   },[]);
   // טוען ai.json (ניתוחי AI פר-מוצר) — נטען פעם אחת
   const [aiData, setAiData] = useState(null);
